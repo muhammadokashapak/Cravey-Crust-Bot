@@ -1,19 +1,21 @@
-// ─── Automatic Client Cache Invalidation (v6.9.3) ───────────
+// ─── Automatic Client Cache Invalidation (v6.9.4) ───────────
 (function() {
-  const currentVer = '6.9.3';
+  const currentVer = '6.9.4';
   if (localStorage.getItem('cc_cache_ver') !== currentVer) {
     localStorage.setItem('cc_cache_ver', currentVer);
-    localStorage.removeItem('cc_last_sync_customers');
-    localStorage.removeItem('cc_cache_customers');
-    localStorage.removeItem('cc_cache_orders');
-    localStorage.removeItem('cc_last_sync_orders');
+    // Wipe all entity cache keys
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('cc_cache_') || key.startsWith('cc_last_sync_')) {
+        localStorage.removeItem(key);
+      }
+    });
     if (window.indexedDB) {
       try {
         const req = indexedDB.open('CraveyCrustLocalDB', 2);
         req.onsuccess = (e) => {
           const db = e.target.result;
           if (db && db.objectStoreNames) {
-            const storesToClear = ['customers', 'orders'].filter(s => db.objectStoreNames.contains(s));
+            const storesToClear = Array.from(db.objectStoreNames);
             if (storesToClear.length > 0) {
               const tx = db.transaction(storesToClear, 'readwrite');
               storesToClear.forEach(s => tx.objectStore(s).clear());
@@ -919,16 +921,21 @@ function renderPaginationControl({
   if (totalItems <= 0) {
     container.innerHTML = `
       <div class="pagination-left">
-        <span class="pagination-info">Showing <span class="pagination-badge">0</span> entries</span>
+        <span class="pagination-info">Showing <span class="pagination-badge">0</span> of <span class="pagination-badge">0</span> entries</span>
         <div class="pagination-size-wrapper">
           <span class="pagination-size-label">Per page:</span>
-          <select id="${containerId}-pagesize" class="pagination-size-select">
+          <select id="${containerId}-pagesize" class="pagination-size-select" aria-label="Entries per page">
             <option value="10" ${pageSize === 10 ? 'selected' : ''}>10</option>
             <option value="25" ${pageSize === 25 ? 'selected' : ''}>25</option>
             <option value="50" ${pageSize === 50 ? 'selected' : ''}>50</option>
             <option value="100" ${pageSize === 100 ? 'selected' : ''}>100</option>
           </select>
         </div>
+      </div>
+      <div class="pagination-nav">
+        <button type="button" class="pagination-btn pagination-prev" disabled title="Previous page">‹ Prev</button>
+        <button type="button" class="pagination-btn pagination-num active" disabled>1</button>
+        <button type="button" class="pagination-btn pagination-next" disabled title="Next page">Next ›</button>
       </div>
     `;
     const sizeSelect = container.querySelector(`#${containerId}-pagesize`);
@@ -989,7 +996,7 @@ function renderPaginationControl({
       </span>
       <div class="pagination-size-wrapper">
         <span class="pagination-size-label">Per page:</span>
-        <select id="${containerId}-pagesize" class="pagination-size-select">
+        <select id="${containerId}-pagesize" class="pagination-size-select" aria-label="Entries per page">
           <option value="10" ${pageSize === 10 ? 'selected' : ''}>10</option>
           <option value="25" ${pageSize === 25 ? 'selected' : ''}>25</option>
           <option value="50" ${pageSize === 50 ? 'selected' : ''}>50</option>
@@ -1302,7 +1309,12 @@ function renderCategoriesTable() {
       containerId: 'categoriesPagination',
       totalItems: 0,
       currentPage: 1,
-      pageSize: categoriesPageState.pageSize
+      pageSize: categoriesPageState.pageSize,
+      onPageSizeChange: (s) => {
+        categoriesPageState.pageSize = s;
+        categoriesPageState.page = 1;
+        renderCategoriesTable();
+      }
     });
     return;
   }
@@ -1558,7 +1570,12 @@ function renderMenuItemsTable() {
       containerId: 'menuPagination',
       totalItems: 0,
       currentPage: 1,
-      pageSize: menuPageState.pageSize
+      pageSize: menuPageState.pageSize,
+      onPageSizeChange: (s) => {
+        menuPageState.pageSize = s;
+        menuPageState.page = 1;
+        renderMenuItemsTable();
+      }
     });
     return;
   }
@@ -2209,7 +2226,12 @@ function renderDealsTable() {
       containerId: 'dealsPagination',
       totalItems: 0,
       currentPage: 1,
-      pageSize: dealsPageState.pageSize
+      pageSize: dealsPageState.pageSize,
+      onPageSizeChange: (s) => {
+        dealsPageState.pageSize = s;
+        dealsPageState.page = 1;
+        renderDealsTable();
+      }
     });
     return;
   }
@@ -2554,7 +2576,12 @@ function renderPromotionsTable() {
       containerId: 'promotionsPagination',
       totalItems: 0,
       currentPage: 1,
-      pageSize: promosPageState.pageSize
+      pageSize: promosPageState.pageSize,
+      onPageSizeChange: (s) => {
+        promosPageState.pageSize = s;
+        promosPageState.page = 1;
+        renderPromotionsTable();
+      }
     });
     return;
   }
@@ -2799,7 +2826,12 @@ function renderDeliveryAreasTable() {
       containerId: 'deliveryPagination',
       totalItems: 0,
       currentPage: 1,
-      pageSize: deliveryPageState.pageSize
+      pageSize: deliveryPageState.pageSize,
+      onPageSizeChange: (s) => {
+        deliveryPageState.pageSize = s;
+        deliveryPageState.page = 1;
+        renderDeliveryAreasTable();
+      }
     });
     return;
   }
@@ -3074,7 +3106,12 @@ function renderOrdersTable() {
       containerId: 'ordersPagination',
       totalItems: 0,
       currentPage: 1,
-      pageSize: ordersPageState.pageSize
+      pageSize: ordersPageState.pageSize,
+      onPageSizeChange: (s) => {
+        ordersPageState.pageSize = s;
+        ordersPageState.page = 1;
+        renderOrdersTable();
+      }
     });
     return;
   }
@@ -3462,7 +3499,12 @@ function renderCustomersTable() {
       containerId: 'customersPagination',
       totalItems: 0,
       currentPage: 1,
-      pageSize: customersPageState.pageSize
+      pageSize: customersPageState.pageSize,
+      onPageSizeChange: (s) => {
+        customersPageState.pageSize = s;
+        customersPageState.page = 1;
+        renderCustomersTable();
+      }
     });
     return;
   }
@@ -4282,7 +4324,12 @@ function renderFaqsTable() {
       containerId: 'faqsPagination',
       totalItems: 0,
       currentPage: 1,
-      pageSize: faqsPageState.pageSize
+      pageSize: faqsPageState.pageSize,
+      onPageSizeChange: (s) => {
+        faqsPageState.pageSize = s;
+        faqsPageState.page = 1;
+        renderFaqsTable();
+      }
     });
     return;
   }

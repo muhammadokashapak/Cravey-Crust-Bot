@@ -28,11 +28,11 @@ services:
       # ── Phase 1: Database (all default false/unset — safe) ────
       - DATABASE_URL=${DATABASE_URL:-}
       - REDIS_URL=${REDIS_URL:-}
-      # ── Feature Flags (all false by default — existing system unaffected) ──
-      - RESTAURANT_DB_ENABLED=${RESTAURANT_DB_ENABLED:-false}
-      - CORE_ORDER_ENGINE_ENABLED=${CORE_ORDER_ENGINE_ENABLED:-false}
+      # ── Feature Flags (core hardened defaults) ───────────────────────────
+      - RESTAURANT_DB_ENABLED=${RESTAURANT_DB_ENABLED:-true}
+      - CORE_ORDER_ENGINE_ENABLED=${CORE_ORDER_ENGINE_ENABLED:-true}
       - CUSTOM_AI_ENABLED=${CUSTOM_AI_ENABLED:-false}
-      - REALTIME_DASHBOARD_ENABLED=${REALTIME_DASHBOARD_ENABLED:-false}
+      - REALTIME_DASHBOARD_ENABLED=${REALTIME_DASHBOARD_ENABLED:-true}
       - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-cravey-internal-secret-phase2}
       - N8N_INTEGRATION_ENABLED=${N8N_INTEGRATION_ENABLED:-false}
       - KNOWLEDGE_BASE_ENABLED=${KNOWLEDGE_BASE_ENABLED:-true}

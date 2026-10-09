@@ -16,6 +16,7 @@
  */
 
 import express from 'express';
+import { isN8nActive } from '../utils/n8nBridge.js';
 
 const router = express.Router();
 
@@ -35,6 +36,13 @@ const N8N_BOT_SECRET = process.env.N8N_BOT_SECRET || '';
 
 // ─── POST /api/n8n/send-message ───────────────────────────
 router.post('/send-message', async (req, res) => {
+    // ── Guard: n8n integration must be explicitly active ───
+    if (!isN8nActive()) {
+        return res.status(503).json({
+            success: false,
+            error: 'n8n integration is disabled',
+        });
+    }
 
     // ── Step 1: Authenticate via X-Bot-Secret ─────────────
     const incomingSecret = (req.headers['x-bot-secret'] || '').trim();

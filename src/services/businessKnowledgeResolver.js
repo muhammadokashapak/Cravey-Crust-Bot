@@ -253,7 +253,15 @@ export function formatRestaurantAddress(restaurant) {
  * @returns {string}
  */
 export function formatRestaurantPhone(restaurant) {
-    const phone = (restaurant?.phone && restaurant.phone !== '+92-300-0000000' ? restaurant.phone : restaurant?.admin_notification_phone) || restaurant?.phone || '0327-8497923';
+    const rawPhone = restaurant?.phone?.trim();
+    const adminPhone = restaurant?.admin_notification_phone?.trim();
+    const phone = (rawPhone && rawPhone !== '+92-300-0000000')
+        ? rawPhone
+        : (adminPhone && adminPhone !== '+92-300-0000000' ? adminPhone : '');
+
+    if (!phone) {
+        return '';
+    }
     const restName = restaurant?.name || 'Cravey Crust';
     return `${restName} ka helpline / rabta number hai: ${phone}\n\nAap call ya WhatsApp par rabta kar sakte hain.`;
 }
@@ -391,93 +399,109 @@ export async function resolveBusinessAnswer({
 
     // 2.1 Delivery Areas & Fee Inquiry
     if ((isDeliveryInfoQuery(cleanQuery) || intent === 'DELIVERY_AREAS_QUERY' || intent === 'DELIVERY_AREAS') && prisma) {
-        if (/\b(?:lahore|karachi|peshawar|multan|faisalabad|quetta)\b/i.test(cleanQuery)) {
-            return {
-                source: 'DELIVERY',
-                type: 'DELIVERY_AREAS',
-                text: 'Sorry, filhaal Cravey Crust sirf Islamabad (Ghauri Town aur aas paas ke 32 ilaqon) mein deliver karta hai. Lahore ya doosre shehron mein hamari delivery available nahi hai.',
-            };
-        }
         const activeAreas = await prisma.deliveryArea.findMany({
             where: { restaurant_id: restaurantId, is_active: true },
             orderBy: { sort_order: 'asc' },
             select: { name: true, delivery_fee: true },
         });
 
-        if (activeAreas.length > 0) {
-            const qLower = cleanQuery.toLowerCase();
-            const matchedAreas = [];
+        const restName = restaurant?.name || 'Cravey Crust';
 
-            for (const a of activeAreas) {
-                const aName = a.name.toLowerCase();
-                if (qLower.includes(aName)) {
-                    matchedAreas.push(a);
-                    continue;
-                }
-                // Match aliases
-                if ((qLower.includes('ghori vvip') || qLower.includes('ghauri vvip') || qLower.includes('ghori vip')) && aName === 'ghauri vip') {
-                    matchedAreas.push(a);
-                    continue;
-                }
-                if ((qLower.includes('ghori town') || qLower.includes('ghauri town') || qLower.includes('ghori')) && aName.includes('ghauri town')) {
-                    matchedAreas.push(a);
-                    continue;
-                }
-                if (qLower.includes('khanna') && aName.includes('khana')) {
-                    matchedAreas.push(a);
-                    continue;
-                }
-            }
+        if (activeAreas.length === 0) {
+            return {
+                source: 'DELIVERY',
+                type: 'DELIVERY_AREAS',
+                data: { areas: [], count: 0 },
+                text: `Filhal delivery coverage areas configure nahi hain. Barah-e-karam ${restName} team se rabta karein.`,
+            };
+        }
 
-            if (matchedAreas.length > 0) {
-                const matchedNames = matchedAreas.map(m => m.name).join(', ');
-                const isAllFree = matchedAreas.every(m => Number(m.delivery_fee) === 0);
-                const feeInfo = isAllFree ? 'delivery bilkul FREE hai!' : `delivery fee Rs. ${matchedAreas[0].delivery_fee} hai.`;
-                let specificText = `Ji bilkul! Cravey Crust *${matchedNames}* mein deliver karta hai aur yahan ${feeInfo}`;
-
-                if (qLower.includes('dhoke kala khan') || qLower.includes('dhok kala khan')) {
-                    specificText += '\n\n(Lekin Dhoke Kala Khan hamari standard delivery coverage list mein shamil nahi hai).';
-                }
-
-                logger.info(
-                    { query: cleanQuery, source: 'DELIVERY', type: 'DELIVERY_AREAS', matched: matchedNames },
-                    `[KnowledgeResolver] query="${cleanQuery}" source=DELIVERY type=DELIVERY_AREAS matched="${matchedNames}"`
-                );
-                return {
-                    source: 'DELIVERY',
-                    type: 'DELIVERY_AREAS',
-                    data: { matchedAreas, count: matchedAreas.length },
-                    text: specificText,
-                };
-            }
-
-            // If user mentioned a specific unlisted area
-            if (qLower.includes('dhoke') || qLower.includes('rawalpindi') || qLower.includes('saddar') || qLower.includes('bahria')) {
-                return {
-                    source: 'DELIVERY',
-                    type: 'DELIVERY_AREAS',
-                    text: 'Sorry, yeh area filhal hamari delivery coverage list mein shamil nahi hai. Cravey Crust Ghauri Town Islamabad aur aas paas ke 32 ilaqon mein deliver karta hai (jaise Ghauri VIP, Ghauri Town all phases, Khanna Pul, Burma, Tarlai, Gulberg Greens wagheira). Delivery bilkul FREE hai!',
-                };
-            }
-
-            const areaNames = activeAreas.map((a) => a.name);
-            let deliveryText = `Hum darj zail ${activeAreas.length} areas mein deliver karte hain:\n\n${areaNames.join(', ')}`;
-            const isFree = activeAreas.every((a) => Number(a.delivery_fee) === 0);
-            if (isFree) {
-                deliveryText += '\n\nIn tamaam areas mein delivery bilkul FREE hai!';
-            }
-
-            logger.info(
-                { query: cleanQuery, source: 'DELIVERY', type: 'DELIVERY_AREAS', count: activeAreas.length },
-                `[KnowledgeResolver] query="${cleanQuery}" source=DELIVERY type=DELIVERY_AREAS`
-            );
+        if (/\b(?:lahore|karachi|peshawar|multan|faisalabad|quetta)\b/i.test(cleanQuery)) {
+            const areaSample = activeAreas.slice(0, 6).map(a => a.name).join(', ');
             return {
                 source: 'DELIVERY',
                 type: 'DELIVERY_AREAS',
                 data: { areas: activeAreas, count: activeAreas.length },
-                text: deliveryText,
+                text: `Sorry, doosre shehron mein hamari delivery available nahi hai. ${restName} sirf darj zail areas mein deliver karta hai:\n\n${areaSample}${activeAreas.length > 6 ? ' wagheira' : ''}.`,
             };
         }
+
+        const qLower = cleanQuery.toLowerCase();
+        const matchedAreas = [];
+
+        for (const a of activeAreas) {
+            const aName = a.name.toLowerCase();
+            if (qLower.includes(aName)) {
+                matchedAreas.push(a);
+                continue;
+            }
+            // Match aliases
+            if ((qLower.includes('ghori vvip') || qLower.includes('ghauri vvip') || qLower.includes('ghori vip')) && aName === 'ghauri vip') {
+                matchedAreas.push(a);
+                continue;
+            }
+            if ((qLower.includes('ghori town') || qLower.includes('ghauri town') || qLower.includes('ghori')) && aName.includes('ghauri town')) {
+                matchedAreas.push(a);
+                continue;
+            }
+            if (qLower.includes('khanna') && aName.includes('khana')) {
+                matchedAreas.push(a);
+                continue;
+            }
+        }
+
+        if (matchedAreas.length > 0) {
+            const matchedNames = matchedAreas.map(m => m.name).join(', ');
+            const isAllFree = matchedAreas.every(m => Number(m.delivery_fee) === 0);
+            const feeInfo = isAllFree ? 'delivery bilkul FREE hai!' : `delivery fee Rs. ${matchedAreas[0].delivery_fee} hai.`;
+            let specificText = `Ji bilkul! ${restName} *${matchedNames}* mein deliver karta hai aur yahan ${feeInfo}`;
+
+            if (qLower.includes('dhoke kala khan') || qLower.includes('dhok kala khan')) {
+                specificText += '\n\n(Lekin Dhoke Kala Khan hamari standard delivery coverage list mein shamil nahi hai).';
+            }
+
+            logger.info(
+                { query: cleanQuery, source: 'DELIVERY', type: 'DELIVERY_AREAS', matched: matchedNames },
+                `[KnowledgeResolver] query="${cleanQuery}" source=DELIVERY type=DELIVERY_AREAS matched="${matchedNames}"`
+            );
+            return {
+                source: 'DELIVERY',
+                type: 'DELIVERY_AREAS',
+                data: { matchedAreas, count: matchedAreas.length },
+                text: specificText,
+            };
+        }
+
+        // If user mentioned a specific unlisted area
+        if (qLower.includes('dhoke') || qLower.includes('rawalpindi') || qLower.includes('saddar') || qLower.includes('bahria')) {
+            const areaList = activeAreas.slice(0, 6).map(a => a.name).join(', ');
+            const isAllFree = activeAreas.every(a => Number(a.delivery_fee) === 0);
+            const feeNotice = isAllFree ? ' Delivery bilkul FREE hai!' : '';
+            return {
+                source: 'DELIVERY',
+                type: 'DELIVERY_AREAS',
+                data: { areas: activeAreas, count: activeAreas.length },
+                text: `Sorry, yeh area filhal hamari delivery coverage list mein shamil nahi hai. ${restName} darj zail ${activeAreas.length} areas mein deliver karta hai:\n\n${areaList}${activeAreas.length > 6 ? ' wagheira' : ''}.${feeNotice}`,
+            };
+        }
+
+        const areaNames = activeAreas.map((a) => a.name);
+        let deliveryText = `Hum darj zail ${activeAreas.length} areas mein deliver karte hain:\n\n${areaNames.join(', ')}`;
+        const isFree = activeAreas.every((a) => Number(a.delivery_fee) === 0);
+        if (isFree) {
+            deliveryText += '\n\nIn tamaam areas mein delivery bilkul FREE hai!';
+        }
+
+        logger.info(
+            { query: cleanQuery, source: 'DELIVERY', type: 'DELIVERY_AREAS', count: activeAreas.length },
+            `[KnowledgeResolver] query="${cleanQuery}" source=DELIVERY type=DELIVERY_AREAS`
+        );
+        return {
+            source: 'DELIVERY',
+            type: 'DELIVERY_AREAS',
+            data: { areas: activeAreas, count: activeAreas.length },
+            text: deliveryText,
+        };
     }
 
     // 2.2 Active Deals Inquiry ("deals", "offers", "kya deals hain")
@@ -653,6 +677,16 @@ export async function resolveBusinessAnswer({
         { query: cleanQuery, source: 'FALLBACK', type: 'SAFE_FALLBACK' },
         `[KnowledgeResolver] query="${cleanQuery}" source=FALLBACK type=SAFE_FALLBACK`
     );
+
+    if (isPhoneQuery(cleanQuery)) {
+        const restName = restaurant?.name || 'Cravey Crust';
+        return {
+            source: 'FALLBACK',
+            type: 'SAFE_FALLBACK',
+            data: null,
+            text: `Filhal ${restName} ka helpline number available nahi hai. Barah-e-karam isi WhatsApp chat par apna paighaam bhej dein, hamari team jald rabta karegi.`,
+        };
+    }
 
     return {
         source: 'FALLBACK',

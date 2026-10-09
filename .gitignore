@@ -1,6 +1,8 @@
 node_modules/
 auth/
 downloads/
+uploads/*
+!uploads/**/.gitkeep
 .env
 *.log
 .vscode/

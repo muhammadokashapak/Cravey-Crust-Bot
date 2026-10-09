@@ -747,6 +747,17 @@ Direct order karne ke liye item likhein (e.g. 2 Chicken Extreme ya 1 Deal 1).`,
         };
     }
 
+    // HUMAN_HANDOFF (Support / Human assistance request)
+    if (intent === 'HUMAN_HANDOFF') {
+        const phoneText = formatRestaurantPhone(restaurant);
+        const contactInfo = phoneText ? `\n\n${phoneText}` : '\n\nAap apna sawal ya paighaam yahan type kar saktay hain, hamari team jald rabta karegi.';
+        return {
+            text: `Aap ko hamari support team se connect kiya ja raha hai.${contactInfo}`,
+            intent: 'HUMAN_HANDOFF',
+            stage: convSession.stage,
+        };
+    }
+
     // DELETE_MY_DATA (Customer privacy & self-data wipe)
     if (intent === 'DELETE_MY_DATA') {
         const phoneToClean = verifiedPhone || (chatId ? chatId.split('@')[0] : null);
@@ -870,8 +881,7 @@ Aap WhatsApp location pin bhej sakte hain, Google Maps link bhej sakte hain ya a
                 context: { stage: convSession.stage, sessionKey: convSession.session_key },
             });
 
-            let deliveryMsg = areasRes?.text || `Hum darj zail 32 areas mein deliver karte hain:\n\nGhauri Town all phase, Ghauri VIP, Khana Pull, Rehman Enclave, Tarlai, Burma, Gulberg green, Taramari, Gulzar e Quaid, Sanam Chok, Shakral, Zia Masjid, Bilal town, Chistiyan market, Sharifabad, Madina Town, Malik Town, Marwa Town, Mehrban Town, Sarfraz town, Sudran Road, School Stop, Zamna bad, P&V Scheme, Basit town, Albadar Masjid, Ghauri Garden, Dakhana Stop, Zia market, Tali mor, Karachi house, Juma Bazar.\n\nIn tamaam areas mein delivery bilkul FREE hai!`;
-
+            let deliveryMsg = areasRes?.text || 'Filhal delivery coverage areas configure nahi hain. Barah-e-karam restaurant team se rabta karein.';
             deliveryMsg += `\n\nAb apni delivery location ya address share karein taakay order process complete ho sakay:`;
 
             return {

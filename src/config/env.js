@@ -34,6 +34,8 @@ const envSchema = z.object({
     CORE_ORDER_ENGINE_ENABLED: z.string().default('false'),
     CUSTOM_AI_ENABLED:        z.string().default('false'),
     REALTIME_DASHBOARD_ENABLED: z.string().default('false'),
+    KNOWLEDGE_BASE_ENABLED:   z.string().default('true'),
+    WHATSAPP_ORDERING_ENABLED: z.string().default('true'),
 
     // Phase 2: Restaurant Dashboard & Internal APIs
     INTERNAL_API_SECRET:      z.string().default('cravey-internal-secret-phase2'),
