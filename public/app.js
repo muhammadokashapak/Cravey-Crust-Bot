@@ -1,6 +1,6 @@
-// ─── Automatic Client Cache Invalidation (v6.9.2) ───────────
+// ─── Automatic Client Cache Invalidation (v6.9.3) ───────────
 (function() {
-  const currentVer = '6.9.2';
+  const currentVer = '6.9.3';
   if (localStorage.getItem('cc_cache_ver') !== currentVer) {
     localStorage.setItem('cc_cache_ver', currentVer);
     localStorage.removeItem('cc_last_sync_customers');
@@ -919,9 +919,27 @@ function renderPaginationControl({
   if (totalItems <= 0) {
     container.innerHTML = `
       <div class="pagination-left">
-        <span class="pagination-info">Showing <strong class="pagination-highlight">0</strong> entries</span>
+        <span class="pagination-info">Showing <span class="pagination-badge">0</span> entries</span>
+        <div class="pagination-size-wrapper">
+          <span class="pagination-size-label">Per page:</span>
+          <select id="${containerId}-pagesize" class="pagination-size-select">
+            <option value="10" ${pageSize === 10 ? 'selected' : ''}>10</option>
+            <option value="25" ${pageSize === 25 ? 'selected' : ''}>25</option>
+            <option value="50" ${pageSize === 50 ? 'selected' : ''}>50</option>
+            <option value="100" ${pageSize === 100 ? 'selected' : ''}>100</option>
+          </select>
+        </div>
       </div>
     `;
+    const sizeSelect = container.querySelector(`#${containerId}-pagesize`);
+    if (sizeSelect) {
+      sizeSelect.addEventListener('change', (e) => {
+        const newSize = parseInt(e.target.value, 10);
+        if (!isNaN(newSize) && typeof onPageSizeChange === 'function') {
+          onPageSizeChange(newSize);
+        }
+      });
+    }
     return;
   }
 
@@ -967,13 +985,13 @@ function renderPaginationControl({
   container.innerHTML = `
     <div class="pagination-left">
       <span class="pagination-info">
-        Showing <strong class="pagination-highlight">${startItem}–${endItem}</strong> of <strong class="pagination-highlight">${totalItems}</strong> entries
+        Showing <span class="pagination-badge">${startItem}–${endItem}</span> of <span class="pagination-badge">${totalItems}</span> entries
       </span>
       <div class="pagination-size-wrapper">
-        <label for="${containerId}-pagesize">Per page:</label>
+        <span class="pagination-size-label">Per page:</span>
         <select id="${containerId}-pagesize" class="pagination-size-select">
           <option value="10" ${pageSize === 10 ? 'selected' : ''}>10</option>
-          <option value="20" ${pageSize === 20 ? 'selected' : ''}>20</option>
+          <option value="25" ${pageSize === 25 ? 'selected' : ''}>25</option>
           <option value="50" ${pageSize === 50 ? 'selected' : ''}>50</option>
           <option value="100" ${pageSize === 100 ? 'selected' : ''}>100</option>
         </select>
@@ -3043,7 +3061,7 @@ const VALID_STATUS_TRANSITIONS_MAP = {
 };
 
 // ─── Orders Loader ──────────────────────────────────────────
-let ordersPageState = { page: 1, pageSize: 50 };
+let ordersPageState = { page: 1, pageSize: 10 };
 
 function renderOrdersTable() {
   const tbody = document.getElementById('ordersTableBody');
@@ -3422,7 +3440,7 @@ window.deleteOrderAction = deleteOrderAction;
 
 // ─── Customers Controller ───────────────────────────────────
 let cachedCustomersList = [];
-let customersPageState = { page: 1, pageSize: 50, search: '' };
+let customersPageState = { page: 1, pageSize: 10, search: '' };
 let activeCustomerDetail = null;
 
 function renderCustomersTable() {
