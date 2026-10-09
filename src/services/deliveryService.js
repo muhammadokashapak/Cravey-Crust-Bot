@@ -188,16 +188,40 @@ export async function checkDeliveryAvailability(params) {
         }
 
         if (withinRange.length === 0) {
+            // Check restaurant central coordinates (Cravey Crust Phase 4B Ghauri Town, Islamabad)
+            // 33.6261 N, 73.1255 E, 10.0 KM delivery radius
+            const RESTAURANT_LAT = 33.6261;
+            const RESTAURANT_LNG = 73.1255;
+            const RESTAURANT_RADIUS_KM = 10.0;
+            const distToRestaurant = calculateHaversineDistance(latitude, longitude, RESTAURANT_LAT, RESTAURANT_LNG);
+
+            if (distToRestaurant <= RESTAURANT_RADIUS_KM) {
+                const defaultArea = await prisma.deliveryArea.findFirst({
+                    where: {
+                        restaurant_id: restaurantId,
+                        slug: 'ghauri-town-all-phase',
+                    },
+                }) || await prisma.deliveryArea.findFirst({
+                    where: { restaurant_id: restaurantId, is_active: true },
+                });
+
+                if (defaultArea) {
+                    matchedArea = defaultArea;
+                }
+            }
+        } else {
+            // Pick the closest matched area
+            withinRange.sort((x, y) => x.distance - y.distance);
+            matchedArea = withinRange[0].area;
+        }
+
+        if (!matchedArea) {
             return {
                 available: false,
                 code: 'DELIVERY_NOT_AVAILABLE',
                 message: 'Delivery is not available at the specified location coordinates',
             };
         }
-
-        // Pick the closest matched area
-        withinRange.sort((x, y) => x.distance - y.distance);
-        matchedArea = withinRange[0].area;
     } else {
         return {
             available: false,

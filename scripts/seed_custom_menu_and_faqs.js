@@ -102,6 +102,8 @@ async function seed() {
                 delivery_fee: 0,
                 minimum_order: 0,
                 is_active: true,
+                latitude: 33.6261,
+                longitude: 73.1255,
                 radius_km: 10.0,
             },
             create: {
@@ -111,6 +113,8 @@ async function seed() {
                 delivery_fee: 0,
                 minimum_order: 0,
                 is_active: true,
+                latitude: 33.6261,
+                longitude: 73.1255,
                 radius_km: 10.0,
             },
         });
