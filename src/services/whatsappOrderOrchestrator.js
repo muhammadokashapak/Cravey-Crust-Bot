@@ -21,7 +21,6 @@ import { getDbClient } from '../db/client.js';
 import { getDefaultRestaurantId } from './restaurantService.js';
 import { getOrCreateSession, updateSessionStage, touchSession } from './sessionService.js';
 import { parseIntent, isPaymentQuery } from './intentParser.js';
-import { classifyWithAiModel } from './aiIntentClassifier.js';
 import { getActiveMenu, getActiveCategories, getCategoryWithItems, getActiveDeals, resolveMenuItemOrDeal } from './menuService.js';
 import { getActiveCart, addItemToCart, updateCartItem, removeCartItem, clearCart, calculateCartTotals } from './cartService.js';
 import { checkDeliveryAvailability } from './deliveryService.js';
@@ -427,26 +426,6 @@ Reply cart to view cart ya checkout to continue.`,
         intentResult = { intent: 'TIMINGS_QUERY', entities: {}, confidence: 0.99 };
     } else if (isPhoneQuery(cleanText)) {
         intentResult = { intent: 'RESTAURANT_PHONE', entities: {}, confidence: 0.99 };
-    }
-
-    // ── 3.2 Multilingual AI Intent Classification (e5-small) ──────────────
-    // Run AI model if deterministic was UNKNOWN or confidence < 0.9, and not in strict dialog stage, and not FAQ_QUERY
-    const strictStages = ['WAITING_NAME', 'WAITING_CONTACT', 'WAITING_LOCATION', 'WAITING_PAYMENT', 'WAITING_ORDER_CONFIRMATION', 'WAITING_CANCEL_CONFIRMATION'];
-    if (!strictStages.includes(convSession.stage) && intentResult.intent !== 'FAQ_QUERY' && (!intentResult || intentResult.intent === 'UNKNOWN' || intentResult.confidence < 0.9)) {
-        try {
-            const aiMatch = await classifyWithAiModel(text, 0.74);
-            if (aiMatch) {
-                intentResult = {
-                    intent: aiMatch.intent,
-                    entities: intentResult?.entities || {},
-                    confidence: aiMatch.confidence,
-                    source: 'AI_MODEL',
-                };
-                logger.info({ chatId, text, aiMatch }, '[ORCHESTRATOR] Multilingual AI resolved intent');
-            }
-        } catch (aiErr) {
-            logger.warn({ err: aiErr.message }, '[ORCHESTRATOR] AI intent classification error');
-        }
     }
 
     let { intent, entities } = intentResult;
