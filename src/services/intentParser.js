@@ -15,9 +15,10 @@
 // ─── Regular Expressions & Pattern Dictionaries ───────────────────────────
 
 const GREETING_REGEX = /^(?:hi+|hello+|hey+|aoa|assalam\s*o?\s*alaikum|salam+|slam|start|shuru)\b/i;
+const START_ORDER_REGEX = /^(?:order\s+book\s+(?:krwana|karna|karwana|ah)|order\s+book\s+karna\s+hai|order\s+booking|booking\s+karwani\s+hai)\b/i;
 const MENU_REGEX = /^(?:menu|show\s+menu|menu\s+bhejo|menu\s+dikhao|food|khana|items)\b/i;
 const DEALS_REGEX = /^(?:deals|deal|special\s+deals|offers|deals\s+bhejo|deals\s+dikhao)(?!\s*#?\d)\b/i;
-const CART_REGEX = /^(?:cart|mera\s+cart|my\s+cart|show\s+cart|view\s+cart|basket|cart\s+dikhao)\b/i;
+const CART_VIEW_REGEX = /^(?:cart|mera\s+cart|my\s+cart|show\s+cart|view\s+cart|basket|cart\s+dikhao|cart\s+dekho|cart\s+batao|apna\s+cart)$/i;
 const CLEAR_CART_REGEX = /^(?:clear\s+cart|empty\s+cart|cart\s+clear|cart\s+khali(?:\s+kar\s*do)?|delete\s+cart)\b/i;
 const CHECKOUT_REGEX = /^(?:checkout|check\s+out|order\s+karna\s+hai|order\s+please|place\s+order|done\s+ordering|proceed)\b/i;
 const HELP_REGEX = /^(?:help|madad|options|commands|guide)\b/i;
@@ -227,6 +228,14 @@ export class DeterministicIntentProvider {
 
         // ─── 3. Core Navigation & Flow Commands ──────────────────────────────
 
+        if (DELETE_DATA_REGEX.test(lower)) {
+            return { intent: 'DELETE_MY_DATA', entities: {}, confidence: 0.98 };
+        }
+
+        if (START_ORDER_REGEX.test(lower)) {
+            return { intent: 'START_ORDER', entities: {}, confidence: 0.95 };
+        }
+
         if (CHECKOUT_REGEX.test(lower)) {
             return { intent: 'CHECKOUT', entities: {}, confidence: 0.95 };
         }
@@ -235,35 +244,65 @@ export class DeterministicIntentProvider {
             return { intent: 'CLEAR_CART', entities: {}, confidence: 0.95 };
         }
 
-        if (CART_REGEX.test(lower)) {
-            return { intent: 'SHOW_CART', entities: {}, confidence: 0.95 };
+        // ─── 4. Cart Modifications & Addition Patterns (Checked BEFORE Show Cart!) ──
+
+        // Cart Add Pattern Urdu 1: "cart mai add kro deal 5", "cart me daal do 2 zinger", "cart mein add kardo burger"
+        const cartAddUrdu1 = lower.match(/^(?:cart\s*(?:m|me|mai|mein)\s*(?:add|daal|dalo|rakh|rakho)\s*(?:kro|kar\s*do|karo)?)\s+(.+)$/i);
+        if (cartAddUrdu1) {
+            const inner = cartAddUrdu1[1].trim();
+            const qtyMatch = inner.match(/^(\d+)\s+(?:x\s+)?(.+)$/);
+            return {
+                intent: 'ADD_ITEM',
+                entities: {
+                    quantity: qtyMatch ? parseInt(qtyMatch[1], 10) : 1,
+                    itemQuery: qtyMatch ? qtyMatch[2].trim() : inner,
+                },
+                confidence: 0.96,
+            };
         }
 
-        if (DEALS_REGEX.test(lower)) {
-            return { intent: 'SHOW_DEALS', entities: {}, confidence: 0.95 };
+        // Cart Add Pattern Urdu 2: "add deal 5 to cart", "daal do 2 zinger cart me", "add 1 zinger in cart"
+        const cartAddUrdu2 = lower.match(/^(?:add|daal|dalo|rakh|rakho)\s+(.+?)\s+(?:in|to|mein|mai|me)\s+cart$/i);
+        if (cartAddUrdu2) {
+            const inner = cartAddUrdu2[1].trim();
+            const qtyMatch = inner.match(/^(\d+)\s+(?:x\s+)?(.+)$/);
+            return {
+                intent: 'ADD_ITEM',
+                entities: {
+                    quantity: qtyMatch ? parseInt(qtyMatch[1], 10) : 1,
+                    itemQuery: qtyMatch ? qtyMatch[2].trim() : inner,
+                },
+                confidence: 0.96,
+            };
         }
 
-        if (MENU_REGEX.test(lower)) {
-            return { intent: 'SHOW_MENU', entities: {}, confidence: 0.95 };
+        // Cart Add Pattern Urdu 3: "deal 5 cart me add kardo", "2 zinger ko cart mai daal do"
+        const cartAddUrdu3 = lower.match(/^(.+?)\s+(?:ko\s+)?cart\s*(?:m|me|mai|mein)\s*(?:add|daal|dalo|rakh|rakho)(?:\s*(?:kro|kar\s*do|karo))?$/i);
+        if (cartAddUrdu3) {
+            const inner = cartAddUrdu3[1].trim();
+            const qtyMatch = inner.match(/^(\d+)\s+(?:x\s+)?(.+)$/);
+            return {
+                intent: 'ADD_ITEM',
+                entities: {
+                    quantity: qtyMatch ? parseInt(qtyMatch[1], 10) : 1,
+                    itemQuery: qtyMatch ? qtyMatch[2].trim() : inner,
+                },
+                confidence: 0.96,
+            };
         }
 
-        if (HELP_REGEX.test(lower)) {
-            return { intent: 'HELP', entities: {}, confidence: 0.95 };
+        // Contextual Cart Add: "add kr du cart mai", "cart mai add kardo", "add kardo cart me"
+        if (/^(?:add|daal|dalo)\s+(?:kr\s*du|kar\s*do|kro|karo)?\s*(?:cart\s*(?:m|me|mai|mein)|in\s*cart|to\s*cart)/i.test(lower) ||
+            /^(?:cart\s*(?:m|me|mai|mein)\s*(?:add|daal|dalo)\s*(?:kr\s*du|kar\s*do|kro|karo)?)$/i.test(lower)) {
+            return {
+                intent: 'ADD_ITEM',
+                entities: {
+                    quantity: 1,
+                    contextual: true,
+                },
+                confidence: 0.93,
+            };
         }
-
-        if (HUMAN_HANDOFF_REGEX.test(lower)) {
-            return { intent: 'HUMAN_HANDOFF', entities: {}, confidence: 0.95 };
-        }
-
-        if (DELETE_DATA_REGEX.test(lower)) {
-            return { intent: 'DELETE_MY_DATA', entities: {}, confidence: 0.98 };
-        }
-
-        if (GREETING_REGEX.test(lower)) {
-            return { intent: 'GREETING', entities: {}, confidence: 0.95 };
-        }
-
-        // ─── 4. Cart Modifications & Addition Patterns ───────────────────────
 
         // Remove item: "remove zinger", "zinger hata do", "delete zinger"
         const removeMatch = lower.match(/^(?:remove|delete|hata\s+do)\s+(.+)$/i) ||
@@ -338,6 +377,45 @@ export class DeterministicIntentProvider {
                     itemQuery: lower.trim(),
                 },
                 confidence: 0.92,
+            };
+        }
+
+        // Pure View Cart (checked ONLY after add/remove patterns have been exhausted)
+        if (CART_VIEW_REGEX.test(lower)) {
+            return { intent: 'SHOW_CART', entities: {}, confidence: 0.95 };
+        }
+
+        if (DEALS_REGEX.test(lower)) {
+            return { intent: 'SHOW_DEALS', entities: {}, confidence: 0.95 };
+        }
+
+        if (MENU_REGEX.test(lower)) {
+            return { intent: 'SHOW_MENU', entities: {}, confidence: 0.95 };
+        }
+
+        if (HELP_REGEX.test(lower)) {
+            return { intent: 'HELP', entities: {}, confidence: 0.95 };
+        }
+
+        if (HUMAN_HANDOFF_REGEX.test(lower)) {
+            return { intent: 'HUMAN_HANDOFF', entities: {}, confidence: 0.95 };
+        }
+
+        if (DELETE_DATA_REGEX.test(lower)) {
+            return { intent: 'DELETE_MY_DATA', entities: {}, confidence: 0.98 };
+        }
+
+        if (GREETING_REGEX.test(lower)) {
+            return { intent: 'GREETING', entities: {}, confidence: 0.95 };
+        }
+
+        // Category queries (e.g. "drinks mai kya ha", "drinks dikhao", "drink", "drinks")
+        const categoryQueryMatch = lower.match(/^(?:category\s+)?(drinks?|beverages?|pizzas?|burgers?|sides?|desserts?)(?:\s+(?:mai|me|mein)\s+(?:kya|kia|kay)\s+(?:h|ha|hai|hay)|(?:\s+(?:dikhao|bhejo|options|list)))?$/i);
+        if (categoryQueryMatch) {
+            return {
+                intent: 'SHOW_CATEGORY',
+                entities: { categoryName: categoryQueryMatch[1] },
+                confidence: 0.95,
             };
         }
 

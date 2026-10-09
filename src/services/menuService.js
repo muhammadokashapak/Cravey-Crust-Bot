@@ -211,15 +211,16 @@ export async function resolveMenuItemOrDeal(query, restaurantId) {
         };
     }
 
-    // Check numbered deal (e.g. "deal #1" or "deal 10" if no exact name matched)
+    // Check numbered deal (e.g. "deal 5", "deal #1")
     const dealNumMatch = cleanQ.match(/^(?:deal\s*(?:#|no\.?)?\s*)(\d+)$/i);
     if (dealNumMatch) {
-        const dealIndex = parseInt(dealNumMatch[1], 10) - 1;
-        if (dealIndex >= 0 && dealIndex < activeDeals.length) {
+        const dNum = dealNumMatch[1];
+        const numMatchedDeal = activeDeals.find(d => new RegExp(`\\bdeal\\s*#?${dNum}\\b`, 'i').test(d.name));
+        if (numMatchedDeal) {
             return {
                 status: 'EXACT_MATCH',
                 type: 'DEAL',
-                deal: activeDeals[dealIndex],
+                deal: numMatchedDeal,
             };
         }
     }

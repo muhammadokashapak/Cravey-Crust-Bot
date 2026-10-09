@@ -50,13 +50,29 @@ const INTENT_SAMPLES = [
         ]
     },
     {
+        intent: 'SHOW_CATEGORY',
+        samples: [
+            'passage: drinks',
+            'passage: drinks mai kya ha',
+            'passage: drinks dikhao',
+            'passage: drink options',
+            'passage: soft drinks',
+            'passage: mineral water',
+            'passage: premium pizzas',
+            'passage: classic pizzas',
+            'passage: burger deals',
+            'passage: pizza deals',
+            'passage: category items dikhao'
+        ]
+    },
+    {
         intent: 'SHOW_CART',
         samples: [
             'passage: cart',
             'passage: mera cart',
             'passage: show cart',
             'passage: view basket',
-            'passage: kitni cheezein hain cart me'
+            'passage: cart dikhao'
         ]
     },
     {
@@ -84,7 +100,30 @@ const INTENT_SAMPLES = [
             'passage: timings kya hain',
             'passage: dukan kado khuldi ae',
             'passage: open kab hoti hai',
-            'passage: band kab hoti hai'
+            'passage: band kab hoti hai',
+            'passage: restaurant ke auqaat kar'
+        ]
+    },
+    {
+        intent: 'RESTAURANT_PHONE',
+        samples: [
+            'passage: restaurant ka phone number kya hai',
+            'passage: apka number kya ha restaurant ka',
+            'passage: contact number do',
+            'passage: helpline number kya hai',
+            'passage: call center ka number',
+            'passage: rabta number'
+        ]
+    },
+    {
+        intent: 'START_ORDER',
+        samples: [
+            'passage: order book krwana ah',
+            'passage: order book karna hai',
+            'passage: order karna hai',
+            'passage: khana mangwana hai',
+            'passage: naya order karna hai',
+            'passage: booking karwani hai'
         ]
     },
     {
@@ -95,7 +134,11 @@ const INTENT_SAMPLES = [
             'passage: lahore delivery hai',
             'passage: ghauri town delivery',
             'passage: delivery charges kitne hain',
-            'passage: free delivery areas'
+            'passage: free delivery areas',
+            'passage: dhoke kala khan delivery hai',
+            'passage: is ilaqe me delivery hogi',
+            'passage: kya falana jagah deliver karte ho',
+            'passage: delivery available hai'
         ]
     },
     {

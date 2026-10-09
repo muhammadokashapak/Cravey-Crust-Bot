@@ -84,8 +84,16 @@ function clearDraft(sessionId) {
  *   "Chicken Extreme" -> quantity: 1, query: "Chicken Extreme"
  */
 export function extractQuantityAndQuery(input) {
-    const raw = (input || '').trim();
+    let raw = (input || '').trim();
     if (!raw) return { quantity: 1, query: '' };
+
+    // Strip cart addition wrappers: "cart mai add kro deal 5", "cart me daal do 2 zinger"
+    const cartWrapper = raw.match(/^(?:cart\s*(?:m|me|mai|mein)\s*(?:add|daal|dalo|rakh|rakho)\s*(?:kro|kar\s*do|karo)?)\s+(.+)$/i) ||
+                        raw.match(/^(?:add|daal|dalo)\s+(.+?)\s+(?:in|to|mein|mai|me)\s+cart$/i) ||
+                        raw.match(/^(.+?)\s+(?:ko\s+)?cart\s*(?:m|me|mai|mein)\s*(?:add|daal|dalo)(?:\s*(?:kro|kar\s*do|karo))?$/i);
+    if (cartWrapper) {
+        raw = cartWrapper[1].trim();
+    }
 
     // Deal with explicit leading quantity: "2 Deal 1", "2x Deal 1"
     const dealLeadingQty = raw.match(/^(\d+)\s+(?:x\s+)?(deal\s*(?:#|no\.?)?\s*\d+)$/i);
@@ -415,12 +423,16 @@ Reply cart to view cart ya checkout to continue.`,
     // If the customer asks "deal 3 mai kya kya ha", "deal 3 mai kya kay ha", "deal 1 details", don't treat it as ADD_ITEM!
     if (/\bdeal\s*#?\d+\b/i.test(cleanText) && /\b(?:(?:kya|kia|kay)\s*(?:kya|kia|kay)?\s*(?:h|ha|hai|hay|hy|hega)|detail|details|shamil|includes?|items?|batao)\b/i.test(cleanText)) {
         intentResult = { intent: 'DEAL_INQUIRY', entities: {}, confidence: 0.98 };
+    } else if (isTimingQuery(cleanText)) {
+        intentResult = { intent: 'TIMINGS_QUERY', entities: {}, confidence: 0.99 };
+    } else if (isPhoneQuery(cleanText)) {
+        intentResult = { intent: 'RESTAURANT_PHONE', entities: {}, confidence: 0.99 };
     }
 
     // ── 3.2 Multilingual AI Intent Classification (e5-small) ──────────────
-    // Run AI model if deterministic was UNKNOWN or confidence < 0.9, and not in strict dialog stage
+    // Run AI model if deterministic was UNKNOWN or confidence < 0.9, and not in strict dialog stage, and not FAQ_QUERY
     const strictStages = ['WAITING_NAME', 'WAITING_CONTACT', 'WAITING_LOCATION', 'WAITING_PAYMENT', 'WAITING_ORDER_CONFIRMATION', 'WAITING_CANCEL_CONFIRMATION'];
-    if (!strictStages.includes(convSession.stage) && (!intentResult || intentResult.intent === 'UNKNOWN' || intentResult.confidence < 0.9)) {
+    if (!strictStages.includes(convSession.stage) && intentResult.intent !== 'FAQ_QUERY' && (!intentResult || intentResult.intent === 'UNKNOWN' || intentResult.confidence < 0.9)) {
         try {
             const aiMatch = await classifyWithAiModel(text, 0.74);
             if (aiMatch) {
@@ -474,6 +486,85 @@ Direct order karne ke liye item likhein (e.g. 2 Chicken Extreme ya 1 Deal 1).`,
         }
     }
 
+    // START_ORDER
+    if (intent === 'START_ORDER') {
+        await updateSessionStage({ sessionKey: convSession.session_key, stage: 'BROWSING_MENU' });
+        return {
+            text: `Cravey Crust mein order book karne ke liye khush amdeed! 🎉\n\nAap is tarah order kar saktay hain:\n\n1. *Menu* likh kar categories dekhein\n2. *Deals* likh kar special discount packages dekhein\n3. Ya direct item likhein (e.g. *2 zinger* ya *1 deal 1*)\n\nAap kya order karna pasand karein ge?`,
+            intent: 'START_ORDER',
+            stage: 'BROWSING_MENU',
+        };
+    }
+
+    // RESTAURANT_PHONE
+    if (intent === 'RESTAURANT_PHONE' || isPhoneQuery(cleanText)) {
+        const phoneText = formatRestaurantPhone(restaurant);
+        return {
+            text: phoneText,
+            intent: 'RESTAURANT_PHONE',
+            stage: convSession.stage,
+        };
+    }
+
+    // ── Category Check (Prior to Generic Menu / Deals Fallback) ──
+    let matchedCategory = null;
+    const catQuery = entities?.categoryName || cleanText.replace(/piza\b/gi, 'pizza');
+
+    if (intent === 'SHOW_CATEGORY' || entities?.categoryName) {
+        matchedCategory = await getCategoryWithItems(catQuery, restaurantId);
+    } else if (!/^(?:deals?|special\s+deals|offers|menu)$/i.test(cleanText.trim())) {
+        // Check if query matches or contains any active category name (e.g. "drinks", "drinks mai kya ha", "premium pizzas")
+        const allCategories = await getActiveCategories(restaurantId);
+        const lowerQ = cleanText.toLowerCase().replace(/piza\b/g, 'pizza');
+        for (const c of allCategories) {
+            const cName = c.name.toLowerCase();
+            const cSingular = cName.replace(/s$/, '');
+            if (lowerQ === cName || lowerQ === cSingular || lowerQ.includes(cName) || lowerQ.includes(cSingular)) {
+                matchedCategory = await getCategoryWithItems(c.id, restaurantId);
+                break;
+            }
+        }
+    }
+
+    if (matchedCategory) {
+        await updateSessionStage({ sessionKey: convSession.session_key, stage: 'BROWSING_MENU' });
+        let catText = formatCategoryResponse(matchedCategory);
+        if (/\b(?:discount|discounts|deals?)\b/i.test(cleanText) && !matchedCategory.name.toLowerCase().includes('deal')) {
+            catText += `\n\n💡 Special discount packages dekhne ke liye "deals" reply karein.`;
+        }
+        return {
+            text: catText,
+            intent: 'SHOW_CATEGORY',
+            stage: 'BROWSING_MENU',
+        };
+    }
+
+    // Contextual Deal Add (if customer says "add kr du cart mai", "add kardo", etc.)
+    if (intent === 'ADD_ITEM' && (entities?.contextual || !entities?.itemQuery)) {
+        if (draft.lastInquiredDeal) {
+            const dealToAdd = draft.lastInquiredDeal;
+            draft.lastInquiredDeal = null;
+            await addItemToCart({
+                sessionKey: convSession.session_key,
+                restaurantId,
+                dealId: dealToAdd.id,
+                quantity: 1,
+            });
+            await updateSessionStage({ sessionKey: convSession.session_key, stage: 'BUILDING_CART' });
+            const cartTotals = await calculateCartTotals({ sessionKey: convSession.session_key });
+            let respMsg = `Added to Cart!\n\n1x ${dealToAdd.name}: Rs.${Number(dealToAdd.deal_price)}\nSubtotal: Rs.${cartTotals.subtotal}`;
+            if (/\b(?:discount|discounts|offer)\b/i.test(cleanText)) {
+                respMsg += `\n\n(Note: Deals mein already maximum discount included hota hai!)`;
+            }
+            respMsg += `\n\nReply cart to view cart ya checkout to proceed.`;
+            return {
+                text: respMsg,
+                intent: 'ADD_ITEM',
+                stage: 'BUILDING_CART',
+            };
+        }
+    }
+
     // SHOW_MENU
     if (intent === 'SHOW_MENU' || intentResult.intent === 'SHOW_MENU') {
         await updateSessionStage({ sessionKey: convSession.session_key, stage: 'BROWSING_MENU' });
@@ -523,6 +614,7 @@ Direct order karne ke liye item likhein (e.g. 2 Chicken Extreme ya 1 Deal 1).`,
             const deals = await getActiveDeals(restaurantId);
             const targetDeal = deals.find(d => new RegExp(`\\bdeal\\s*#?${dNum}\\b`, 'i').test(d.name));
             if (targetDeal) {
+                draft.lastInquiredDeal = targetDeal;
                 let msg = `*${targetDeal.name}* (Rs. ${Number(targetDeal.deal_price)}):\n\n`;
                 if (targetDeal.description) msg += `${targetDeal.description}\n\n`;
                 if (targetDeal.deal_items && targetDeal.deal_items.length > 0) {
@@ -538,14 +630,14 @@ Direct order karne ke liye item likhein (e.g. 2 Chicken Extreme ya 1 Deal 1).`,
     }
 
     // TIMINGS_QUERY
-    if (intent === 'TIMINGS_QUERY') {
+    if (intent === 'TIMINGS_QUERY' || intent === 'RESTAURANT_TIMINGS') {
         const timingsRes = await resolveBusinessAnswer({
             restaurantId,
             query: cleanText,
             intent: 'RESTAURANT_TIMINGS',
             context: { stage: convSession.stage, sessionKey: convSession.session_key, chatId, entities, restaurant, draft }
         });
-        if (timingsRes) return { text: timingsRes.text, intent: 'TIMINGS_QUERY', stage: convSession.stage };
+        if (timingsRes) return { text: timingsRes.text, intent: 'RESTAURANT_TIMINGS', stage: convSession.stage };
     }
 
     // DELIVERY_AREAS_QUERY
@@ -1163,8 +1255,8 @@ Direct order: likhein 2 zinger ya 1 pizza`,
     //   3. Centralized Knowledge Resolver (Delivery Areas DB, Deals DB, FAQ, Safe Fallback)
 
     const { quantity: parsedQty, query: extractedQuery } = extractQuantityAndQuery(cleanText);
-    const resolvedQty = parsedQty || entities?.quantity || 1;
-    const candidateQuery = extractedQuery || entities?.itemQuery || entities?.categoryName || cleanText;
+    const resolvedQty = entities?.quantity || parsedQty || 1;
+    const candidateQuery = entities?.itemQuery || extractedQuery || entities?.categoryName || cleanText;
 
     // 1. Check Active Category
     let category = null;

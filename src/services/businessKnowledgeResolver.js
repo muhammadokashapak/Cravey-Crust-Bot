@@ -121,18 +121,29 @@ export function isPhoneQuery(text) {
     const raw = (text || '').trim().toLowerCase();
     if (!raw) return false;
 
-    if (/\b(?:restaurant\s*phone|contact\s*number|rabta\s*number|call\s*number|restaurant\s*number|helpline|restaurant\s*contact|phone\s*number)\b/i.test(raw)) {
-        // Exclude customer providing their own number
-        if (!/\b(?:mera|meri|my|this\s*is\s*my)\b/i.test(raw)) {
-            return true;
-        }
+    // Exclude customer providing their own number or asking about their own phone
+    if (/\b(?:mera|meri|my|this\s*is\s*my|own)\s+(?:number|phone|contact)\b/i.test(raw)) {
+        return false;
+    }
+
+    // Direct phone / contact phrases
+    if (/\b(?:restaurant\s*(?:ka\s*)?(?:phone|number|contact)|apka\s*(?:phone\s*)?number|aapka\s*(?:phone\s*)?number|contact\s*number|rabta\s*number|call\s*number|helpline|restaurant\s*contact|phone\s*number)\b/i.test(raw)) {
+        return true;
+    }
+
+    // Has number/phone/contact/rabta/call/helpline AND restaurant/apka/aapka/kaunsa/kya/batao
+    const hasPhoneWord = /\b(?:number|no\.?|phone|contact|rabta|call|helpline)\b/i.test(raw);
+    const hasRestaurantOrQuestion = /\b(?:restaurant|hotel|shop|outlet|cravey|crust|apka|aapka|tumhara|apna|batao|kya|kia|kay|hai|h|hega|kaunsa)\b/i.test(raw);
+
+    if (hasPhoneWord && hasRestaurantOrQuestion && !/\b(?:order|cart|deal|pizza|burger|address|location|timing|pata)\b/i.test(raw)) {
+        return true;
     }
 
     return false;
 }
 
 /**
- * Check if customer query is asking about delivery coverage areas or delivery fees
+ * Check if customer query is asking about delivery coverage areas, locations, or delivery fees
  *
  * @param {string} text
  * @returns {boolean}
@@ -141,11 +152,21 @@ export function isDeliveryInfoQuery(text) {
     const raw = (text || '').trim().toLowerCase();
     if (!raw) return false;
 
+    // Delivery time / duration questions are NOT area questions
+    if (/\b(?:kitni\s*dair|kitna\s*time|kab\s*tak|timing|duration|waqt)\b/i.test(raw)) {
+        return false;
+    }
+
     if (/\b(?:delivery\s*areas?|kahan\s*deliver|delivery\s*kahan|deliver\s*kahan|coverage\s*areas?|free\s*delivery\s*areas?|delivery\s*charges?|delivery\s*fee|delivery\s*charges\s*kya)\b/i.test(raw)) {
         return true;
     }
 
-    if (/\b(?:deliver|delivery)\b/i.test(raw) && /\b(?:areas?|kahan|kidhar|charges?|fee|charge|free)\b/i.test(raw)) {
+    if (/\b(?:deliver|delivery)\b/i.test(raw) && /\b(?:areas?|kahan|kidhar|charges?|fee|charge|free|covered|coverage|list)\b/i.test(raw)) {
+        return true;
+    }
+
+    // Specific known areas: e.g. "ghori vvip me delivery hai", "dhoke kala khan delivery"
+    if (/\b(?:ghori\s*vvip|ghauri\s*vip|dhoke\s*kala\s*khan|is\s*ilaqe\s*me)\b/i.test(raw)) {
         return true;
     }
 
@@ -228,10 +249,9 @@ export function formatRestaurantAddress(restaurant) {
  * @returns {string}
  */
 export function formatRestaurantPhone(restaurant) {
-    const phone = restaurant?.phone?.trim();
-    if (!phone) return '';
+    const phone = (restaurant?.phone && restaurant.phone !== '+92-300-0000000' ? restaurant.phone : restaurant?.admin_notification_phone) || restaurant?.phone || '0327-8497923';
     const restName = restaurant?.name || 'Cravey Crust';
-    return `${restName} ka rabta number hai: ${phone}`;
+    return `${restName} ka helpline / rabta number hai: ${phone}\n\nAap call ya WhatsApp par rabta kar sakte hain.`;
 }
 
 /**
@@ -381,6 +401,61 @@ export async function resolveBusinessAnswer({
         });
 
         if (activeAreas.length > 0) {
+            const qLower = cleanQuery.toLowerCase();
+            const matchedAreas = [];
+
+            for (const a of activeAreas) {
+                const aName = a.name.toLowerCase();
+                if (qLower.includes(aName)) {
+                    matchedAreas.push(a);
+                    continue;
+                }
+                // Match aliases
+                if ((qLower.includes('ghori vvip') || qLower.includes('ghauri vvip') || qLower.includes('ghori vip')) && aName === 'ghauri vip') {
+                    matchedAreas.push(a);
+                    continue;
+                }
+                if ((qLower.includes('ghori town') || qLower.includes('ghauri town') || qLower.includes('ghori')) && aName.includes('ghauri town')) {
+                    matchedAreas.push(a);
+                    continue;
+                }
+                if (qLower.includes('khanna') && aName.includes('khana')) {
+                    matchedAreas.push(a);
+                    continue;
+                }
+            }
+
+            if (matchedAreas.length > 0) {
+                const matchedNames = matchedAreas.map(m => m.name).join(', ');
+                const isAllFree = matchedAreas.every(m => Number(m.delivery_fee) === 0);
+                const feeInfo = isAllFree ? 'delivery bilkul FREE hai!' : `delivery fee Rs. ${matchedAreas[0].delivery_fee} hai.`;
+                let specificText = `Ji bilkul! Cravey Crust *${matchedNames}* mein deliver karta hai aur yahan ${feeInfo}`;
+
+                if (qLower.includes('dhoke kala khan') || qLower.includes('dhok kala khan')) {
+                    specificText += '\n\n(Lekin Dhoke Kala Khan hamari standard delivery coverage list mein shamil nahi hai).';
+                }
+
+                logger.info(
+                    { query: cleanQuery, source: 'DELIVERY', type: 'DELIVERY_AREAS', matched: matchedNames },
+                    `[KnowledgeResolver] query="${cleanQuery}" source=DELIVERY type=DELIVERY_AREAS matched="${matchedNames}"`
+                );
+                return {
+                    source: 'DELIVERY',
+                    type: 'DELIVERY_AREAS',
+                    data: { matchedAreas, count: matchedAreas.length },
+                    text: specificText,
+                };
+            }
+
+            // If user mentioned a specific unlisted area
+            if (qLower.includes('dhoke') || qLower.includes('rawalpindi') || qLower.includes('saddar') || qLower.includes('bahria')) {
+                return {
+                    source: 'DELIVERY',
+                    type: 'DELIVERY_AREAS',
+                    text: 'Sorry, yeh area filhal hamari delivery coverage list mein shamil nahi hai. Cravey Crust Ghauri Town Islamabad aur aas paas ke 32 ilaqon mein deliver karta hai (jaise Ghauri VIP, Ghauri Town all phases, Khanna Pul, Burma, Tarlai, Gulberg Greens wagheira). Delivery bilkul FREE hai!',
+                };
+            }
+
             const areaNames = activeAreas.map((a) => a.name);
             let deliveryText = `Hum darj zail ${activeAreas.length} areas mein deliver karte hain:\n\n${areaNames.join(', ')}`;
             const isFree = activeAreas.every((a) => Number(a.delivery_fee) === 0);
@@ -479,8 +554,8 @@ export async function resolveBusinessAnswer({
         const topFaq = faqMatches[0];
 
         // Safety Guard against Stale FAQ Overriding Settings:
-        // 1. Timings: If query is timing-related, or topFaq is specifically about timings/hours:
-        if (isTimingQuery(cleanQuery) || (topFaq.question && /\b(?:timing|timings|hours)\b/i.test(topFaq.question))) {
+        // 1. Timings: ONLY if customer query is ACTUALLY timing-related:
+        if (isTimingQuery(cleanQuery)) {
             const timingsText = formatRestaurantTimings(restaurant);
             if (timingsText) {
                 logger.info(
@@ -496,8 +571,25 @@ export async function resolveBusinessAnswer({
             }
         }
 
-        // 2. Payment: If query is payment-related, or topFaq is specifically about payment:
-        if (isPaymentQuery(cleanQuery) || (topFaq.question && /\b(?:payment|easypaisa|cod)\b/i.test(topFaq.question))) {
+        // 2. Phone: ONLY if customer query is ACTUALLY phone/contact-related:
+        if (isPhoneQuery(cleanQuery)) {
+            const phoneText = formatRestaurantPhone(restaurant);
+            if (phoneText) {
+                logger.info(
+                    { query: cleanQuery, source: 'SETTINGS', type: 'RESTAURANT_PHONE', overriddenFaqId: topFaq.id },
+                    `[KnowledgeResolver] query="${cleanQuery}" source=SETTINGS type=RESTAURANT_PHONE (overrode FAQ)`
+                );
+                return {
+                    source: 'SETTINGS',
+                    type: 'RESTAURANT_PHONE',
+                    data: { phone: restaurant.phone },
+                    text: phoneText,
+                };
+            }
+        }
+
+        // 3. Payment: ONLY if customer query is ACTUALLY payment-related:
+        if (isPaymentQuery(cleanQuery)) {
             const hasPaymentSettings =
                 restaurant &&
                 (restaurant.cod_enabled !== undefined ||
@@ -519,8 +611,8 @@ export async function resolveBusinessAnswer({
             }
         }
 
-        // 3. Address: If query is address-related, or topFaq is specifically about address/location (and NOT timings):
-        if (isAddressQuery(cleanQuery) || (topFaq.question && /\b(?:address|location|pata|branch)\b/i.test(topFaq.question) && !/\btiming\b/i.test(topFaq.question))) {
+        // 4. Address: ONLY if customer query is ACTUALLY address/location-related:
+        if (isAddressQuery(cleanQuery)) {
             const addressText = formatRestaurantAddress(restaurant);
             if (addressText) {
                 logger.info(
