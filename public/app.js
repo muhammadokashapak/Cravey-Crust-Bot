@@ -1,3 +1,30 @@
+// ─── Automatic Client Cache Invalidation (v6.9.3) ───────────
+(function() {
+  const currentVer = '6.9.3';
+  if (localStorage.getItem('cc_cache_ver') !== currentVer) {
+    localStorage.setItem('cc_cache_ver', currentVer);
+    localStorage.removeItem('cc_last_sync_customers');
+    localStorage.removeItem('cc_cache_customers');
+    localStorage.removeItem('cc_cache_orders');
+    localStorage.removeItem('cc_last_sync_orders');
+    if (window.indexedDB) {
+      try {
+        const req = indexedDB.open('CraveyCrustLocalDB', 2);
+        req.onsuccess = (e) => {
+          const db = e.target.result;
+          if (db && db.objectStoreNames) {
+            const storesToClear = ['customers', 'orders'].filter(s => db.objectStoreNames.contains(s));
+            if (storesToClear.length > 0) {
+              const tx = db.transaction(storesToClear, 'readwrite');
+              storesToClear.forEach(s => tx.objectStore(s).clear());
+            }
+          }
+        };
+      } catch (_) {}
+    }
+  }
+})();
+
 // ─── DOM Elements ──────────────────────────────────────────
 const statusPill = document.getElementById('statusPill');
 const statusText = document.getElementById('statusText');
@@ -892,9 +919,27 @@ function renderPaginationControl({
   if (totalItems <= 0) {
     container.innerHTML = `
       <div class="pagination-left">
-        <span class="pagination-info">Showing <strong class="pagination-highlight">0</strong> entries</span>
+        <span class="pagination-info">Showing <span class="pagination-badge">0</span> entries</span>
+        <div class="pagination-size-wrapper">
+          <span class="pagination-size-label">Per page:</span>
+          <select id="${containerId}-pagesize" class="pagination-size-select">
+            <option value="10" ${pageSize === 10 ? 'selected' : ''}>10</option>
+            <option value="25" ${pageSize === 25 ? 'selected' : ''}>25</option>
+            <option value="50" ${pageSize === 50 ? 'selected' : ''}>50</option>
+            <option value="100" ${pageSize === 100 ? 'selected' : ''}>100</option>
+          </select>
+        </div>
       </div>
     `;
+    const sizeSelect = container.querySelector(`#${containerId}-pagesize`);
+    if (sizeSelect) {
+      sizeSelect.addEventListener('change', (e) => {
+        const newSize = parseInt(e.target.value, 10);
+        if (!isNaN(newSize) && typeof onPageSizeChange === 'function') {
+          onPageSizeChange(newSize);
+        }
+      });
+    }
     return;
   }
 
@@ -940,13 +985,13 @@ function renderPaginationControl({
   container.innerHTML = `
     <div class="pagination-left">
       <span class="pagination-info">
-        Showing <strong class="pagination-highlight">${startItem}–${endItem}</strong> of <strong class="pagination-highlight">${totalItems}</strong> entries
+        Showing <span class="pagination-badge">${startItem}–${endItem}</span> of <span class="pagination-badge">${totalItems}</span> entries
       </span>
       <div class="pagination-size-wrapper">
-        <label for="${containerId}-pagesize">Per page:</label>
+        <span class="pagination-size-label">Per page:</span>
         <select id="${containerId}-pagesize" class="pagination-size-select">
           <option value="10" ${pageSize === 10 ? 'selected' : ''}>10</option>
-          <option value="20" ${pageSize === 20 ? 'selected' : ''}>20</option>
+          <option value="25" ${pageSize === 25 ? 'selected' : ''}>25</option>
           <option value="50" ${pageSize === 50 ? 'selected' : ''}>50</option>
           <option value="100" ${pageSize === 100 ? 'selected' : ''}>100</option>
         </select>
@@ -3016,7 +3061,7 @@ const VALID_STATUS_TRANSITIONS_MAP = {
 };
 
 // ─── Orders Loader ──────────────────────────────────────────
-let ordersPageState = { page: 1, pageSize: 50 };
+let ordersPageState = { page: 1, pageSize: 10 };
 
 function renderOrdersTable() {
   const tbody = document.getElementById('ordersTableBody');
@@ -3126,7 +3171,10 @@ async function loadOrders(resetPage = false) {
 
     // Cache orders locally if no filter active
     if (!searchVal && !dateVal && (!currentOrderStatusFilter || currentOrderStatusFilter === 'ALL')) {
-      await LocalDB.putBatch('orders', orders, true);
+      await LocalDB.clear('orders');
+      if (orders.length > 0) {
+        await LocalDB.putBatch('orders', orders, true);
+      }
     }
 
     // Update nav badge count for active orders
@@ -3392,7 +3440,7 @@ window.deleteOrderAction = deleteOrderAction;
 
 // ─── Customers Controller ───────────────────────────────────
 let cachedCustomersList = [];
-let customersPageState = { page: 1, pageSize: 50, search: '' };
+let customersPageState = { page: 1, pageSize: 10, search: '' };
 let activeCustomerDetail = null;
 
 function renderCustomersTable() {
@@ -3554,6 +3602,20 @@ const LocalDB = {
     }
   },
 
+  async clear(storeName) {
+    try {
+      localStorage.removeItem(`cc_cache_${storeName}`);
+      localStorage.removeItem(`cc_last_sync_${storeName}`);
+      const db = await this.init();
+      if (!db) return;
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      store.clear();
+    } catch (e) {
+      console.warn('LocalDB clear warning for ' + storeName, e);
+    }
+  },
+
   getLastSync(entity = 'global') {
     return localStorage.getItem(`cc_last_sync_${entity}`) || localStorage.getItem('cc_last_sync_time') || null;
   },
@@ -3607,7 +3669,13 @@ async function syncAllModules(forceSync = false) {
 
     if (data.success && data.data) {
       const d = data.data;
-      if (d.customers) await LocalDB.putBatch('customers', d.customers, true);
+      if (d.customers) {
+        await LocalDB.clear('customers');
+        if (d.customers.length > 0) {
+          await LocalDB.putBatch('customers', d.customers, true);
+        }
+        cachedCustomersList = d.customers || [];
+      }
       if (d.orders) await LocalDB.putBatch('orders', d.orders, true);
       if (d.menu) await LocalDB.putBatch('menu', d.menu, true);
       if (d.categories) await LocalDB.putBatch('categories', d.categories, true);
@@ -3653,67 +3721,48 @@ async function loadCustomers(forceSync = false) {
   const tbody = document.getElementById('customersTableBody');
   if (!tbody) return;
 
-  // 1. Cache-First Strategy: Instant render from Local IndexedDB / Storage (0ms)
-  const localCached = await LocalDB.getAll('customers');
-  if (localCached && Array.isArray(localCached) && localCached.length > 0) {
-    cachedCustomersList = localCached;
-    renderCustomersTable();
-  } else {
-    tbody.innerHTML = '<tr><td colspan="7" class="table-empty">Loading customers...</td></tr>';
-  }
-
-  // 2. Incremental Sync with Server (Background / Non-blocking)
-  const lastSyncTime = forceSync ? null : LocalDB.getLastSync('customers');
   updateSyncStatusBadge('🔄 Syncing...', true);
 
   try {
-    const syncUrl = lastSyncTime 
-      ? `/api/admin/sync?last_sync_time=${encodeURIComponent(lastSyncTime)}&entities=customers`
-      : `/api/admin/customers?limit=100`;
-
-    const res = await fetch(syncUrl);
+    const res = await fetch('/api/admin/customers?limit=100');
     const data = await res.json();
 
     if (data.success) {
-      if (data.isIncremental && data.data?.customers) {
-        const delta = data.data.customers;
-        if (delta.length > 0) {
-          const map = new Map(cachedCustomersList.map(c => [c.id || c.phone, c]));
-          delta.forEach(updatedCust => {
-            map.set(updatedCust.id || updatedCust.phone, { ...updatedCust, is_synced: true });
-          });
-          cachedCustomersList = Array.from(map.values());
+      const incoming = data.data?.customers || data.data || [];
+      if (Array.isArray(incoming)) {
+        if (incoming.length === 0) {
+          cachedCustomersList = [];
+          await LocalDB.clear('customers');
+          renderCustomersTable();
+          updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
+          return;
+        } else {
+          cachedCustomersList = incoming.map(c => ({ ...c, is_synced: true }));
+          await LocalDB.clear('customers');
           await LocalDB.putBatch('customers', cachedCustomersList, true);
           renderCustomersTable();
+          updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
+          return;
         }
-        LocalDB.setLastSync(data.serverTime, 'customers');
-        updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
-        return;
-      }
-
-      // Full sync response
-      const incoming = data.data?.customers || data.data || [];
-      if (Array.isArray(incoming) && incoming.length > 0) {
-        cachedCustomersList = incoming.map(c => ({ ...c, is_synced: true }));
-        await LocalDB.putBatch('customers', cachedCustomersList, true);
-        LocalDB.setLastSync(new Date().toISOString(), 'customers');
-        renderCustomersTable();
-        updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
-        return;
       }
     }
 
     // Fallback if DB empty or error
-    if (!localCached || localCached.length === 0) {
-      cachedCustomersList = [];
-      renderCustomersTable();
-    }
+    cachedCustomersList = [];
+    await LocalDB.clear('customers');
+    renderCustomersTable();
     updateSyncStatusBadge('☁️ Synced');
   } catch (err) {
-    console.warn('Sync failed, running in cached offline mode:', err);
-    updateSyncStatusBadge('⚠️ Offline Cache');
-    if (!localCached || localCached.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="table-empty" style="color: #ff6b6b;">Error: ${err.message}</td></tr>`;
+    console.warn('Failed to load customers from server, falling back to cache:', err);
+    const localCached = await LocalDB.getAll('customers');
+    if (localCached && localCached.length > 0) {
+      cachedCustomersList = localCached;
+      renderCustomersTable();
+      updateSyncStatusBadge('⚠️ Offline Cache');
+    } else {
+      cachedCustomersList = [];
+      renderCustomersTable();
+      updateSyncStatusBadge('☁️ Synced');
     }
   }
 }
@@ -3731,6 +3780,7 @@ async function syncDataNow() {
 
   showToast('Synchronizing customer changes...', 'info');
   try {
+    await LocalDB.clear('customers');
     await loadCustomers(true);
     if (icon) icon.textContent = '✓';
     if (label) label.textContent = 'Synced';

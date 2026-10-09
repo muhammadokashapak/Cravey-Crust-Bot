@@ -157,11 +157,15 @@ export function isDeliveryInfoQuery(text) {
         return false;
     }
 
-    if (/\b(?:delivery\s*areas?|kahan\s*deliver|delivery\s*kahan|deliver\s*kahan|coverage\s*areas?|free\s*delivery\s*areas?|delivery\s*charges?|delivery\s*fee|delivery\s*charges\s*kya)\b/i.test(raw)) {
+    if (/\b(?:delivery\s*areas?|delivery\s*locations?|kahan\s*deliver|delivery\s*kahan|deliver\s*kahan|coverage\s*areas?|free\s*delivery\s*areas?|delivery\s*charges?|delivery\s*fee|delivery\s*charges\s*kya)\b/i.test(raw)) {
         return true;
     }
 
-    if (/\b(?:deliver|delivery)\b/i.test(raw) && /\b(?:areas?|kahan|kidhar|charges?|fee|charge|free|covered|coverage|list)\b/i.test(raw)) {
+    if (/\b(?:deliver|delivery)\b/i.test(raw) && /\b(?:areas?|locations?|ilaqon?|ilaqe|jagah|kahan|kidhar|charges?|fee|charge|free|covered|coverage|list|possible)\b/i.test(raw)) {
+        return true;
+    }
+
+    if (/\b(?:kon\s*konsi\s*(?:location|area|ilaq|jagah)|kahan\s*kahan\s*deliver)\b/i.test(raw)) {
         return true;
     }
 

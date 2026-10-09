@@ -78,13 +78,9 @@ import internalFaqCategoriesRouter from './routes/internal/faqCategories.js';
 // ─── Phase 5: WhatsApp Ordering Orchestrator ──────────────
 import { flags } from './src/config/flags.js';
 import { handleIncomingOrderMessage } from './src/services/whatsappOrderOrchestrator.js';
-import { initAiIntentClassifier } from './src/services/aiIntentClassifier.js';
 import { registerSocketResolver } from './src/services/whatsappNotificationService.js';
 import { resolveSenderIdentity } from './utils/senderIdentity.js';
 import { extractLocation } from './utils/location.js';
-
-// Pre-warm multilingual AI intent classifier in background
-initAiIntentClassifier().catch(err => console.error('[AI] Pre-warm error:', err.message));
 
 // ─── ESM __dirname polyfill ──────────────────────────────
 const __filename = fileURLToPath(import.meta.url);

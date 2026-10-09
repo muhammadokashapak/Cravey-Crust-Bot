@@ -21,7 +21,6 @@ import { getDbClient } from '../db/client.js';
 import { getDefaultRestaurantId } from './restaurantService.js';
 import { getOrCreateSession, updateSessionStage, touchSession } from './sessionService.js';
 import { parseIntent, isPaymentQuery } from './intentParser.js';
-import { classifyWithAiModel } from './aiIntentClassifier.js';
 import { getActiveMenu, getActiveCategories, getCategoryWithItems, getActiveDeals, resolveMenuItemOrDeal } from './menuService.js';
 import { getActiveCart, addItemToCart, updateCartItem, removeCartItem, clearCart, calculateCartTotals } from './cartService.js';
 import { checkDeliveryAvailability } from './deliveryService.js';
@@ -427,26 +426,6 @@ Reply cart to view cart ya checkout to continue.`,
         intentResult = { intent: 'TIMINGS_QUERY', entities: {}, confidence: 0.99 };
     } else if (isPhoneQuery(cleanText)) {
         intentResult = { intent: 'RESTAURANT_PHONE', entities: {}, confidence: 0.99 };
-    }
-
-    // ── 3.2 Multilingual AI Intent Classification (e5-small) ──────────────
-    // Run AI model if deterministic was UNKNOWN or confidence < 0.9, and not in strict dialog stage, and not FAQ_QUERY
-    const strictStages = ['WAITING_NAME', 'WAITING_CONTACT', 'WAITING_LOCATION', 'WAITING_PAYMENT', 'WAITING_ORDER_CONFIRMATION', 'WAITING_CANCEL_CONFIRMATION'];
-    if (!strictStages.includes(convSession.stage) && intentResult.intent !== 'FAQ_QUERY' && (!intentResult || intentResult.intent === 'UNKNOWN' || intentResult.confidence < 0.9)) {
-        try {
-            const aiMatch = await classifyWithAiModel(text, 0.74);
-            if (aiMatch) {
-                intentResult = {
-                    intent: aiMatch.intent,
-                    entities: intentResult?.entities || {},
-                    confidence: aiMatch.confidence,
-                    source: 'AI_MODEL',
-                };
-                logger.info({ chatId, text, aiMatch }, '[ORCHESTRATOR] Multilingual AI resolved intent');
-            }
-        } catch (aiErr) {
-            logger.warn({ err: aiErr.message }, '[ORCHESTRATOR] AI intent classification error');
-        }
     }
 
     let { intent, entities } = intentResult;
@@ -881,6 +860,45 @@ Aap WhatsApp location pin bhej sakte hain, Google Maps link bhej sakte hain ya a
         };
     }
 
+    // Handling queries and navigation during WAITING_LOCATION stage
+    if (convSession.stage === 'WAITING_LOCATION') {
+        if (intent === 'DELIVERY_AREAS_QUERY') {
+            const areasRes = await resolveBusinessAnswer({
+                restaurantId,
+                query: 'delivery areas',
+                intent: 'DELIVERY_AREAS_QUERY',
+                context: { stage: convSession.stage, sessionKey: convSession.session_key },
+            });
+
+            let deliveryMsg = areasRes?.text || `Hum darj zail 32 areas mein deliver karte hain:\n\nGhauri Town all phase, Ghauri VIP, Khana Pull, Rehman Enclave, Tarlai, Burma, Gulberg green, Taramari, Gulzar e Quaid, Sanam Chok, Shakral, Zia Masjid, Bilal town, Chistiyan market, Sharifabad, Madina Town, Malik Town, Marwa Town, Mehrban Town, Sarfraz town, Sudran Road, School Stop, Zamna bad, P&V Scheme, Basit town, Albadar Masjid, Ghauri Garden, Dakhana Stop, Zia market, Tali mor, Karachi house, Juma Bazar.\n\nIn tamaam areas mein delivery bilkul FREE hai!`;
+
+            deliveryMsg += `\n\nAb apni delivery location ya address share karein taakay order process complete ho sakay:`;
+
+            return {
+                text: deliveryMsg,
+                intent: 'DELIVERY_AREAS_QUERY',
+                stage: 'WAITING_LOCATION',
+            };
+        }
+
+        if (intent === 'CANCEL' || intent === 'DECLINE_ORDER') {
+            await updateSessionStage({ sessionKey: convSession.session_key, stage: 'START' });
+            return {
+                text: 'Checkout process cancel kar diya gaya hai. Jab bhi dobara order karna ho, "Menu" ya item name likhein.',
+                intent: 'CANCEL',
+                stage: 'START',
+            };
+        }
+
+        if (intent === 'HELP') {
+            return {
+                text: 'Order complete karne ke liye apni delivery location ya address share karein (e.g. Ghauri Town ya WhatsApp location pin).\n\nCoverage areas janne ke liye "delivery locations" likhein, ya cancel karne ke liye "cancel" likhein.',
+                intent: 'HELP',
+                stage: 'WAITING_LOCATION',
+            };
+        }
+    }
+
     // PROVIDE_LOCATION (Stage: WAITING_LOCATION)
     if (convSession.stage === 'WAITING_LOCATION') {
         const cartTotals = await calculateCartTotals({ sessionKey: convSession.session_key });
@@ -891,6 +909,10 @@ Aap WhatsApp location pin bhej sakte hain, Google Maps link bhej sakte hain ya a
         if (location) {
             checkParams.latitude = location.latitude;
             checkParams.longitude = location.longitude;
+            const locText = [location.name, location.address].filter(Boolean).join(', ');
+            if (locText) {
+                checkParams.areaName = locText;
+            }
         } else {
             const mapsUrl = extractGoogleMapsUrl(text);
             if (mapsUrl) {
@@ -929,13 +951,18 @@ Barah-e-karam cart mein mazeed items add karein taakay delivery possible ho saka
             };
         }
 
+        const finalAddress = location
+            ? ([location.name, location.address].filter(Boolean).join(', ') || location.mapUrl || delResult.area.name)
+            : (text.trim() || delResult.area.name);
+
         draft.delivery = {
             areaId: delResult.area.id,
             areaName: delResult.area.name,
-            address: text.trim() || delResult.area.name,
+            address: finalAddress,
             fee: delResult.area.deliveryFee,
             latitude: checkParams.latitude,
             longitude: checkParams.longitude,
+            googleMapsUrl: location ? location.mapUrl : null,
         };
 
         await updateSessionStage({ sessionKey: convSession.session_key, stage: 'WAITING_PAYMENT' });
@@ -943,7 +970,9 @@ Barah-e-karam cart mein mazeed items add karein taakay delivery possible ho saka
         const codOk = restaurant?.cod_enabled !== false;
         const epOk = restaurant?.easypaisa_enabled === true;
 
-        let payMsg = `Delivery area verified: ${delResult.area.name} (Delivery Fee: Rs.${delResult.area.deliveryFee}).\n\nPayment method select karein:\n`;
+        const feeVal = Number(delResult.deliveryFee ?? delResult.area?.deliveryFee ?? 0);
+        const feeDisplay = feeVal === 0 ? 'FREE' : `Rs.${feeVal}`;
+        let payMsg = `Delivery area verified: ${delResult.area.name} (Delivery Fee: ${feeDisplay}).\n\nPayment method select karein:\n`;
         if (codOk) payMsg += `COD (Cash on Delivery)\n`;
         if (epOk) {
             payMsg += `EasyPaisa\n`;
