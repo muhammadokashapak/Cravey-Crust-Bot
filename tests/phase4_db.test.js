@@ -497,6 +497,19 @@ test('─── Phase 4: Database & Core Order Engine Integration Tests ──�
     });
 
     // Clean up temporary test data
+    const testPhones = ['923009998888', '923001112233', '923004445566'];
+    const testOrders = await prisma.order.findMany({
+        where: { phone: { in: testPhones } },
+        select: { id: true },
+    });
+    const orderIds = testOrders.map(o => o.id);
+    if (orderIds.length > 0) {
+        await prisma.orderStatusHistory.deleteMany({ where: { order_id: { in: orderIds } } });
+        await prisma.orderItem.deleteMany({ where: { order_id: { in: orderIds } } });
+        await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
+    }
+    await prisma.customer.deleteMany({ where: { phone: { in: testPhones } } });
+
     await prisma.menuVariant.delete({ where: { id: testVariant.id } });
     await prisma.menuItem.delete({ where: { id: testItem.id } });
     await prisma.deliveryArea.delete({ where: { id: testDeliveryArea.id } });

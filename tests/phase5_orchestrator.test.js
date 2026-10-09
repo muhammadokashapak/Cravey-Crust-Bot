@@ -758,4 +758,42 @@ describe('Phase 5: WhatsApp Ordering Orchestrator & E2E Flow', () => {
         const canMsg = sentMessages.find(m => m.content?.text?.includes('cancel kar diya gaya'));
         assert.ok(canMsg, 'CANCELLED notification must be formatted correctly');
     });
+
+    after(async () => {
+        // Clean up test customer and order data
+        const testPhones = ['923331112233', '03009988776', '923009999999', '923001234567'];
+        const testOrders = await prisma.order.findMany({
+            where: { phone: { in: testPhones } },
+            select: { id: true },
+        });
+        const orderIds = testOrders.map(o => o.id);
+        if (orderIds.length > 0) {
+            await prisma.orderStatusHistory.deleteMany({ where: { order_id: { in: orderIds } } });
+            await prisma.orderItem.deleteMany({ where: { order_id: { in: orderIds } } });
+            await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
+        }
+        await prisma.cartItem.deleteMany({
+            where: { cart: { session: { chat_id: { startsWith: 'test_' } } } },
+        });
+        await prisma.cart.deleteMany({
+            where: { session: { chat_id: { startsWith: 'test_' } } },
+        });
+        await prisma.conversationSession.deleteMany({
+            where: { chat_id: { startsWith: 'test_' } },
+        });
+        await prisma.customer.deleteMany({ where: { phone: { in: testPhones } } });
+
+        // Clean up test menu data
+        if (testFaq) await prisma.fAQ.delete({ where: { id: testFaq.id } }).catch(() => {});
+        if (testFaqCategory) await prisma.fAQCategory.delete({ where: { id: testFaqCategory.id } }).catch(() => {});
+        if (testDeal) {
+            await prisma.dealItem.deleteMany({ where: { deal_id: testDeal.id } });
+            await prisma.deal.delete({ where: { id: testDeal.id } }).catch(() => {});
+        }
+        if (testDeliveryArea) await prisma.deliveryArea.delete({ where: { id: testDeliveryArea.id } }).catch(() => {});
+        if (testVariants.length) await prisma.menuVariant.deleteMany({ where: { menu_item_id: testVariantItem.id } });
+        if (testVariantItem) await prisma.menuItem.delete({ where: { id: testVariantItem.id } }).catch(() => {});
+        if (testItem) await prisma.menuItem.delete({ where: { id: testItem.id } }).catch(() => {});
+        if (testCategory) await prisma.category.delete({ where: { id: testCategory.id } }).catch(() => {});
+    });
 });

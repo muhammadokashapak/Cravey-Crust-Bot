@@ -3126,7 +3126,10 @@ async function loadOrders(resetPage = false) {
 
     // Cache orders locally if no filter active
     if (!searchVal && !dateVal && (!currentOrderStatusFilter || currentOrderStatusFilter === 'ALL')) {
-      await LocalDB.putBatch('orders', orders, true);
+      await LocalDB.clear('orders');
+      if (orders.length > 0) {
+        await LocalDB.putBatch('orders', orders, true);
+      }
     }
 
     // Update nav badge count for active orders
@@ -3554,6 +3557,20 @@ const LocalDB = {
     }
   },
 
+  async clear(storeName) {
+    try {
+      localStorage.removeItem(`cc_cache_${storeName}`);
+      localStorage.removeItem(`cc_last_sync_${storeName}`);
+      const db = await this.init();
+      if (!db) return;
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      store.clear();
+    } catch (e) {
+      console.warn('LocalDB clear warning for ' + storeName, e);
+    }
+  },
+
   getLastSync(entity = 'global') {
     return localStorage.getItem(`cc_last_sync_${entity}`) || localStorage.getItem('cc_last_sync_time') || null;
   },
@@ -3607,7 +3624,13 @@ async function syncAllModules(forceSync = false) {
 
     if (data.success && data.data) {
       const d = data.data;
-      if (d.customers) await LocalDB.putBatch('customers', d.customers, true);
+      if (d.customers) {
+        await LocalDB.clear('customers');
+        if (d.customers.length > 0) {
+          await LocalDB.putBatch('customers', d.customers, true);
+        }
+        cachedCustomersList = d.customers || [];
+      }
       if (d.orders) await LocalDB.putBatch('orders', d.orders, true);
       if (d.menu) await LocalDB.putBatch('menu', d.menu, true);
       if (d.categories) await LocalDB.putBatch('categories', d.categories, true);
@@ -3693,21 +3716,30 @@ async function loadCustomers(forceSync = false) {
 
       // Full sync response
       const incoming = data.data?.customers || data.data || [];
-      if (Array.isArray(incoming) && incoming.length > 0) {
-        cachedCustomersList = incoming.map(c => ({ ...c, is_synced: true }));
-        await LocalDB.putBatch('customers', cachedCustomersList, true);
-        LocalDB.setLastSync(new Date().toISOString(), 'customers');
-        renderCustomersTable();
-        updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
-        return;
+      if (Array.isArray(incoming)) {
+        if (incoming.length === 0) {
+          cachedCustomersList = [];
+          await LocalDB.clear('customers');
+          LocalDB.setLastSync(new Date().toISOString(), 'customers');
+          renderCustomersTable();
+          updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
+          return;
+        } else {
+          cachedCustomersList = incoming.map(c => ({ ...c, is_synced: true }));
+          await LocalDB.clear('customers');
+          await LocalDB.putBatch('customers', cachedCustomersList, true);
+          LocalDB.setLastSync(new Date().toISOString(), 'customers');
+          renderCustomersTable();
+          updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
+          return;
+        }
       }
     }
 
     // Fallback if DB empty or error
-    if (!localCached || localCached.length === 0) {
-      cachedCustomersList = [];
-      renderCustomersTable();
-    }
+    cachedCustomersList = [];
+    await LocalDB.clear('customers');
+    renderCustomersTable();
     updateSyncStatusBadge('☁️ Synced');
   } catch (err) {
     console.warn('Sync failed, running in cached offline mode:', err);
@@ -3731,6 +3763,7 @@ async function syncDataNow() {
 
   showToast('Synchronizing customer changes...', 'info');
   try {
+    await LocalDB.clear('customers');
     await loadCustomers(true);
     if (icon) icon.textContent = '✓';
     if (label) label.textContent = 'Synced';
