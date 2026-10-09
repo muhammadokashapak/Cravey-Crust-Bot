@@ -3699,20 +3699,24 @@ input:checked + .slider:before {
   gap: 8px;
 }
 
-/* Connected Horizontal Bar */
+/* Connected Dashboard Card (Spacious Single Card in Left Column) */
 #viewWhatsapp #connectedSection {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   background: var(--surface-solid);
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-md);
-  padding: 8px 14px;
-  gap: 12px;
-  flex-shrink: 0;
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--r-xl);
+  padding: 24px 20px;
+  gap: 18px;
   width: 100%;
+  height: 100%;
+  min-height: 380px;
   box-sizing: border-box;
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 #viewWhatsapp #connectedSection.hidden {
@@ -3721,88 +3725,113 @@ input:checked + .slider:before {
 
 #viewWhatsapp #connectedSection .connected-hero {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   gap: 10px;
-  text-align: left;
+  text-align: center;
+  width: 100%;
 }
 
 #viewWhatsapp #connectedSection .success-ring {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  box-shadow: none;
-  border-width: 2px;
-  animation: none;
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 24px var(--accent-soft);
+  animation: popIn 0.4s ease;
 }
 
 #viewWhatsapp #connectedSection .success-ring svg {
-  width: 18px;
-  height: 18px;
+  width: 28px;
+  height: 28px;
+  stroke: var(--accent);
 }
 
 #viewWhatsapp #connectedSection .connected-hero h2 {
-  font-size: 14px;
+  font-size: 19px;
   font-weight: 700;
   margin: 0;
-  line-height: 1.2;
+  color: var(--fg);
+  letter-spacing: -0.02em;
 }
 
 #viewWhatsapp #connectedSection .connected-hero p {
-  display: none;
+  display: block;
+  font-size: 12.5px;
+  color: var(--fg-muted);
+  margin: 0;
+  line-height: 1.4;
 }
 
 #viewWhatsapp #connectedSection .stats-grid {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  width: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
 }
 
 #viewWhatsapp #connectedSection .stat-card {
-  padding: 5px 12px;
-  border-radius: var(--r-sm);
+  padding: 12px 14px;
+  border-radius: var(--r-md);
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   background: var(--surface-2);
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--hairline-2);
   box-shadow: none;
+  min-width: 0;
 }
 
 #viewWhatsapp #connectedSection .stat-card:hover {
-  transform: none;
-  box-shadow: none;
+  border-color: var(--accent-line);
 }
 
 #viewWhatsapp #connectedSection .stat-label {
-  font-size: 9.5px;
-  margin: 0;
+  font-size: 10px;
+  font-family: var(--f-mono);
   color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  margin: 0;
 }
 
 #viewWhatsapp #connectedSection .stat-value {
-  font-size: 12px;
-  margin: 0;
+  font-size: 14.5px;
   font-weight: 700;
+  color: var(--fg);
+  font-family: var(--f-display);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  margin: 0;
 }
 
 #viewWhatsapp #connectedSection .stat-sub {
-  display: none;
+  display: block;
+  font-size: 11px;
+  color: var(--fg-dim);
+  font-family: var(--f-mono);
+  margin: 0;
 }
 
 #viewWhatsapp #connectedSection .account-actions-card {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  width: auto;
+  flex-direction: column;
+  width: 100%;
   background: transparent;
   border: none;
   padding: 0;
   box-shadow: none;
+  margin-top: 4px;
 }
 
 #viewWhatsapp #connectedSection .account-actions-info {
@@ -3810,11 +3839,26 @@ input:checked + .slider:before {
 }
 
 #viewWhatsapp #connectedSection #logoutBtn {
-  padding: 6px 12px;
-  font-size: 11px;
-  gap: 6px;
-  height: 30px;
-  border-radius: var(--r-sm);
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 8px;
+  min-height: 40px;
+  border-radius: var(--r-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ea4335, #c5221f);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#viewWhatsapp #connectedSection #logoutBtn:hover {
+  background: linear-gradient(135deg, #f05244, #d32f2f);
+  box-shadow: 0 4px 16px rgba(234, 67, 53, 0.4);
 }
 
 /* WhatsApp Phone / QR / Pairing Screens */
