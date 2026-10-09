@@ -110,8 +110,11 @@ export async function getCategoryWithItems(identifier, restaurantId) {
         }
     }
 
-    const cleanStr = String(identifier).trim().toLowerCase();
+    let cleanStr = String(identifier).trim().toLowerCase();
+    // Strip common conversational suffixes (e.g. "mein kia kia ha", "dikhao", "options")
+    cleanStr = cleanStr.replace(/(?:\s+(?:mai|me|mein)\s+(?:kya|kia|kay)\s*(?:kya|kia|kay)?\s*(?:h|ha|hai|hay)?|\s+(?:dikhao|bhejo|options|list|items?))$/i, '').trim();
     const cleanSingular = cleanStr.replace(/s$/, '');
+
     const found = categories.find(c => {
         const cName = c.name.toLowerCase();
         const cSlug = c.slug.toLowerCase();
@@ -120,7 +123,9 @@ export async function getCategoryWithItems(identifier, restaurantId) {
                cSlug === cleanStr ||
                cName === cleanStr ||
                cSingular === cleanSingular ||
-               cName.includes(cleanStr);
+               cName.includes(cleanStr) ||
+               cleanStr.includes(cName) ||
+               cleanStr.includes(cSingular);
     });
 
     return found || null;
