@@ -59,6 +59,68 @@ async function runSimulation() {
         console.log(res.text);
     }
 
+    console.log('\n--- SIMULATION 3: Testing WhatsApp GPS Pin ---');
+    const chatId3 = `test_sim3_${Date.now()}@s.whatsapp.net`;
+    await handleIncomingOrderMessage({
+        normalizedMessage: {
+            chatId: chatId3,
+            messageId: `msg_${Date.now()}_1`,
+            text: '1 cheese lover',
+            phoneVerified: true,
+            verifiedPhone: '923001112233',
+        },
+    });
+    await handleIncomingOrderMessage({
+        normalizedMessage: {
+            chatId: chatId3,
+            messageId: `msg_${Date.now()}_2`,
+            text: 'Small',
+            phoneVerified: true,
+            verifiedPhone: '923001112233',
+        },
+    });
+    await handleIncomingOrderMessage({
+        normalizedMessage: {
+            chatId: chatId3,
+            messageId: `msg_${Date.now()}_3`,
+            text: 'Checkout',
+            phoneVerified: true,
+            verifiedPhone: '923001112233',
+        },
+    });
+    await handleIncomingOrderMessage({
+        normalizedMessage: {
+            chatId: chatId3,
+            messageId: `msg_${Date.now()}_4`,
+            text: 'Okasha',
+            phoneVerified: true,
+            verifiedPhone: '923001112233',
+        },
+    });
+    await handleIncomingOrderMessage({
+        normalizedMessage: {
+            chatId: chatId3,
+            messageId: `msg_${Date.now()}_5`,
+            text: 'Same number',
+            phoneVerified: true,
+            verifiedPhone: '923001112233',
+        },
+    });
+    console.log(`\n\x1b[36m[CUSTOMER]\x1b[0m: [Sent WhatsApp GPS Pin: lat: 33.6280, lng: 73.1270]`);
+    const resPin = await handleIncomingOrderMessage({
+        normalizedMessage: {
+            chatId: chatId3,
+            messageId: `msg_${Date.now()}_6`,
+            text: '',
+            messageType: 'current_location',
+            location: { latitude: 33.6280, longitude: 73.1270, type: 'current_location' },
+            phoneVerified: true,
+            verifiedPhone: '923001112233',
+        },
+    });
+    console.log(`\x1b[32m[BOT - intent: ${resPin.intent}, stage: ${resPin.stage}]\x1b[0m:`);
+    console.log(resPin.text);
+
     process.exit(0);
 }
 

@@ -909,6 +909,10 @@ Aap WhatsApp location pin bhej sakte hain, Google Maps link bhej sakte hain ya a
         if (location) {
             checkParams.latitude = location.latitude;
             checkParams.longitude = location.longitude;
+            const locText = [location.name, location.address].filter(Boolean).join(', ');
+            if (locText) {
+                checkParams.areaName = locText;
+            }
         } else {
             const mapsUrl = extractGoogleMapsUrl(text);
             if (mapsUrl) {
@@ -947,13 +951,18 @@ Barah-e-karam cart mein mazeed items add karein taakay delivery possible ho saka
             };
         }
 
+        const finalAddress = location
+            ? ([location.name, location.address].filter(Boolean).join(', ') || location.mapUrl || delResult.area.name)
+            : (text.trim() || delResult.area.name);
+
         draft.delivery = {
             areaId: delResult.area.id,
             areaName: delResult.area.name,
-            address: text.trim() || delResult.area.name,
+            address: finalAddress,
             fee: delResult.area.deliveryFee,
             latitude: checkParams.latitude,
             longitude: checkParams.longitude,
+            googleMapsUrl: location ? location.mapUrl : null,
         };
 
         await updateSessionStage({ sessionKey: convSession.session_key, stage: 'WAITING_PAYMENT' });

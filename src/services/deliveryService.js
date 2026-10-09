@@ -210,9 +210,32 @@ export async function checkDeliveryAvailability(params) {
                 }
             }
         } else {
-            // Pick the closest matched area
-            withinRange.sort((x, y) => x.distance - y.distance);
-            matchedArea = withinRange[0].area;
+            // If pin came with an areaName (e.g. from WhatsApp location title or place name), check if an area matches
+            if (areaName) {
+                const aLower = areaName.toLowerCase();
+                const matchedByName = withinRange.find(item => {
+                    const slug = item.area.slug;
+                    if ((aLower.includes('vip') || aLower.includes('vvip')) && slug === 'ghauri-vip') return true;
+                    if (aLower.includes('garden') && slug === 'ghauri-garden') return true;
+                    if ((aLower.includes('khanna') || aLower.includes('khana pull') || aLower.includes('khana pul')) && slug === 'khana-pull') return true;
+                    if (aLower.includes('rehman') && slug === 'rehman-enclave') return true;
+                    if (aLower.includes('burma') && slug === 'burma') return true;
+                    if (aLower.includes('tarlai') && slug === 'tarlai') return true;
+                    if (aLower.includes('taramari') && slug === 'taramari') return true;
+                    if (aLower.includes('gulberg') && slug === 'gulberg-green') return true;
+                    if (aLower.includes('ghauri') || aLower.includes('ghori')) return slug === 'ghauri-town-all-phase';
+                    return false;
+                });
+                if (matchedByName) {
+                    matchedArea = matchedByName.area;
+                }
+            }
+
+            if (!matchedArea) {
+                // Pick the closest matched area
+                withinRange.sort((x, y) => x.distance - y.distance);
+                matchedArea = withinRange[0].area;
+            }
         }
 
         if (!matchedArea) {
