@@ -79,6 +79,40 @@ export function isPaymentQuery(text) {
 }
 
 /**
+ * Determine if text is asking about delivery areas, coverage, or delivery fee
+ *
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function isDeliveryInfoQuery(text) {
+    const raw = (text || '').trim().toLowerCase();
+    if (!raw) return false;
+
+    // Delivery time / duration questions are NOT area questions
+    if (/\b(?:kitni\s*dair|kitna\s*time|kab\s*tak|timing|duration|waqt)\b/i.test(raw)) {
+        return false;
+    }
+
+    if (/\b(?:delivery\s*areas?|delivery\s*locations?|kahan\s*deliver|delivery\s*kahan|deliver\s*kahan|coverage\s*areas?|free\s*delivery\s*areas?|delivery\s*charges?|delivery\s*fee|delivery\s*charges\s*kya)\b/i.test(raw)) {
+        return true;
+    }
+
+    if (/\b(?:deliver|delivery)\b/i.test(raw) && /\b(?:areas?|locations?|ilaqon?|ilaqe|jagah|kahan|kidhar|charges?|fee|charge|free|covered|coverage|list|possible)\b/i.test(raw)) {
+        return true;
+    }
+
+    if (/\b(?:kon\s*konsi\s*(?:location|area|ilaq|jagah)|kahan\s*kahan\s*deliver)\b/i.test(raw)) {
+        return true;
+    }
+
+    if (/\b(?:ghori\s*vvip|ghauri\s*vip|dhoke\s*kala\s*khan|is\s*ilaqe\s*me)\b/i.test(raw)) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
  * Deterministic Intent Provider implementation
  */
 export class DeterministicIntentProvider {
@@ -141,6 +175,34 @@ export class DeterministicIntentProvider {
                     intent: 'PROVIDE_LOCATION',
                     entities: { location: context.location },
                     confidence: 1.0,
+                };
+            }
+            if (isDeliveryInfoQuery(lower) || /\b(?:areas?|locations?|kahan|kidhar|kon\s*konsi|list)\b/i.test(lower)) {
+                return {
+                    intent: 'DELIVERY_AREAS_QUERY',
+                    entities: {},
+                    confidence: 0.98,
+                };
+            }
+            if (NEGATIVE_REGEX.test(lower) || lower === 'cancel' || lower === 'cancel order') {
+                return {
+                    intent: 'CANCEL',
+                    entities: {},
+                    confidence: 0.95,
+                };
+            }
+            if (HELP_REGEX.test(lower)) {
+                return {
+                    intent: 'HELP',
+                    entities: {},
+                    confidence: 0.95,
+                };
+            }
+            if (CART_VIEW_REGEX.test(lower)) {
+                return {
+                    intent: 'SHOW_CART',
+                    entities: {},
+                    confidence: 0.95,
                 };
             }
             if (text.length >= 3) {
@@ -409,12 +471,31 @@ export class DeterministicIntentProvider {
             return { intent: 'GREETING', entities: {}, confidence: 0.95 };
         }
 
-        // Category queries (e.g. "drinks mai kya ha", "drinks dikhao", "drink", "drinks")
-        const categoryQueryMatch = lower.match(/^(?:category\s+)?(drinks?|beverages?|pizzas?|burgers?|sides?|desserts?)(?:\s+(?:mai|me|mein)\s+(?:kya|kia|kay)\s+(?:h|ha|hai|hay)|(?:\s+(?:dikhao|bhejo|options|list)))?$/i);
+        // Category queries (e.g. "Classic Pizzas mein kia kia ha", "Classic Pizzas", "drinks mai kya ha", "drinks dikhao")
+        const categoryQueryMatch = lower.match(/^(?:category\s+)?(classic\s+pizzas?|premium\s+pizzas?|pizza\s+deals?|burger\s+deals?|cravey\s+(?:2\.0\s+)?deals?|drinks?|beverages?|pizzas?|burgers?|sides?|desserts?)(?:\s+(?:mai|me|mein)\s+(?:kya|kia|kay)\s*(?:kya|kia|kay)?\s*(?:h|ha|hai|hay)?|(?:\s+(?:dikhao|bhejo|options|list|items?)))?$/i);
         if (categoryQueryMatch) {
             return {
                 intent: 'SHOW_CATEGORY',
-                entities: { categoryName: categoryQueryMatch[1] },
+                entities: { categoryName: categoryQueryMatch[1].trim() },
+                confidence: 0.95,
+            };
+        }
+
+        // Substring match for category inquiry (e.g. "Classic Pizzas mein kia kia ha")
+        const subCatMatch = lower.match(/(classic\s+pizzas?|premium\s+pizzas?|pizza\s+deals?|burger\s+deals?|cravey\s+(?:2\.0\s+)?deals?|drinks?|beverages?|pizzas?|burgers?)\s+(?:mai|me|mein)\s+(?:kya|kia|kay)/i);
+        if (subCatMatch) {
+            return {
+                intent: 'SHOW_CATEGORY',
+                entities: { categoryName: subCatMatch[1].trim() },
+                confidence: 0.95,
+            };
+        }
+
+        // ─── Delivery Areas Query (Settings & Coverage Priority over FAQ) ─────
+        if (isDeliveryInfoQuery(lower)) {
+            return {
+                intent: 'DELIVERY_AREAS_QUERY',
+                entities: {},
                 confidence: 0.95,
             };
         }
@@ -464,12 +545,19 @@ export class DeterministicIntentProvider {
             };
         }
 
-        const categoryKeywords = ['burger', 'burgers', 'pizza', 'pizzas', 'side', 'sides', 'drink', 'drinks', 'beverage', 'dessert'];
+        const categoryKeywords = [
+            'classic pizzas', 'classic pizza',
+            'premium pizzas', 'premium pizza',
+            'pizza deals', 'pizza deal',
+            'burger deals', 'burger deal',
+            'cravey 2.0 deals', 'cravey 2.0 deal', 'cravey deals', 'cravey deal',
+            'burger', 'burgers', 'pizza', 'pizzas', 'side', 'sides', 'drink', 'drinks', 'beverage', 'dessert'
+        ];
         if (categoryKeywords.includes(lower)) {
             return {
                 intent: 'SHOW_CATEGORY',
                 entities: { categoryName: lower },
-                confidence: 0.85,
+                confidence: 0.95,
             };
         }
 

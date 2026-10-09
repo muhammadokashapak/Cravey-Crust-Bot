@@ -606,7 +606,7 @@ async function seed() {
         {
             category: 'Menu',
             question: 'Menu & Catalog Inquiries',
-            answer: '1. Poora Menu: Catalog link share karo aur 2-3 popular items (Zinger Burger, Pizza) pictures ke sath recommend karo ("Ye rahi hamari menu! Hamara Zinger Burger aur Pizza sab se zyada pasand kiye jate hain..."). 2. Specific Item: Catalog se item ki photo aur price bhejo. 3. Rules: Sirf catalog pictures use karo, apni marzi se nahi. Order mangne par order taking process shuru karo.',
+            answer: 'Hamara menu dekhne ke liye WhatsApp par "Menu" ya "Deals" likhein. Aap direct items bhi order kar sakte hain (e.g. 2 Zinger Burger ya 1 Cheese Lover Pizza).',
             keywords: ['menu', 'catalog', 'popular items', 'food menu'],
             alternative_questions: ['Menu dikhao', 'Catalog kahan hai?', 'What do you recommend?'],
             sort_order: 8,
@@ -614,7 +614,7 @@ async function seed() {
         {
             category: 'Deals',
             question: 'Offers & Deals Policy',
-            answer: '1. Offer mojood ho: Current active deals batao. 2. Offer na ho: Politely kaho: "Filhaal koi deal nahi hai, lekin hamara khana itna Ghaat hai ke deal ki zaroorat hi nahi! Aap batao kya order karna hai?". 3. Pata na ho: Guess na karo, customer ko team se connect kar do.',
+            answer: 'Hamari special discount deals dekhne ke liye "Deals" reply karein. Hamare paas Pizza Deals, Burger Deals aur Cravey 2.0 Deals dastiyab hain!',
             keywords: ['deals', 'offers', 'discount', 'promotions', 'special deals'],
             alternative_questions: ['Koi deal hai?', 'Are there any discounts?', 'Offers kya hain?'],
             sort_order: 9,
@@ -622,7 +622,7 @@ async function seed() {
         {
             category: 'Support',
             question: 'Customer Reviews & Google Maps Feedback Link',
-            answer: 'Review link: https://maps.app.goo.gl/rVvANx8pRmtXrEMj9. Khush customer: "Shukriya! Hum bohat khush hain... Ye rahi hamari Google review link, aap yahan 5-star review de sakte hain: https://maps.app.goo.gl/rVvANx8pRmtXrEMj9". Neutral: Review link do taake feedback mil sake. Naraz: Maaf kijiye, hum baat sunna chahte hain, team se connect kar deta hun.',
+            answer: 'Hamare khane aur service ka review dene ke liye ye rahi hamari Google review link: https://maps.app.goo.gl/rVvANx8pRmtXrEMj9. Aap ka feedback hamare liye bohat qeemti hai!',
             keywords: ['review', 'feedback', 'google maps', 'rating', 'stars', 'maps review'],
             alternative_questions: ['Review kahan doon?', 'Google review link?', 'How to rate?'],
             sort_order: 10,
@@ -630,7 +630,7 @@ async function seed() {
         {
             category: 'Support',
             question: 'Human Handoff Triggers & Escalation Protocol',
-            answer: 'Handoff Triggers: Naraz/frustrated customer, 3+ same message bheje, ya keywords: complaint, shikayat, refund, cancel, manager, insan se baat, galat order, cold food, late delivery. Message: "Ruko, main aap ko hamari team se connect kar raha hun. Woh foran aap se rabta karenge. Sab theek ho jayega." Chat par "AI Handoff" label lagao aur "MANAGER ALERT: Customer naraz hai. Foran chat sambhalein" bhejo. Unknown sawal par bhi handoff karo.',
+            answer: 'Agar aapko kisi maslay par restaurant team se baat karni hai toh "Agent" ya "Human" likhein, hamara representative foran rabta karega.',
             keywords: ['human handoff', 'complaint', 'manager', 'shikayat', 'refund', 'escalation'],
             alternative_questions: ['Manager se baat karni hai', 'Complaint karni hai', 'Talk to human agent'],
             sort_order: 11,

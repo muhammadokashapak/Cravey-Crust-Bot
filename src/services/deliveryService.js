@@ -132,8 +132,8 @@ export async function checkDeliveryAvailability(params) {
                 else if (cleanLower.includes('chistiyan') || cleanLower.includes('chishtian')) found = areas.find(a => a.slug === 'chistiyan-market');
                 else if (cleanLower.includes('sharif')) found = areas.find(a => a.slug === 'sharifabad');
                 else if (cleanLower.includes('tali')) found = areas.find(a => a.slug === 'tali-mor');
-                else if (cleanLower.includes('karachi')) found = areas.find(a => a.slug === 'karachi-house');
-                else if (cleanLower.includes('juma')) found = areas.find(a => a.slug === 'juma-bazar');
+                else if (cleanLower.includes('karachi house')) found = areas.find(a => a.slug === 'karachi-house');
+                else if (cleanLower.includes('juma bazar')) found = areas.find(a => a.slug === 'juma-bazar');
             }
         }
 
@@ -218,6 +218,8 @@ export async function checkDeliveryAvailability(params) {
             id: matchedArea.id,
             name: matchedArea.name,
             slug: matchedArea.slug,
+            deliveryFee,
+            minimumOrder,
         },
         deliveryFee,
         minimumOrder,
