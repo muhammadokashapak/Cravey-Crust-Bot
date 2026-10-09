@@ -1,3 +1,30 @@
+// ─── Automatic Client Cache Invalidation (v6.9.2) ───────────
+(function() {
+  const currentVer = '6.9.2';
+  if (localStorage.getItem('cc_cache_ver') !== currentVer) {
+    localStorage.setItem('cc_cache_ver', currentVer);
+    localStorage.removeItem('cc_last_sync_customers');
+    localStorage.removeItem('cc_cache_customers');
+    localStorage.removeItem('cc_cache_orders');
+    localStorage.removeItem('cc_last_sync_orders');
+    if (window.indexedDB) {
+      try {
+        const req = indexedDB.open('CraveyCrustLocalDB', 2);
+        req.onsuccess = (e) => {
+          const db = e.target.result;
+          if (db && db.objectStoreNames) {
+            const storesToClear = ['customers', 'orders'].filter(s => db.objectStoreNames.contains(s));
+            if (storesToClear.length > 0) {
+              const tx = db.transaction(storesToClear, 'readwrite');
+              storesToClear.forEach(s => tx.objectStore(s).clear());
+            }
+          }
+        };
+      } catch (_) {}
+    }
+  }
+})();
+
 // ─── DOM Elements ──────────────────────────────────────────
 const statusPill = document.getElementById('statusPill');
 const statusText = document.getElementById('statusText');
@@ -3676,51 +3703,18 @@ async function loadCustomers(forceSync = false) {
   const tbody = document.getElementById('customersTableBody');
   if (!tbody) return;
 
-  // 1. Cache-First Strategy: Instant render from Local IndexedDB / Storage (0ms)
-  const localCached = await LocalDB.getAll('customers');
-  if (localCached && Array.isArray(localCached) && localCached.length > 0) {
-    cachedCustomersList = localCached;
-    renderCustomersTable();
-  } else {
-    tbody.innerHTML = '<tr><td colspan="7" class="table-empty">Loading customers...</td></tr>';
-  }
-
-  // 2. Incremental Sync with Server (Background / Non-blocking)
-  const lastSyncTime = forceSync ? null : LocalDB.getLastSync('customers');
   updateSyncStatusBadge('🔄 Syncing...', true);
 
   try {
-    const syncUrl = lastSyncTime 
-      ? `/api/admin/sync?last_sync_time=${encodeURIComponent(lastSyncTime)}&entities=customers`
-      : `/api/admin/customers?limit=100`;
-
-    const res = await fetch(syncUrl);
+    const res = await fetch('/api/admin/customers?limit=100');
     const data = await res.json();
 
     if (data.success) {
-      if (data.isIncremental && data.data?.customers) {
-        const delta = data.data.customers;
-        if (delta.length > 0) {
-          const map = new Map(cachedCustomersList.map(c => [c.id || c.phone, c]));
-          delta.forEach(updatedCust => {
-            map.set(updatedCust.id || updatedCust.phone, { ...updatedCust, is_synced: true });
-          });
-          cachedCustomersList = Array.from(map.values());
-          await LocalDB.putBatch('customers', cachedCustomersList, true);
-          renderCustomersTable();
-        }
-        LocalDB.setLastSync(data.serverTime, 'customers');
-        updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
-        return;
-      }
-
-      // Full sync response
       const incoming = data.data?.customers || data.data || [];
       if (Array.isArray(incoming)) {
         if (incoming.length === 0) {
           cachedCustomersList = [];
           await LocalDB.clear('customers');
-          LocalDB.setLastSync(new Date().toISOString(), 'customers');
           renderCustomersTable();
           updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
           return;
@@ -3728,7 +3722,6 @@ async function loadCustomers(forceSync = false) {
           cachedCustomersList = incoming.map(c => ({ ...c, is_synced: true }));
           await LocalDB.clear('customers');
           await LocalDB.putBatch('customers', cachedCustomersList, true);
-          LocalDB.setLastSync(new Date().toISOString(), 'customers');
           renderCustomersTable();
           updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
           return;
@@ -3742,10 +3735,16 @@ async function loadCustomers(forceSync = false) {
     renderCustomersTable();
     updateSyncStatusBadge('☁️ Synced');
   } catch (err) {
-    console.warn('Sync failed, running in cached offline mode:', err);
-    updateSyncStatusBadge('⚠️ Offline Cache');
-    if (!localCached || localCached.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="table-empty" style="color: #ff6b6b;">Error: ${err.message}</td></tr>`;
+    console.warn('Failed to load customers from server, falling back to cache:', err);
+    const localCached = await LocalDB.getAll('customers');
+    if (localCached && localCached.length > 0) {
+      cachedCustomersList = localCached;
+      renderCustomersTable();
+      updateSyncStatusBadge('⚠️ Offline Cache');
+    } else {
+      cachedCustomersList = [];
+      renderCustomersTable();
+      updateSyncStatusBadge('☁️ Synced');
     }
   }
 }
