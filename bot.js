@@ -516,11 +516,12 @@ function addTerminalLog(type, text) {
     if (!text || typeof text !== 'string') return;
     const now = new Date();
     const timeStr = now.toTimeString().split(' ')[0];
+    const isQr = /[\u2580-\u2588]/.test(text) && text.includes('\n');
     terminalLogs.push({
         id: Date.now() + Math.random(),
         time: timeStr,
-        type, // 'info' | 'warn' | 'error' | 'command' | 'success'
-        text: text.trim()
+        type: isQr ? 'qr' : type, // 'qr' | 'info' | 'warn' | 'error' | 'command' | 'success'
+        text: isQr ? text.replace(/[\r\n]+$/, '') : text.trim()
     });
     if (terminalLogs.length > 300) {
         terminalLogs.shift();

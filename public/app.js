@@ -1110,11 +1110,22 @@ async function fetchLiveLogs(forceRerender = false) {
       }
       logs.slice(-100).forEach(log => {
         const line = document.createElement('div');
-        const colorClass = log.type === 'error' ? 'term-error' :
-                           log.type === 'warn' ? 'term-warn' :
-                           log.type === 'command' ? 'term-cyan' : 'term-output';
-        line.className = `term-line ${colorClass}`;
-        line.innerHTML = `<span class="term-dim">[${log.time}]</span> ${escapeHtml(log.text)}`;
+        const isQr = log.type === 'qr' || (/[\u2580-\u2588]/.test(log.text) && log.text.includes('\n'));
+        if (isQr) {
+          line.className = 'term-line term-qr-wrapper';
+          line.innerHTML = `
+            <div class="term-qr-header"><span class="term-dim">[${log.time}]</span> <span class="term-cyan">📱 WhatsApp QR Code (Scan with phone):</span></div>
+            <div class="term-qr-container">
+              <pre class="term-qr-art">${escapeHtml(log.text)}</pre>
+            </div>
+          `;
+        } else {
+          const colorClass = log.type === 'error' ? 'term-error' :
+                             log.type === 'warn' ? 'term-warn' :
+                             log.type === 'command' ? 'term-cyan' : 'term-output';
+          line.className = `term-line ${colorClass}`;
+          line.innerHTML = `<span class="term-dim">[${log.time}]</span> ${escapeHtml(log.text)}`;
+        }
         terminalBody.appendChild(line);
       });
       terminalBody.scrollTop = terminalBody.scrollHeight;

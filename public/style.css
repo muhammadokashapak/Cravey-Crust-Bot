@@ -1872,11 +1872,59 @@ input[type="checkbox"] {
 }
 
 .term-line {
-  word-break: break-all;
+  flex-shrink: 0 !important;
+  min-height: max-content;
+  word-break: break-word;
   white-space: pre-wrap;
   overflow-wrap: break-word;
   max-width: 100%;
   overflow: hidden;
+  box-sizing: border-box;
+}
+
+.term-qr-wrapper {
+  margin: 6px 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.term-qr-header {
+  font-size: 11px;
+  font-family: var(--f-mono);
+  margin-bottom: 6px;
+  user-select: none;
+}
+
+.term-qr-container {
+  display: inline-block;
+  background: #000000 !important;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 10px 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  max-width: 100%;
+  overflow-x: auto;
+  box-sizing: border-box;
+}
+
+.term-qr-art {
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: Consolas, "Lucida Console", "Courier New", monospace !important;
+  font-size: 10px !important;
+  line-height: 0.75 !important;
+  letter-spacing: 0 !important;
+  white-space: pre !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  color: #ffffff !important;
+  background: transparent !important;
+  user-select: all;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
 }
 
 .term-system { color: #58a6ff; font-weight: 600; }
@@ -3768,12 +3816,14 @@ input:checked + .slider:before {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: var(--surface-solid);
   border: 1px solid var(--hairline-2);
   border-radius: var(--r-xl);
-  padding: 24px 20px;
-  gap: 18px;
+  padding: 18px 20px;
+  gap: 14px;
   width: 100%;
   flex: 1;
   height: 100%;
@@ -4071,7 +4121,8 @@ input:checked + .slider:before {
   overflow-x: auto;
   padding: 8px 12px;
   font-size: 11.5px;
-  line-height: 1.5;
+  line-height: 1.45;
+  gap: 2px;
 }
 
 #viewWhatsapp .terminal-input-bar {
