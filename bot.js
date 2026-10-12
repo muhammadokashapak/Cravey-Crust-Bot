@@ -1215,13 +1215,15 @@ async function handleMessage(sock, msg, session) {
         const senderNum    = sender.split(':')[0].replace('@s.whatsapp.net', '');
         const isOwnerMsg   = senderNum === botNumber || isFromMe ||
                              (cfgOwner && senderNum === cfgOwner);
+        const isOwnerCmd   = isOwnerMsg && typeof text === 'string' && text.startsWith(PREFIX);
 
-        if (!isOwnerMsg) {
-            // Forward asynchronously — never await here
+        // Only skip n8n if it is explicitly an owner command (e.g. .status, .uptime)
+        // If owner sends regular text (e.g. "hi", "paratha roll ha?"), forward to n8n AI
+        if (!isOwnerCmd) {
             setImmediate(() => sendToN8n(buildN8nPayload(sock, msg, session, text)));
             return; // Forwarded to n8n AI agent
         }
-        // Owner private message: fall through to command system below
+        // Owner command (starts with PREFIX): fall through to command system below
     }
 
     const hasMedia = Boolean(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.documentMessage);
