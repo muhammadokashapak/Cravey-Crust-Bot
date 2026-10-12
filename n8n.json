@@ -165,7 +165,7 @@
     {
       "parameters": {
         "toolDescription": "Search Cravey Crust FAQs for store timings, location, address, delivery policy, halal status, or review link.",
-        "url": "http://172.16.1.1:3000/api/internal/faqs/search",
+        "url": "https://bot.craveycrust.com/api/internal/faqs/search",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -200,7 +200,7 @@
     {
       "parameters": {
         "toolDescription": "Search active menu items by keyword (e.g. zinger, roll, fajita, pizza). Returns matching items with exact IDs, base prices and variants.",
-        "url": "http://172.16.1.1:3000/api/internal/menu/search",
+        "url": "https://bot.craveycrust.com/api/internal/menu/search",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -235,7 +235,7 @@
     {
       "parameters": {
         "toolDescription": "Call to show active categories to fresh customers (e.g. Classic Pizzas, Burgers, Deals).",
-        "url": "http://172.16.1.1:3000/api/internal/menu/categories",
+        "url": "https://bot.craveycrust.com/api/internal/menu/categories",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -261,7 +261,7 @@
     {
       "parameters": {
         "toolDescription": "Call for complete menu list. Returns all active categories with available items and variants.",
-        "url": "http://172.16.1.1:3000/api/internal/menu",
+        "url": "https://bot.craveycrust.com/api/internal/menu",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -287,7 +287,7 @@
     {
       "parameters": {
         "toolDescription": "Call for deal/combo offers. Returns active deals with deal IDs, prices, and included items.",
-        "url": "http://172.16.1.1:3000/api/internal/deals",
+        "url": "https://bot.craveycrust.com/api/internal/deals",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -313,7 +313,7 @@
     {
       "parameters": {
         "toolDescription": "Call for promo codes, discount vouchers, or active promotions.",
-        "url": "http://172.16.1.1:3000/api/internal/promotions/active",
+        "url": "https://bot.craveycrust.com/api/internal/promotions/active",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -340,7 +340,7 @@
       "parameters": {
         "toolDescription": "Check if a delivery area/neighborhood is in range. Returns available: true/false and delivery fee.",
         "method": "POST",
-        "url": "http://172.16.1.1:3000/api/internal/delivery/check",
+        "url": "https://bot.craveycrust.com/api/internal/delivery/check",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -369,7 +369,7 @@
     {
       "parameters": {
         "toolDescription": "Call ONLY when customer asks which areas Cravey Crust delivers to. Returns full list of active delivery areas.",
-        "url": "http://172.16.1.1:3000/api/internal/delivery",
+        "url": "https://bot.craveycrust.com/api/internal/delivery",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -395,7 +395,7 @@
     {
       "parameters": {
         "toolDescription": "Fetch active cart before describing, editing, or calculating totals.",
-        "url": "={{ 'http://172.16.1.1:3000/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) }}",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -435,7 +435,7 @@
       "parameters": {
         "toolDescription": "Add one verified current menu item or deal to cart. Supply exactly one of menuItemId or dealId.",
         "method": "POST",
-        "url": "={{ 'http://172.16.1.1:3000/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items' }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -465,7 +465,7 @@
       "parameters": {
         "toolDescription": "Change quantity or notes of an existing cart item. Use exact cartItemId from Get Cart.",
         "method": "PATCH",
-        "url": "={{ 'http://172.16.1.1:3000/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items/' + encodeURIComponent($fromAI('cartItemId', 'Exact cart item id returned by Get Cart.', 'string')) }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items/' + encodeURIComponent($fromAI('cartItemId', 'Exact cart item id returned by Get Cart.', 'string')) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -495,7 +495,7 @@
       "parameters": {
         "toolDescription": "Remove a cart item using its exact cartItemId from Get Cart.",
         "method": "DELETE",
-        "url": "={{ 'http://172.16.1.1:3000/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items/' + encodeURIComponent($fromAI('cartItemId', 'Exact cart item id returned by Get Cart.', 'string')) }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items/' + encodeURIComponent($fromAI('cartItemId', 'Exact cart item id returned by Get Cart.', 'string')) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -522,7 +522,7 @@
       "parameters": {
         "toolDescription": "Clear active cart when customer cancels unfinished order or asks to start over.",
         "method": "DELETE",
-        "url": "={{ 'http://172.16.1.1:3000/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -549,7 +549,7 @@
       "parameters": {
         "toolDescription": "Backend recalculates authoritative prices, discounts, delivery fee and total. Always call before presenting checkout summary.",
         "method": "POST",
-        "url": "={{ 'http://172.16.1.1:3000/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/calculate' }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/calculate' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -579,7 +579,7 @@
       "parameters": {
         "toolDescription": "Create confirmed order from active cart. Call ONLY after customer explicitly confirms the final summary.",
         "method": "POST",
-        "url": "http://172.16.1.1:3000/api/internal/orders",
+        "url": "https://bot.craveycrust.com/api/internal/orders",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -608,7 +608,7 @@
     {
       "parameters": {
         "toolDescription": "Lookup real-time status and details of an existing order using CC order number.",
-        "url": "={{ 'http://172.16.1.1:3000/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Exact CC order number, e.g. CC-20261012-0001', 'string')) }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Exact CC order number, e.g. CC-20261012-0001', 'string')) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -635,7 +635,7 @@
       "parameters": {
         "toolDescription": "Step 1 of cancellation: Record pending cancellation for an order number. Then ask customer to confirm and wait for new message.",
         "method": "POST",
-        "url": "={{ 'http://172.16.1.1:3000/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Exact CC order number.', 'string')) + '/request-cancel' }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Exact CC order number.', 'string')) + '/request-cancel' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -665,7 +665,7 @@
       "parameters": {
         "toolDescription": "Step 2 of cancellation: Finalize cancellation after customer explicitly sends yes/haan (confirmed=true) or no/nahi (confirmed=false).",
         "method": "POST",
-        "url": "={{ 'http://172.16.1.1:3000/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Exact CC order number.', 'string')) + '/confirm-cancel' }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Exact CC order number.', 'string')) + '/confirm-cancel' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -695,7 +695,7 @@
       "parameters": {
         "toolDescription": "Send confirmation to an alternate WhatsApp number ONLY if customer explicitly requested it and order creation succeeded.",
         "method": "POST",
-        "url": "http://172.16.1.1:3000/api/n8n/send-message",
+        "url": "https://bot.craveycrust.com/api/n8n/send-message",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -739,7 +739,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://172.16.1.1:3000/api/n8n/send-message",
+        "url": "https://bot.craveycrust.com/api/n8n/send-message",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
