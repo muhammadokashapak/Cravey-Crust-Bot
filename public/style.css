@@ -4148,6 +4148,8 @@ input:checked + .slider:before {
 #viewSettings .settings-card {
   padding: 12px 14px;
   border-radius: var(--r-md);
+  display: flex;
+  flex-direction: column;
 }
 
 #viewSettings .settings-card-header {
@@ -4165,6 +4167,9 @@ input:checked + .slider:before {
 
 #viewSettings .settings-fields {
   gap: 8px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 #viewSettings .input-group label {
@@ -4187,13 +4192,14 @@ input:checked + .slider:before {
   font-size: 12px;
 }
 
-#viewSettings .settings-actions-bar {
-  grid-column: 1 / -1;
+#viewSettings .settings-card-action {
+  margin-top: auto;
   display: flex;
   justify-content: flex-end;
-  padding: 4px 0 8px 0;
+  padding-top: 14px;
 }
 
+#viewSettings .settings-card-action .btn,
 #viewSettings .settings-actions-bar .btn {
   height: 32px;
   padding: 0 16px;
