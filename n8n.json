@@ -706,10 +706,25 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ sessionId: $('Webhook').first().json.body.sessionId || 'primary', chatId: $fromAI('alternateChatId', 'Alternate customer WhatsApp phone/JID with country code e.g. 923001234567@s.whatsapp.net', 'string'), message: $fromAI('confirmationMessage', 'Concise order confirmation message with order number and total', 'string') }) }}",
+        "specifyBody": "fields",
         "options": {
           "timeout": 30000
+        },
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "sessionId",
+              "value": "={{ $('Webhook').first().json.body?.sessionId || 'primary' }}"
+            },
+            {
+              "name": "chatId",
+              "value": "={{ $fromAI('alternateChatId', 'Alternate customer WhatsApp phone/JID with country code e.g. 923001234567@s.whatsapp.net', 'string') }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ $fromAI('confirmationMessage', 'Concise order confirmation message with order number and total', 'string') }}"
+            }
+          ]
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
@@ -735,10 +750,25 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ sessionId: $('Webhook').first().json.body?.sessionId || 'primary', chatId: $('Prepare Session').first().json?.chatId || $('Webhook').first().json.body?.chatId, message: $('AI Agent').first().json?.output || $json.output || '' }) }}",
+        "specifyBody": "fields",
         "options": {
           "timeout": 30000
+        },
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "sessionId",
+              "value": "={{ $('Webhook').first().json.body?.sessionId || 'primary' }}"
+            },
+            {
+              "name": "chatId",
+              "value": "={{ $('Prepare Session').first().json?.chatId || $('Webhook').first().json.body?.chatId }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ $('AI Agent').first().json?.output || $json.output || '' }}"
+            }
+          ]
         }
       },
       "type": "n8n-nodes-base.httpRequest",
