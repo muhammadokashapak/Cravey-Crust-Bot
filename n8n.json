@@ -762,7 +762,7 @@
             },
             {
               "name": "chatId",
-              "value": "={{ $('Prepare Session').first().json?.chatId || $('Webhook').first().json.body?.chatId }}"
+              "value": "={{ $('Prepare Session').first().json?.senderJid || $('Prepare Session').first().json?.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId }}"
             },
             {
               "name": "message",
