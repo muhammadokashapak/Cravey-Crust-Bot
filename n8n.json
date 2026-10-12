@@ -95,7 +95,7 @@
         "text": "={{ $json.message || 'Hello' }}",
         "needsFallback": true,
         "options": {
-          "systemMessage": "CRAVEY CRUST WHATSAPP ORDERING AGENT — STRICT RULES\n\nLANGUAGE AND STYLE:\n- Always reply in natural, polite Roman Urdu. Ask one clear question at a time. No Markdown asterisks (*) in customer-facing replies.\n- Be friendly, concise, and accurate. Never claim an action succeeded unless the relevant backend tool confirms it.\n\nLIVE DATA IS SOURCE OF TRUTH (QUERY ROUTING):\n1. RESTAURANT TIMING / ADDRESS / FAQS / INFO:\n   - When customer asks about timings, opening/closing hours, restaurant address, branch location, halal status, delivery time, delivery charges policy, or Google review link, call Search FAQs with the specific query (e.g. query=\"timing\", query=\"location\", query=\"delivery charges\").\n\n2. MENU & ITEM INQUIRIES:\n   - When greeting a fresh customer: call Get Menu Categories and show active category names only, then ask which category they want.\n   - When customer searches for a specific item, price, or availability (e.g. \"zinger burger\", \"paratha roll\", \"chicken fajita\"): call Search Menu Item with the query.\n   - When customer asks for full menu or specific category items: call Get Current Menu.\n   - For deals and combo offers: call Get Current Deals.\n   - For discount codes, vouchers, or promotions: call Get Active Promotions.\n   - Never invent items, prices, or variants not returned by tools. If an item is not found, politely inform that it is currently not available on the menu.\n\n3. DELIVERY CHECKING:\n   - When customer asks if you deliver to an area (e.g. \"Kya Gulberg deliver karte hain?\") or shares an area/address before ordering: call Check Delivery Availability with areaName.\n   - If available=false, reply ONLY: \"Sorry, ye location hamari current delivery range mein nahi aati, is liye yahan delivery possible nahi hai.\"\n   - Only call Get Delivery Areas if customer explicitly asks \"Aap kin kin areas mein deliver karte hain?\".\n\n4. CART & PRICING (BACKEND OWNS THE DATA):\n   - Always call Get Cart to inspect the active backend cart before editing, showing summary, or checkout.\n   - To add items: use Add to Cart with exact menuItemId + optional variantId from Search/Menu tools, or exact dealId from Get Current Deals. Never pass menuItemId and dealId together.\n   - To update quantity: use Update Cart Item with exact cartItemId from Get Cart.\n   - To remove an item: use Remove Cart Item with exact cartItemId.\n   - To cancel an unfinished cart: call Clear Cart.\n   - Before presenting the final summary: ALWAYS call Calculate Cart Totals with the customer-confirmed delivery area/address. Never calculate subtotals, delivery fees, or totals yourself.\n\n5. CHECKOUT / ORDER CREATION:\n   - Collect customer name, contact phone (set contactNumberMode=\"same_whatsapp\" for current WhatsApp number or \"provided\" if customer gives digits), full delivery address/area, and payment method (COD or Easypaisa).\n   - Show a final summary including: items, quantities, subtotal, delivery fee, total, address, contact choice, and payment method.\n   - WAIT for an explicit confirmation (\"Haan confirm hai / Yes\") from customer.\n   - Only then call Create Confirmed Order exactly once. Use data.orderNumber returned.\n   - If customer requested confirmation on another WhatsApp number, call Send Alternate Confirmation with that number and summary.\n\n6. ORDER STATUS LOOKUP:\n   - When customer asks \"Mera order kahan hai?\" or gives an order number: call Get Order Status with orderNumber.\n\n7. CANCELLATION (TWO SEPARATE TURNS):\n   - Turn 1: Customer asks to cancel order #[ORDER_NUMBER]. Call Request Order Cancellation. Then ask: \"Ji, kya aap waqai order #[ORDER_NUMBER] cancel karna chahte hain? Haan ya Nahi confirm kar dein.\"\n   - Turn 2: Only after a NEW message where customer explicitly says yes/haan, call Confirm Order Cancellation with confirmed=true. If customer says no/nahi, call with confirmed=false."
+          "systemMessage": "CRAVEY CRUST WHATSAPP ORDERING AGENT \u2014 STRICT RULES\n\nLANGUAGE AND STYLE:\n- Always reply in natural, polite Roman Urdu. Ask one clear question at a time. No Markdown asterisks (*) in customer-facing replies.\n- Be friendly, concise, and accurate. Never claim an action succeeded unless the relevant backend tool confirms it.\n\nLIVE DATA IS SOURCE OF TRUTH (QUERY ROUTING):\n1. RESTAURANT TIMING / ADDRESS / FAQS / INFO:\n   - When customer asks about timings, opening/closing hours, restaurant address, branch location, halal status, delivery time, delivery charges policy, or Google review link, call Search FAQs with the specific query (e.g. query=\"timing\", query=\"location\", query=\"delivery charges\").\n\n2. MENU & ITEM INQUIRIES:\n   - When greeting a fresh customer: call Get Menu Categories and show active category names only, then ask which category they want.\n   - When customer searches for a specific item, price, or availability (e.g. \"zinger burger\", \"paratha roll\", \"chicken fajita\"): call Search Menu Item with the query.\n   - When customer asks for full menu or specific category items: call Get Current Menu.\n   - For deals and combo offers: call Get Current Deals.\n   - For discount codes, vouchers, or promotions: call Get Active Promotions.\n   - Never invent items, prices, or variants not returned by tools. If an item is not found, politely inform that it is currently not available on the menu.\n\n3. DELIVERY CHECKING:\n   - When customer asks if you deliver to an area (e.g. \"Kya Gulberg deliver karte hain?\") or shares an area/address before ordering: call Check Delivery Availability with areaName.\n   - If available=false, reply ONLY: \"Sorry, ye location hamari current delivery range mein nahi aati, is liye yahan delivery possible nahi hai.\"\n   - Only call Get Delivery Areas if customer explicitly asks \"Aap kin kin areas mein deliver karte hain?\".\n\n4. CART & PRICING (BACKEND OWNS THE DATA):\n   - Always call Get Cart to inspect the active backend cart before editing, showing summary, or checkout.\n   - To add items: use Add to Cart with exact menuItemId + optional variantId from Search/Menu tools, or exact dealId from Get Current Deals. Never pass menuItemId and dealId together.\n   - To update quantity: use Update Cart Item with exact cartItemId from Get Cart.\n   - To remove an item: use Remove Cart Item with exact cartItemId.\n   - To cancel an unfinished cart: call Clear Cart.\n   - Before presenting the final summary: ALWAYS call Calculate Cart Totals with the customer-confirmed delivery area/address. Never calculate subtotals, delivery fees, or totals yourself.\n\n5. CHECKOUT / ORDER CREATION:\n   - Collect customer name, contact phone (set contactNumberMode=\"same_whatsapp\" for current WhatsApp number or \"provided\" if customer gives digits), full delivery address/area, and payment method (COD or Easypaisa).\n   - Show a final summary including: items, quantities, subtotal, delivery fee, total, address, contact choice, and payment method.\n   - WAIT for an explicit confirmation (\"Haan confirm hai / Yes\") from customer.\n   - Only then call Create Confirmed Order exactly once. Use data.orderNumber returned.\n   - If customer requested confirmation on another WhatsApp number, call Send Alternate Confirmation with that number and summary.\n\n6. ORDER STATUS LOOKUP:\n   - When customer asks \"Mera order kahan hai?\" or gives an order number: call Get Order Status with orderNumber.\n\n7. CANCELLATION (TWO SEPARATE TURNS):\n   - Turn 1: Customer asks to cancel order #[ORDER_NUMBER]. Call Request Order Cancellation. Then ask: \"Ji, kya aap waqai order #[ORDER_NUMBER] cancel karna chahte hain? Haan ya Nahi confirm kar dein.\"\n   - Turn 2: Only after a NEW message where customer explicitly says yes/haan, call Confirm Order Cancellation with confirmed=true. If customer says no/nahi, call with confirmed=false."
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
@@ -352,7 +352,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { areaName: $fromAI('areaName', 'Customer confirmed delivery area name, e.g. Ghauri Town, Tarlai, etc.', 'string'), latitude: $fromAI('latitude', 'Optional latitude from pinned location', 'number'), longitude: $fromAI('longitude', 'Optional longitude from pinned location', 'number') } }}",
+        "jsonBody": "={{ JSON.stringify({ areaName: $fromAI('areaName', 'Customer confirmed delivery area name, e.g. Ghauri Town, Tarlai, etc.', 'string'), latitude: $fromAI('latitude', 'Optional latitude from pinned location', 'number'), longitude: $fromAI('longitude', 'Optional longitude from pinned location', 'number') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -447,7 +447,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { menuItemId: $fromAI('menuItemId', 'Exact menu item id returned by menu tools. Leave empty when adding a deal.', 'string'), variantId: $fromAI('variantId', 'Exact selected variant id, or empty if none applies.', 'string'), dealId: $fromAI('dealId', 'Exact deal id from Get Current Deals. Leave empty when adding a menu item.', 'string'), quantity: $fromAI('quantity', 'Positive integer quantity.', 'number'), notes: $fromAI('notes', 'Special item instructions, otherwise empty.', 'string') } }}",
+        "jsonBody": "={{ JSON.stringify({ menuItemId: $fromAI('menuItemId', 'Exact menu item id returned by menu tools. Leave empty when adding a deal.', 'string'), variantId: $fromAI('variantId', 'Exact selected variant id, or empty if none applies.', 'string'), dealId: $fromAI('dealId', 'Exact deal id from Get Current Deals. Leave empty when adding a menu item.', 'string'), quantity: $fromAI('quantity', 'Positive integer quantity.', 'number'), notes: $fromAI('notes', 'Special item instructions, otherwise empty.', 'string') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -477,7 +477,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { quantity: $fromAI('quantity', 'New positive quantity, or 0 to remove.', 'number'), notes: $fromAI('notes', 'Updated instructions; leave empty if not changing.', 'string') } }}",
+        "jsonBody": "={{ JSON.stringify({ quantity: $fromAI('quantity', 'New positive quantity, or 0 to remove.', 'number'), notes: $fromAI('notes', 'Updated instructions; leave empty if not changing.', 'string') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -561,7 +561,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { promoCode: $fromAI('promoCode', 'Customer promo code or empty.', 'string'), deliveryAreaId: $fromAI('deliveryAreaId', 'Verified delivery area id if known, otherwise empty.', 'string'), deliveryAreaName: $fromAI('deliveryAreaName', 'Customer confirmed delivery area/neighborhood.', 'string'), latitude: $fromAI('latitude', 'Verified latitude if pinned, otherwise empty.', 'number'), longitude: $fromAI('longitude', 'Verified longitude if pinned, otherwise empty.', 'number') } }}",
+        "jsonBody": "={{ JSON.stringify({ promoCode: $fromAI('promoCode', 'Customer promo code or empty.', 'string'), deliveryAreaId: $fromAI('deliveryAreaId', 'Verified delivery area id if known, otherwise empty.', 'string'), deliveryAreaName: $fromAI('deliveryAreaName', 'Customer confirmed delivery area/neighborhood.', 'string'), latitude: $fromAI('latitude', 'Verified latitude if pinned, otherwise empty.', 'number'), longitude: $fromAI('longitude', 'Verified longitude if pinned, otherwise empty.', 'number') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -591,7 +591,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { sessionKey: $('Prepare Session').first().json.sessionKey, customerName: $fromAI('customerName', 'Customer name explicitly provided by customer.', 'string'), phone: $fromAI('phone', 'Exact phone when contactNumberMode is provided; otherwise empty.', 'string'), contactNumberMode: $fromAI('contactNumberMode', 'same_whatsapp or provided.', 'string'), confirmationNumberMode: $fromAI('confirmationNumberMode', 'default, same_whatsapp, or provided.', 'string'), confirmationPhone: $fromAI('confirmationPhone', 'Alternate confirmation number if customer requested; otherwise empty.', 'string'), delivery: { address: $fromAI('deliveryAddress', 'Full customer-confirmed delivery address.', 'string'), areaName: $fromAI('deliveryAreaName', 'Customer-confirmed delivery area/neighborhood.', 'string'), areaId: $fromAI('deliveryAreaId', 'Verified delivery area id if available; otherwise empty.', 'string'), latitude: $('Webhook').first().json.body.location?.latitude ?? undefined, longitude: $('Webhook').first().json.body.location?.longitude ?? undefined, googleMapsUrl: $('Webhook').first().json.body.location?.mapUrl || $('Webhook').first().json.body.location?.originalUrl || '' }, paymentMethod: $fromAI('paymentMethod', 'COD or EASYPAISA, as selected by customer.', 'string'), promoCode: $fromAI('promoCode', 'Customer promo code or empty.', 'string'), notes: $fromAI('notes', 'Special instructions or empty.', 'string'), idempotencyKey: $('Prepare Session').first().json.messageId || undefined } }}",
+        "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey, customerName: $fromAI('customerName', 'Customer name explicitly provided by customer.', 'string'), phone: $fromAI('phone', 'Exact phone when contactNumberMode is provided; otherwise empty.', 'string'), contactNumberMode: $fromAI('contactNumberMode', 'same_whatsapp or provided.', 'string'), confirmationNumberMode: $fromAI('confirmationNumberMode', 'default, same_whatsapp, or provided.', 'string'), confirmationPhone: $fromAI('confirmationPhone', 'Alternate confirmation number if customer requested; otherwise empty.', 'string'), delivery: { address: $fromAI('deliveryAddress', 'Full customer-confirmed delivery address.', 'string'), areaName: $fromAI('deliveryAreaName', 'Customer-confirmed delivery area/neighborhood.', 'string'), areaId: $fromAI('deliveryAreaId', 'Verified delivery area id if available; otherwise empty.', 'string'), latitude: $('Webhook').first().json.body.location?.latitude ?? undefined, longitude: $('Webhook').first().json.body.location?.longitude ?? undefined, googleMapsUrl: $('Webhook').first().json.body.location?.mapUrl || $('Webhook').first().json.body.location?.originalUrl || '' }, paymentMethod: $fromAI('paymentMethod', 'COD or EASYPAISA, as selected by customer.', 'string'), promoCode: $fromAI('promoCode', 'Customer promo code or empty.', 'string'), notes: $fromAI('notes', 'Special instructions or empty.', 'string'), idempotencyKey: $('Prepare Session').first().json.messageId || undefined }) }}",
         "options": {
           "timeout": 60000
         }
@@ -647,7 +647,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { sessionKey: $('Prepare Session').first().json.sessionKey } }}",
+        "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey }) }}",
         "options": {
           "timeout": 30000
         }
@@ -677,7 +677,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { sessionKey: $('Prepare Session').first().json.sessionKey, confirmed: $fromAI('confirmed', 'Boolean true on yes/haan; false on no/nahi.', 'boolean') } }}",
+        "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey, confirmed: $fromAI('confirmed', 'Boolean true on yes/haan; false on no/nahi.', 'boolean') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -707,7 +707,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { sessionId: $('Webhook').first().json.body.sessionId || 'primary', chatId: $fromAI('alternateChatId', 'Alternate customer WhatsApp phone/JID with country code e.g. 923001234567@s.whatsapp.net', 'string'), message: $fromAI('confirmationMessage', 'Concise order confirmation message with order number and total', 'string') } }}",
+        "jsonBody": "={{ JSON.stringify({ sessionId: $('Webhook').first().json.body.sessionId || 'primary', chatId: $fromAI('alternateChatId', 'Alternate customer WhatsApp phone/JID with country code e.g. 923001234567@s.whatsapp.net', 'string'), message: $fromAI('confirmationMessage', 'Concise order confirmation message with order number and total', 'string') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -736,7 +736,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { sessionId: $('Webhook').first().json.body.sessionId || 'primary', chatId: $('Prepare Session').first().json.chatId, message: $('AI Agent').first().json.output } }}",
+        "jsonBody": "={{ JSON.stringify({ sessionId: $('Webhook').first().json.body?.sessionId || 'primary', chatId: $('Prepare Session').first().json?.chatId || $('Webhook').first().json.body?.chatId, message: $('AI Agent').first().json?.output || $json.output || '' }) }}",
         "options": {
           "timeout": 30000
         }
