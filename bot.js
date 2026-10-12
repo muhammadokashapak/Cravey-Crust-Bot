@@ -74,6 +74,7 @@ import adminFaqCategoriesRouter from './routes/admin/faqCategories.js';
 import adminFaqsRouter from './routes/admin/faqs.js';
 import internalFaqsRouter from './routes/internal/faqs.js';
 import internalFaqCategoriesRouter from './routes/internal/faqCategories.js';
+import internalRestaurantRouter from './routes/internal/restaurant.js';
 
 // ─── Phase 5: WhatsApp Ordering Orchestrator ──────────────
 import { flags } from './src/config/flags.js';
@@ -218,6 +219,8 @@ app.use('/api/internal/cart', requireInternalSecret, internalCartRouter);
 app.use('/api/internal/orders', requireInternalSecret, internalOrdersRouter);
 app.use('/api/internal/faqs', requireInternalSecret, internalFaqsRouter);
 app.use('/api/internal/faq-categories', requireInternalSecret, internalFaqCategoriesRouter);
+app.use('/api/internal/restaurant', requireInternalSecret, internalRestaurantRouter);
+app.use('/api/internal/store/info', requireInternalSecret, internalRestaurantRouter);
 
 // ─── Dashboard Authentication & Protection ────────────────
 // Open auth endpoints supporting both DB AdminUser (bcrypt) and legacy .env credentials
