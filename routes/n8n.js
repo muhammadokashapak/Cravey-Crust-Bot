@@ -53,6 +53,9 @@ router.post('/send-message', async (req, res) => {
 
     // ── Step 2: Validate Input ────────────────────────────
     let { sessionId, chatId, message } = req.body || {};
+    if (!sessionId && req.query?.sessionId) sessionId = req.query.sessionId;
+    if (!chatId && req.query?.chatId) chatId = req.query.chatId;
+    if (!message && req.query?.message) message = req.query.message;
 
     if (!sessionId || typeof sessionId !== 'string' || !sessionId.trim()) {
         sessionId = 'primary';

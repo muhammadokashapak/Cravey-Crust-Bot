@@ -10,10 +10,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -800,
-        400
+        784,
+        1872
       ],
-      "id": "020f20d0-c031-45cc-a329-a557421bcd29",
+      "id": "dc691574-2838-42c8-bf93-b0eb2edfa1a4",
       "name": "Webhook",
       "webhookId": "5eac53b2-0d19-443a-9b0f-d5373e9a61dd"
     },
@@ -83,10 +83,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -560,
-        400
+        1024,
+        1872
       ],
-      "id": "f38d0d94-b1c8-4db7-9368-0e4584bde896",
+      "id": "e2393564-f628-431b-8de8-a930bdb1ad69",
       "name": "Prepare Session"
     },
     {
@@ -95,16 +95,16 @@
         "text": "={{ $json.message || 'Hello' }}",
         "needsFallback": true,
         "options": {
-          "systemMessage": "DYNAMIC WHATSAPP ORDERING AGENT \u2014 STRICT OPERATING RULES\n\n1. 100% DYNAMIC \u2014 NO HARDCODED DATA:\n- NEVER hardcode any restaurant name, bot persona name, timings, address, menu items, categories, deals, or discount codes.\n- Call Get Store Info or Search FAQs to know the live restaurant name, bot name, address, timings, and EasyPaisa account.\n- Call Get Menu Categories to see active categories.\n- Call Get Current Menu to see all active menu items, variants, and live prices.\n- Call Search Menu Item when a customer asks for a specific food item (e.g. roll, burger, pizza).\n- Call Get Current Deals when a customer asks for deals or combo offers.\n- Call Get Active Promotions when a customer asks for discount vouchers or promo codes. If the tool returns empty (data: []), reply: 'Filhal koi active discount code dastiyab nahi hai, lekin aap hamari mazedar deals enjoy kar sakte hain!'. NEVER assume or invent old promo codes like SAVINGS30 from memory.\n- If an item or deal is deleted from the dashboard, the tool will NOT return it \u2014 politely inform the customer that it is currently not available.\n- If a new item or deal is added to the dashboard, the tool will return it \u2014 present it with its exact name and price.\n\n2. NO ASTERISKS / STARS (*):\n- CRITICAL: NEVER output any asterisks (*) or double asterisks (**) in any customer reply. Absolutely NO stars.\n- Output clean plain text, numbers, or dashes (-) for bullet points. Bold markup with stars is strictly prohibited.\n\n3. LANGUAGE & TONE:\n- Always reply in natural, polite Roman Urdu. Ask one clear question at a time. Be friendly and concise.\n\n4. CART & PRICING (BACKEND OWNS DATA):\n- Always call Get Cart to inspect the active backend cart.\n- To add items: use Add to Cart with exact menuItemId + optional variantId, or exact dealId. Never pass menuItemId and dealId together.\n- To update quantity: use Update Cart Item with exact cartItemId.\n- To remove an item: use Remove Cart Item with exact cartItemId.\n- To cancel an unfinished cart: call Clear Cart.\n- Before presenting the final summary: ALWAYS call Calculate Cart Totals with the customer-confirmed delivery area/address. Never calculate subtotals, delivery fees, or totals yourself.\n\n5. CHECKOUT & ORDER CREATION:\n- Collect customer name, contact phone (set contactNumberMode=\"same_whatsapp\" for current WhatsApp number or \"provided\" if customer gives digits), full delivery address/area, and payment method (COD or Easypaisa).\n- Show a final summary including: items, quantities, subtotal, delivery fee, total, address, contact choice, and payment method (WITHOUT ANY ASTERISKS).\n- WAIT for an explicit confirmation (\"Haan confirm hai / Yes\") from customer.\n- Only then call Create Confirmed Order exactly once. Use data.orderNumber returned.\n- If customer requested confirmation on another WhatsApp number, call Send Alternate Confirmation with that number and summary.\n\n6. ORDER STATUS LOOKUP:\n- When customer asks \"Mera order kahan hai?\" or gives an order number: call Get Order Status with orderNumber.\n\n7. CANCELLATION (TWO SEPARATE TURNS):\n- Turn 1: Customer asks to cancel order #[ORDER_NUMBER]. Call Request Order Cancellation. Then ask: \"Ji, kya aap waqai order #[ORDER_NUMBER] cancel karna chahte hain? Haan ya Nahi confirm kar dein.\"\n- Turn 2: Only after a NEW message where customer explicitly says yes/haan, call Confirm Order Cancellation with confirmed=true. If customer says no/nahi, call with confirmed=false."
+          "systemMessage": "DYNAMIC WHATSAPP ORDERING AGENT — STRICT OPERATING RULES\n\n1. 100% DYNAMIC — NO HARDCODED DATA:\n- NEVER hardcode any restaurant name, bot persona name, timings, address, menu items, categories, deals, or discount codes.\n- Call Get Store Info or Search FAQs to know the live restaurant name, bot name, address, timings, and EasyPaisa account.\n- Call Get Menu Categories to see active categories.\n- Call Get Current Menu to see all active menu items, variants, and live prices.\n- Call Search Menu Item when a customer asks for a specific food item (e.g. roll, burger, pizza).\n- Call Get Current Deals when a customer asks for deals or combo offers.\n- Call Get Active Promotions when a customer asks for discount vouchers or promo codes. If the tool returns empty (data: []), reply: 'Filhal koi active discount code dastiyab nahi hai, lekin aap hamari mazedar deals enjoy kar sakte hain!'. NEVER assume or invent old promo codes like SAVINGS30 from memory.\n- If an item or deal is deleted from the dashboard, the tool will NOT return it — politely inform the customer that it is currently not available.\n- If a new item or deal is added to the dashboard, the tool will return it — present it with its exact name and price.\n\n2. NO ASTERISKS / STARS (*):\n- CRITICAL: NEVER output any asterisks (*) or double asterisks (**) in any customer reply. Absolutely NO stars.\n- Output clean plain text, numbers, or dashes (-) for bullet points. Bold markup with stars is strictly prohibited.\n\n3. LANGUAGE & TONE:\n- Always reply in natural, polite Roman Urdu. Ask one clear question at a time. Be friendly and concise.\n\n4. CART & PRICING (BACKEND OWNS DATA):\n- Always call Get Cart to inspect the active backend cart.\n- To add items: use Add to Cart with exact menuItemId + optional variantId, or exact dealId. Never pass menuItemId and dealId together.\n- To update quantity: use Update Cart Item with exact cartItemId.\n- To remove an item: use Remove Cart Item with exact cartItemId.\n- To cancel an unfinished cart: call Clear Cart.\n- Before presenting the final summary: ALWAYS call Calculate Cart Totals with the customer-confirmed delivery area/address. Never calculate subtotals, delivery fees, or totals yourself.\n\n5. CHECKOUT & ORDER CREATION:\n- Collect customer name, contact phone (set contactNumberMode=\"same_whatsapp\" for current WhatsApp number or \"provided\" if customer gives digits), full delivery address/area, and payment method (COD or Easypaisa).\n- Show a final summary including: items, quantities, subtotal, delivery fee, total, address, contact choice, and payment method (WITHOUT ANY ASTERISKS).\n- WAIT for an explicit confirmation (\"Haan confirm hai / Yes\") from customer.\n- Only then call Create Confirmed Order exactly once. Use data.orderNumber returned.\n- If customer requested confirmation on another WhatsApp number, call Send Alternate Confirmation with that number and summary.\n\n6. ORDER STATUS LOOKUP:\n- When customer asks \"Mera order kahan hai?\" or gives an order number: call Get Order Status with orderNumber.\n\n7. CANCELLATION (TWO SEPARATE TURNS):\n- Turn 1: Customer asks to cancel order #[ORDER_NUMBER]. Call Request Order Cancellation. Then ask: \"Ji, kya aap waqai order #[ORDER_NUMBER] cancel karna chahte hain? Haan ya Nahi confirm kar dein.\"\n- Turn 2: Only after a NEW message where customer explicitly says yes/haan, call Confirm Order Cancellation with confirmed=true. If customer says no/nahi, call with confirmed=false."
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        -300,
-        400
+        1296,
+        1872
       ],
-      "id": "ef228c17-b535-489b-ac1a-da06b8e75cd1",
+      "id": "cd6a71f8-68b1-4dfa-9b1b-8ea39771a5c8",
       "name": "AI Agent"
     },
     {
@@ -115,10 +115,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
       "position": [
-        -500,
-        700
+        1088,
+        2176
       ],
-      "id": "fcc5e979-9060-41d1-836b-31e069e00cc9",
+      "id": "7c1cadae-55c4-40c6-bba4-639c5968598a",
       "name": "Google Gemini Chat Model",
       "credentials": {
         "googlePalmApi": {
@@ -135,10 +135,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1.2,
       "position": [
-        -320,
-        800
+        1264,
+        2272
       ],
-      "id": "533feb73-f0bf-4b43-9287-809e2e510a29",
+      "id": "d5e33270-ffda-40da-a6c4-84ea70d6cf19",
       "name": "Gemini Fallback 02",
       "credentials": {
         "googlePalmApi": {
@@ -156,11 +156,37 @@
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
       "position": [
-        -140,
-        750
+        1440,
+        2224
       ],
-      "id": "0e6cc388-2b61-4a5f-8cf1-0f7f3ecf28b8",
+      "id": "cf33efa8-578d-47aa-a4eb-b7d15f83b072",
       "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Call to fetch live restaurant name, bot assistant name, address, business hours, and payment details. ALWAYS use this instead of hardcoding any store identity.",
+        "url": "https://bot.craveycrust.com/api/internal/restaurant",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-API-Secret",
+              "value": "my-test-secret-123"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        1376,
+        2560
+      ],
+      "id": "a117aeac-d558-4fe8-ac02-56be284fcb7e",
+      "name": "Get Store Info"
     },
     {
       "parameters": {
@@ -191,10 +217,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -200,
-        950
+        1504,
+        2560
       ],
-      "id": "tool-faqs-search",
+      "id": "1a909871-980d-4712-a188-9071d907a046",
       "name": "Search FAQs"
     },
     {
@@ -226,10 +252,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -60,
-        950
+        1648,
+        2560
       ],
-      "id": "tool-menu-search",
+      "id": "56384956-b291-4226-85c8-40ab457e48e7",
       "name": "Search Menu Item"
     },
     {
@@ -252,10 +278,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        80,
-        950
+        1792,
+        2560
       ],
-      "id": "tool-menu-categories",
+      "id": "1fa9c265-5fc1-4d7c-a47f-4cf2cf10db2a",
       "name": "Get Menu Categories"
     },
     {
@@ -278,10 +304,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        220,
-        950
+        1936,
+        2560
       ],
-      "id": "e9ff5095-cd02-48a8-8974-be57e7973b0f",
+      "id": "d66eb10d-07ab-4b04-bbf2-c4644bc50837",
       "name": "Get Current Menu"
     },
     {
@@ -304,10 +330,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        360,
-        950
+        2064,
+        2560
       ],
-      "id": "fad67db1-81c5-4f64-a14b-7d0269661e64",
+      "id": "58bf1f6b-b44d-4d19-b949-61d5f040d25c",
       "name": "Get Current Deals"
     },
     {
@@ -330,10 +356,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        500,
-        950
+        2208,
+        2560
       ],
-      "id": "71547ea1-18c1-4318-9dd5-dad87a52816c",
+      "id": "eaa8c247-9cb8-4fd2-b580-f9e46adb6bb8",
       "name": "Get Active Promotions"
     },
     {
@@ -360,10 +386,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        640,
-        950
+        2352,
+        2560
       ],
-      "id": "tool-delivery-check",
+      "id": "aa3b18d4-5dd6-4a8a-92ed-c1458d9fa8be",
       "name": "Check Delivery Availability"
     },
     {
@@ -386,10 +412,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        780,
-        950
+        2496,
+        2560
       ],
-      "id": "tool-delivery-areas",
+      "id": "6f97f443-b1cb-4d11-88ab-dc0368cfda8a",
       "name": "Get Delivery Areas"
     },
     {
@@ -425,10 +451,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        200,
-        150
+        1904,
+        1760
       ],
-      "id": "94ea650d-85f8-4e43-a575-425860cec834",
+      "id": "19a69dbb-7d14-4663-bc34-3cf974b9e354",
       "name": "Get Cart"
     },
     {
@@ -455,10 +481,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        340,
-        150
+        2048,
+        1760
       ],
-      "id": "5a754353-5eb2-4aac-8ea3-a4a5117e0398",
+      "id": "d8e820a7-3d42-4b90-89a5-be810b657244",
       "name": "Add to Cart"
     },
     {
@@ -485,10 +511,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        480,
-        150
+        2192,
+        1760
       ],
-      "id": "dc49dab8-0a3c-4598-89b4-41608a70af65",
+      "id": "a6ea9a09-3f3c-4a23-b36f-bcd3d3a9feaf",
       "name": "Update Cart Item"
     },
     {
@@ -512,10 +538,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        620,
-        150
+        2336,
+        1760
       ],
-      "id": "d6dd4833-431b-4cce-818b-8ff6ac02db31",
+      "id": "f79c72ce-66dd-43f0-8727-e7b92d6a1260",
       "name": "Remove Cart Item"
     },
     {
@@ -539,10 +565,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        760,
-        150
+        2464,
+        1760
       ],
-      "id": "97dc00e5-65f1-4bc2-b1f1-0476692a6219",
+      "id": "108e4e37-f7cc-45ae-a7e1-ebf7b5ed2f6b",
       "name": "Clear Cart"
     },
     {
@@ -569,10 +595,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        200,
-        -50
+        1904,
+        1552
       ],
-      "id": "c65d2c1a-f367-443e-821c-77caba1d61ed",
+      "id": "bd9b2799-19f8-4dfc-9b7e-28a421078ef4",
       "name": "Calculate Cart Totals"
     },
     {
@@ -591,7 +617,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey, customerName: $fromAI('customerName', 'Customer name explicitly provided by customer.', 'string'), phone: $fromAI('phone', 'Exact phone when contactNumberMode is provided; otherwise empty.', 'string'), contactNumberMode: $fromAI('contactNumberMode', 'same_whatsapp or provided.', 'string'), confirmationNumberMode: $fromAI('confirmationNumberMode', 'default, same_whatsapp, or provided.', 'string'), confirmationPhone: $fromAI('confirmationPhone', 'Alternate confirmation number if customer requested; otherwise empty.', 'string'), delivery: { address: $fromAI('deliveryAddress', 'Full customer-confirmed delivery address.', 'string'), areaName: $fromAI('deliveryAreaName', 'Customer-confirmed delivery area/neighborhood.', 'string'), areaId: $fromAI('deliveryAreaId', 'Verified delivery area id if available; otherwise empty.', 'string'), latitude: $('Webhook').first().json.body.location?.latitude ?? undefined, longitude: $('Webhook').first().json.body.location?.longitude ?? undefined, googleMapsUrl: $('Webhook').first().json.body.location?.mapUrl || $('Webhook').first().json.body.location?.originalUrl || '' }, paymentMethod: $fromAI('paymentMethod', 'COD or EASYPAISA, as selected by customer.', 'string'), promoCode: $fromAI('promoCode', 'Customer promo code or empty.', 'string'), notes: $fromAI('notes', 'Special instructions or empty.', 'string'), idempotencyKey: $('Prepare Session').first().json.messageId || undefined }) }}",
+        "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey, customerName: $fromAI('customerName', 'Customer name explicitly provided by customer.', 'string'), phone: $fromAI('phone', 'Exact phone when contactNumberMode is provided; otherwise empty.', 'string'), contactNumberMode: $fromAI('contactNumberMode', 'same_whatsapp or provided.', 'string'), confirmationNumberMode: $fromAI('confirmationNumberMode', 'default, same_whatsapp, or provided.', 'string'), confirmationPhone: $fromAI('confirmationPhone', 'Alternate confirmation number if customer requested; otherwise empty.', 'string'), delivery: { address: $fromAI('deliveryAddress', 'Full customer-confirmed delivery address.', 'string'), areaName: $fromAI('deliveryAreaName', 'Customer-confirmed delivery area/neighborhood.', 'string'), areaId: $fromAI('deliveryAreaId', 'Verified delivery area id if available; otherwise empty.', 'string'), latitude: $('Webhook').first().json.body?.location?.latitude ?? undefined, longitude: $('Webhook').first().json.body?.location?.longitude ?? undefined, googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || '' }, paymentMethod: $fromAI('paymentMethod', 'COD or EASYPAISA, as selected by customer.', 'string'), promoCode: $fromAI('promoCode', 'Customer promo code or empty.', 'string'), notes: $fromAI('notes', 'Special instructions or empty.', 'string'), idempotencyKey: $('Prepare Session').first().json.messageId || undefined }) }}",
         "options": {
           "timeout": 60000
         }
@@ -599,10 +625,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        340,
-        -50
+        2048,
+        1552
       ],
-      "id": "755529fc-c0b6-49a2-88bc-14206e0ea6dc",
+      "id": "e9e45087-12cd-4a0e-b531-4880f2ca4d6d",
       "name": "Create Confirmed Order"
     },
     {
@@ -625,10 +651,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        480,
-        -50
+        2192,
+        1552
       ],
-      "id": "tool-order-status",
+      "id": "a0bed2d6-eebb-4a84-8037-08d3bad8dc99",
       "name": "Get Order Status"
     },
     {
@@ -655,10 +681,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        620,
-        -50
+        2336,
+        1552
       ],
-      "id": "94e3f892-5c16-45fe-9fa6-3cbe9c0158b7",
+      "id": "ed794d9c-66fb-41dd-a252-46580806bbf4",
       "name": "Request Order Cancellation"
     },
     {
@@ -685,10 +711,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        760,
-        -50
+        2464,
+        1552
       ],
-      "id": "d429310e-3c4f-44c2-87bb-eca5d1accc7e",
+      "id": "39294a6a-1fd9-4539-a0b8-07ff5bfe8d9b",
       "name": "Confirm Order Cancellation"
     },
     {
@@ -707,14 +733,11 @@
         },
         "sendBody": true,
         "specifyBody": "fields",
-        "options": {
-          "timeout": 30000
-        },
         "bodyParameters": {
           "parameters": [
             {
               "name": "sessionId",
-              "value": "={{ $('Webhook').first().json.body?.sessionId || 'primary' }}"
+              "value": "primary"
             },
             {
               "name": "chatId",
@@ -725,15 +748,18 @@
               "value": "={{ $fromAI('confirmationMessage', 'Concise order confirmation message with order number and total', 'string') }}"
             }
           ]
+        },
+        "options": {
+          "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        900,
-        -50
+        2608,
+        1552
       ],
-      "id": "43f92bc2-a3d7-4111-96bd-dacdf4c3bafe",
+      "id": "92759d6d-d98d-4a2a-aaf8-dd3c1a2c5e3d",
       "name": "Send Alternate Confirmation"
     },
     {
@@ -751,14 +777,11 @@
         },
         "sendBody": true,
         "specifyBody": "fields",
-        "options": {
-          "timeout": 30000
-        },
         "bodyParameters": {
           "parameters": [
             {
               "name": "sessionId",
-              "value": "={{ $('Webhook').first().json.body?.sessionId || 'primary' }}"
+              "value": "primary"
             },
             {
               "name": "chatId",
@@ -769,42 +792,19 @@
               "value": "={{ ($('AI Agent').first().json?.output || $json.output || '').replace(/\\*/g, '').trim() }}"
             }
           ]
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        50,
-        400
-      ],
-      "id": "59251075-24de-4626-a16c-ecc7bc1f8251",
-      "name": "Send WhatsApp Reply"
-    },
-    {
-      "parameters": {
-        "toolDescription": "Call to fetch live restaurant name, bot assistant name, address, business hours, and payment details. ALWAYS use this instead of hardcoding any store identity.",
-        "url": "https://bot.craveycrust.com/api/internal/restaurant",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Internal-API-Secret",
-              "value": "my-test-secret-123"
-            }
-          ]
         },
         "options": {
           "timeout": 30000
         }
       },
-      "type": "n8n-nodes-base.httpRequestTool",
+      "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -220,
-        1088
+        1760,
+        2016
       ],
-      "id": "tool-store-info",
-      "name": "Get Store Info"
+      "id": "a184adb1-ef6a-4eb5-8a94-d78eab28250e",
+      "name": "Send WhatsApp Reply"
     }
   ],
   "connections": {
@@ -869,6 +869,17 @@
           {
             "node": "AI Agent",
             "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Store Info": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
             "index": 0
           }
         ]
@@ -1073,17 +1084,6 @@
       ]
     },
     "Send Alternate Confirmation": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Store Info": {
       "ai_tool": [
         [
           {
