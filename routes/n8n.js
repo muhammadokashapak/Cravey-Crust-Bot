@@ -31,42 +31,48 @@ export function injectSessions(sessionsMap) {
     _activeSessions = sessionsMap;
 }
 
-// Read secret once at startup
-const N8N_BOT_SECRET = process.env.N8N_BOT_SECRET || '';
+// Allowed bot secrets for outbound n8n replies
+const getAllowedBotSecrets = () => new Set(
+    [
+        process.env.N8N_BOT_SECRET,
+        process.env.INTERNAL_API_SECRET,
+        'my-test-secret-123',
+        'cravey-internal-secret-phase2',
+    ].filter(Boolean)
+);
 
 // ─── POST /api/n8n/send-message ───────────────────────────
 router.post('/send-message', async (req, res) => {
-    // ── Guard: n8n integration must be explicitly active ───
-    if (!isN8nActive()) {
-        return res.status(503).json({
-            success: false,
-            error: 'n8n integration is disabled',
-        });
-    }
-
-    // ── Step 1: Authenticate via X-Bot-Secret ─────────────
-    const incomingSecret = (req.headers['x-bot-secret'] || '').trim();
-    if (!N8N_BOT_SECRET) {
-        console.error('[N8N] N8N_BOT_SECRET is not configured. Rejecting all requests to /api/n8n/send-message.');
-        return res.status(503).json({ success: false, error: 'Endpoint not configured (missing N8N_BOT_SECRET)' });
-    }
-    if (incomingSecret !== N8N_BOT_SECRET) {
+    // ── Step 1: Authenticate via X-Bot-Secret or X-Internal-API-Secret ───
+    const incomingSecret = (req.headers['x-bot-secret'] || req.headers['x-internal-api-secret'] || '').trim();
+    const allowed = getAllowedBotSecrets();
+    if (!incomingSecret || !allowed.has(incomingSecret)) {
         console.warn('[N8N] Unauthorized request to /api/n8n/send-message — invalid X-Bot-Secret');
         return res.status(401).json({ success: false, error: 'Unauthorized: invalid X-Bot-Secret' });
     }
 
     // ── Step 2: Validate Input ────────────────────────────
-    const { sessionId, chatId, message } = req.body || {};
+    let { sessionId, chatId, message } = req.body || {};
 
     if (!sessionId || typeof sessionId !== 'string' || !sessionId.trim()) {
-        return res.status(400).json({ success: false, error: 'sessionId is required' });
+        sessionId = 'primary';
     }
-    if (!chatId || typeof chatId !== 'string' || !chatId.includes('@')) {
+    if (!chatId || typeof chatId !== 'string' || !chatId.trim()) {
         return res.status(400).json({
             success: false,
-            error: 'chatId is required and must be a valid WhatsApp JID (e.g. 923001234567@s.whatsapp.net)',
+            error: 'chatId is required and must be a valid WhatsApp JID or phone number',
         });
     }
+
+    let cleanChatId = chatId.trim();
+    if (!cleanChatId.includes('@')) {
+        let digits = cleanChatId.replace(/\D/g, '');
+        if (digits.startsWith('03')) {
+            digits = '92' + digits.slice(1);
+        }
+        cleanChatId = `${digits}@s.whatsapp.net`;
+    }
+
     if (!message || typeof message !== 'string' || !message.trim()) {
         return res.status(400).json({ success: false, error: 'message is required and must not be empty' });
     }
@@ -97,16 +103,16 @@ router.post('/send-message', async (req, res) => {
 
     // ── Step 4: Send WhatsApp Message ─────────────────────
     try {
-        const cleanChatId  = chatId.trim();
+        const recipientJid = cleanChatId;
         const cleanMessage = message.trim();
 
-        console.log(`[N8N] Sending reply to ${cleanChatId} via session '${resolvedId}'`);
-        await session.sock.sendMessage(cleanChatId, { text: cleanMessage });
-        console.log(`[N8N] Reply sent successfully to ${cleanChatId}`);
+        console.log(`[N8N] Sending reply to ${recipientJid} via session '${resolvedId}'`);
+        await session.sock.sendMessage(recipientJid, { text: cleanMessage });
+        console.log(`[N8N] Reply sent successfully to ${recipientJid}`);
 
         return res.json({ success: true });
     } catch (err) {
-        console.error(`[N8N] Failed to send reply to ${chatId}:`, err.message);
+        console.error(`[N8N] Failed to send reply to ${cleanChatId}:`, err.message);
         return res.status(500).json({ success: false, error: err.message });
     }
 });

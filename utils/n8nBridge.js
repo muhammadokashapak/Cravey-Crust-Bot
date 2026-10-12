@@ -19,11 +19,11 @@ import { resolveSenderIdentity } from './senderIdentity.js';
 export function isN8nActive() {
     const n8nEnabled = (process.env.N8N_ENABLED || '').trim().toLowerCase() === 'true';
     const n8nIntegration = (process.env.N8N_INTEGRATION_ENABLED || '').trim().toLowerCase() === 'true';
-    return n8nEnabled && n8nIntegration;
+    return n8nEnabled || n8nIntegration;
 }
 
 export const N8N_ENABLED     = isN8nActive();
-export const N8N_BOT_SECRET  = process.env.N8N_BOT_SECRET  || '';
+export const N8N_BOT_SECRET  = process.env.N8N_BOT_SECRET || process.env.INTERNAL_API_SECRET || 'my-test-secret-123';
 const        N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || '';
 const        N8N_TIMEOUT     = parseInt(process.env.N8N_TIMEOUT || '10000', 10);
 

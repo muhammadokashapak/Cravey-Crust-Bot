@@ -1207,6 +1207,23 @@ async function handleMessage(sock, msg, session) {
     // Private customer messages are handled directly by the restaurant ordering orchestrator
     const hasText = typeof text === 'string' && text.trim().length > 0;
     const loc = extractLocation(msg);
+    // ─── n8n Customer Message Routing (When active) ───────────────────────
+    // Route private customer messages to n8n AI Agent for automated handling.
+    if (isN8nActive() && !isFromMe && !isGroup) {
+        const botNumber    = session?.user?.number || sock.user?.id?.split(':')[0]?.split('@')[0];
+        const cfgOwner     = OWNER_NUMBER ? OWNER_NUMBER.replace(/\D/g, '') : null;
+        const senderNum    = sender.split(':')[0].replace('@s.whatsapp.net', '');
+        const isOwnerMsg   = senderNum === botNumber || isFromMe ||
+                             (cfgOwner && senderNum === cfgOwner);
+
+        if (!isOwnerMsg) {
+            // Forward asynchronously — never await here
+            setImmediate(() => sendToN8n(buildN8nPayload(sock, msg, session, text)));
+            return; // Forwarded to n8n AI agent
+        }
+        // Owner private message: fall through to command system below
+    }
+
     const hasMedia = Boolean(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.documentMessage);
     const isCustomerOrderEligible = flags.WHATSAPP_ORDERING_ENABLED &&
                                     !isFromMe &&
@@ -1245,30 +1262,6 @@ async function handleMessage(sock, msg, session) {
         } catch (orderErr) {
             console.error(`[${session.id}] WhatsApp ordering orchestrator error:`, orderErr);
         }
-    }
-
-    // ─── n8n Customer Message Routing (Only if explicitly enabled) ────────
-    // Route private customer messages to n8n for AI/automation handling.
-    //
-    // Rules:
-    //   - Only runs if BOTH N8N_ENABLED=true and N8N_INTEGRATION_ENABLED=true
-    //   - Only for PRIVATE chats (not groups)
-    //   - Only for messages NOT sent by the bot itself (fromMe guard)
-    //   - Owner messages skip this and fall through to the command system
-    //   - Fire-and-forget: does NOT block the WhatsApp event loop
-    if (isN8nActive() && !isFromMe && !isGroup) {
-        const botNumber    = session?.user?.number || sock.user?.id?.split(':')[0]?.split('@')[0];
-        const cfgOwner     = OWNER_NUMBER ? OWNER_NUMBER.replace(/\D/g, '') : null;
-        const senderNum    = sender.split(':')[0].replace('@s.whatsapp.net', '');
-        const isOwnerMsg   = senderNum === botNumber || isFromMe ||
-                             (cfgOwner && senderNum === cfgOwner);
-
-        if (!isOwnerMsg) {
-            // Forward asynchronously — never await here
-            setImmediate(() => sendToN8n(buildN8nPayload(sock, msg, session, text)));
-            return; // Stop — do NOT process as a bot command
-        }
-        // Owner private message: fall through to command system below
     }
 
     // ─── Command Processing ──────────────────────────────
