@@ -16,6 +16,7 @@ const router = express.Router();
  */
 router.get('/', async (req, res) => {
     try {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         const restaurantId = req.user?.restaurantId || req.user?.restaurant_id || await getDefaultRestaurantId();
         const { search, page, limit } = req.query;
 
@@ -44,6 +45,7 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
     try {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         const restaurantId = req.user?.restaurantId || req.user?.restaurant_id || await getDefaultRestaurantId();
         const { id } = req.params;
 
@@ -94,7 +96,16 @@ router.delete('/:id', async (req, res) => {
             data: result,
         });
     } catch (err) {
-        return res.status(err.message === 'Customer not found' ? 404 : 500).json({
+        if (err.message === 'Customer not found') {
+            // Idempotent delete: if already removed from DB, return success so client cleans up cache
+            return res.json({
+                success: true,
+                alreadyDeleted: true,
+                message: 'Customer record already deleted or not found in database',
+                data: { deleted: true, customerId: req.params.id, alreadyDeleted: true },
+            });
+        }
+        return res.status(500).json({
             success: false,
             error: err.message,
         });
@@ -123,6 +134,14 @@ router.delete('/by-phone/:phone', async (req, res) => {
             data: result,
         });
     } catch (err) {
+        if (err.message === 'Customer not found') {
+            return res.json({
+                success: true,
+                alreadyDeleted: true,
+                message: 'Customer record already deleted or not found in database',
+                data: { deleted: true, phone: req.params.phone, alreadyDeleted: true },
+            });
+        }
         return res.status(500).json({
             success: false,
             error: err.message,

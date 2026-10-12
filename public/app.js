@@ -1,6 +1,6 @@
-// ─── Automatic Client Cache Invalidation (v6.9.4) ───────────
+// ─── Automatic Client Cache Invalidation (v7.0.0) ───────────
 (function() {
-  const currentVer = '6.9.4';
+  const currentVer = '7.0.0';
   if (localStorage.getItem('cc_cache_ver') !== currentVer) {
     localStorage.setItem('cc_cache_ver', currentVer);
     // Wipe all entity cache keys
@@ -450,15 +450,19 @@ if (addAccountBtn) {
 
 // ─── Helpers ───────────────────────────────────────────────
 function setStatus(type, text) {
-  statusPill.className = 'status-pill';
-  if (type === 'online') {
-    statusPill.classList.add('status-online');
-  } else if (type === 'offline') {
-    statusPill.classList.add('status-offline');
-  } else {
-    statusPill.classList.add('status-loading');
+  if (statusPill) {
+    statusPill.className = 'status-pill';
+    if (type === 'online') {
+      statusPill.classList.add('status-online');
+    } else if (type === 'offline') {
+      statusPill.classList.add('status-offline');
+    } else {
+      statusPill.classList.add('status-loading');
+    }
   }
-  statusText.textContent = text;
+  if (statusText) {
+    statusText.textContent = text;
+  }
 }
 
 function showSection(section) {
@@ -2326,7 +2330,26 @@ async function loadDeals() {
 }
 window.loadDeals = loadDeals;
 
-function openAddDealModal() {
+function getDealCategories() {
+  const map = new Map();
+  if (Array.isArray(cachedCategoriesList)) {
+    cachedCategoriesList.forEach(c => {
+      if (c && c.id && c.name) map.set(c.id, c.name);
+    });
+  }
+  if (Array.isArray(cachedMenuItemsForDeals)) {
+    cachedMenuItemsForDeals.forEach(m => {
+      if (m.category && m.category.id && m.category.name) {
+        map.set(m.category.id, m.category.name);
+      } else if (m.category_id && !map.has(m.category_id)) {
+        map.set(m.category_id, m.category_id);
+      }
+    });
+  }
+  return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+}
+
+async function openAddDealModal() {
   const modal = document.getElementById('dealModal');
   const title = document.getElementById('dealModalTitle');
   const form = document.getElementById('dealForm');
@@ -2339,6 +2362,13 @@ function openAddDealModal() {
   if (container) container.innerHTML = '';
   const isActive = document.getElementById('dealIsActive');
   if (isActive) isActive.checked = true;
+
+  if (!cachedMenuItemsForDeals || cachedMenuItemsForDeals.length === 0) {
+    await loadMenuItemsForDeals();
+  }
+  if (!cachedCategoriesList || cachedCategoriesList.length === 0) {
+    await loadCategories();
+  }
 
   // Add one empty row
   addDealItemRow();
@@ -2362,29 +2392,79 @@ function addDealItemRow(selectedItemId = '', selectedVariantId = '', quantity = 
   row.className = 'deal-item-row';
   row.id = rowId;
 
-  const itemOptions = cachedMenuItemsForDeals.map(m => 
-    `<option value="${m.id}" ${m.id === selectedItemId ? 'selected' : ''}>${m.name} (Rs. ${m.base_price})</option>`
+  // If item is already selected, detect its category
+  let initialCategoryId = '';
+  if (selectedItemId) {
+    const foundItem = (cachedMenuItemsForDeals || []).find(m => m.id === selectedItemId);
+    if (foundItem) {
+      initialCategoryId = foundItem.category_id || (foundItem.category && foundItem.category.id) || '';
+    }
+  }
+
+  const categories = getDealCategories();
+  const categoryOptions = categories.map(c => 
+    `<option value="${c.id}" ${c.id === initialCategoryId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
   ).join('');
 
   row.innerHTML = `
-    <select class="deal-item-select" onchange="window.updateDealItemVariants('${rowId}')">
-      <option value="">Select Menu Item...</option>
-      ${itemOptions}
+    <select class="deal-category-select" title="1. Select Category" onchange="window.updateDealItemCategory('${rowId}')">
+      <option value="">Category...</option>
+      <option value="__ALL__" ${initialCategoryId === '__ALL__' ? 'selected' : ''}>All Categories</option>
+      ${categoryOptions}
     </select>
-    <select class="deal-variant-select">
+    <select class="deal-item-select" title="2. Select Item / Flavour" onchange="window.updateDealItemVariants('${rowId}')">
+      <option value="">Select Item / Flavour...</option>
+    </select>
+    <select class="deal-variant-select" title="3. Select Size / Variant">
       <option value="">Standard / Base</option>
     </select>
-    <input type="number" class="deal-qty-input" min="1" value="${quantity || 1}" title="Quantity" />
+    <input type="number" class="deal-qty-input" min="1" value="${quantity || 1}" title="Quantity" placeholder="Qty" />
     <button type="button" class="deal-item-del-btn" onclick="document.getElementById('${rowId}').remove()" title="Remove item">✕</button>
   `;
 
   container.appendChild(row);
 
-  if (selectedItemId) {
-    updateDealItemVariants(rowId, selectedVariantId);
-  }
+  updateDealItemCategory(rowId, selectedItemId, selectedVariantId);
 }
 window.addDealItemRow = addDealItemRow;
+
+function updateDealItemCategory(rowId, preselectedItemId = '', preselectedVariantId = '') {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+
+  const catSelect = row.querySelector('.deal-category-select');
+  const itemSelect = row.querySelector('.deal-item-select');
+  const varSelect = row.querySelector('.deal-variant-select');
+  if (!catSelect || !itemSelect || !varSelect) return;
+
+  const catId = catSelect.value;
+
+  // Filter items by category
+  let items = cachedMenuItemsForDeals || [];
+  if (catId && catId !== '__ALL__') {
+    items = items.filter(m => m.category_id === catId || (m.category && m.category.id === catId));
+  }
+
+  itemSelect.innerHTML = '<option value="">Select Item / Flavour...</option>';
+  if (items.length === 0) {
+    if (catId) {
+      itemSelect.innerHTML = '<option value="">No items in this category</option>';
+    } else {
+      itemSelect.innerHTML = '<option value="">Choose category first...</option>';
+    }
+  } else {
+    items.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = `${m.name} (Rs. ${m.base_price})`;
+      if (m.id === preselectedItemId) opt.selected = true;
+      itemSelect.appendChild(opt);
+    });
+  }
+
+  updateDealItemVariants(rowId, preselectedVariantId);
+}
+window.updateDealItemCategory = updateDealItemCategory;
 
 function updateDealItemVariants(rowId, preselectedVariantId = '') {
   const row = document.getElementById(rowId);
@@ -2395,9 +2475,9 @@ function updateDealItemVariants(rowId, preselectedVariantId = '') {
   if (!itemSelect || !varSelect) return;
 
   const selectedItemId = itemSelect.value;
-  const item = cachedMenuItemsForDeals.find(m => m.id === selectedItemId);
+  const item = (cachedMenuItemsForDeals || []).find(m => m.id === selectedItemId);
 
-  varSelect.innerHTML = '<option value="">Standard / Base</option>';
+  varSelect.innerHTML = '<option value="">Standard / Base Size</option>';
   if (item && item.variants && item.variants.length > 0) {
     item.variants.forEach(v => {
       const opt = document.createElement('option');
@@ -2412,6 +2492,13 @@ window.updateDealItemVariants = updateDealItemVariants;
 
 async function openEditDealModal(dealId) {
   try {
+    if (!cachedMenuItemsForDeals || cachedMenuItemsForDeals.length === 0) {
+      await loadMenuItemsForDeals();
+    }
+    if (!cachedCategoriesList || cachedCategoriesList.length === 0) {
+      await loadCategories();
+    }
+
     const res = await fetch(`/api/admin/deals/${dealId}`);
     const data = await res.json();
     if (!data.success) {
@@ -3540,14 +3627,29 @@ function renderCustomersTable() {
       <td><span class="subtext">${new Date(c.firstOrder).toLocaleDateString()}</span></td>
       <td><span class="subtext">${new Date(c.lastOrder).toLocaleDateString()}</span></td>
       <td style="text-align: right; white-space: nowrap;">
-        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window.openCustomerDetailPage('${escapeHtml(c.id || '')}', '${escapeHtml(c.phone)}', '${escapeHtml(c.name)}')">
+        <button class="btn btn-secondary btn-sm btn-view-profile">
           View Profile
         </button>
-        <button class="btn btn-danger-outline btn-sm" style="margin-left: 6px;" title="Delete customer record" onclick="event.stopPropagation(); window.confirmDeleteCustomer('${escapeHtml(c.id || '')}', '${escapeHtml(c.name || 'Customer')}', '${escapeHtml(c.phone || '')}')">
+        <button class="btn btn-danger-outline btn-sm btn-delete-customer" style="margin-left: 6px;" title="Delete customer record">
           🗑️ Delete
         </button>
       </td>
     `;
+
+    const viewBtn = tr.querySelector('.btn-view-profile');
+    if (viewBtn) {
+      viewBtn.onclick = (e) => {
+        e.stopPropagation();
+        window.openCustomerDetailPage(c.id, c.phone, c.name);
+      };
+    }
+    const delBtn = tr.querySelector('.btn-delete-customer');
+    if (delBtn) {
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        window.confirmDeleteCustomer(c.id, c.name, c.phone);
+      };
+    }
     tbody.appendChild(tr);
   });
 
@@ -3643,12 +3745,16 @@ const LocalDB = {
       localStorage.setItem(`cc_cache_${storeName}`, JSON.stringify(items));
       const db = await this.init();
       if (!db) return;
-      const tx = db.transaction(storeName, 'readwrite');
-      const store = tx.objectStore(storeName);
-      items.forEach(item => {
-        if (!item) return;
-        const record = (typeof item === 'object') ? { ...item, is_synced: isSynced } : item;
-        store.put(record);
+      return new Promise((resolve) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        items.forEach(item => {
+          if (!item) return;
+          const record = (typeof item === 'object') ? { ...item, is_synced: isSynced } : item;
+          store.put(record);
+        });
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
       });
     } catch (e) {
       console.warn('LocalDB putBatch warning for ' + storeName, e);
@@ -3661,11 +3767,51 @@ const LocalDB = {
       localStorage.removeItem(`cc_last_sync_${storeName}`);
       const db = await this.init();
       if (!db) return;
-      const tx = db.transaction(storeName, 'readwrite');
-      const store = tx.objectStore(storeName);
-      store.clear();
+      return new Promise((resolve) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        store.clear();
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      });
     } catch (e) {
       console.warn('LocalDB clear warning for ' + storeName, e);
+    }
+  },
+
+  async delete(storeName, id) {
+    try {
+      const raw = localStorage.getItem(`cc_cache_${storeName}`);
+      if (raw) {
+        try {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const filtered = list.filter(item => {
+              if (!item) return false;
+              if (item.id && id && item.id === id) return false;
+              if (item.phone && id && item.phone === id) return false;
+              if (item.whatsappPhone && id && item.whatsappPhone === id) return false;
+              return true;
+            });
+            localStorage.setItem(`cc_cache_${storeName}`, JSON.stringify(filtered));
+          }
+        } catch (_) {}
+      }
+      const db = await this.init();
+      if (!db) return;
+      return new Promise((resolve) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        if (id) {
+          try {
+            store.delete(id);
+          } catch (_) {}
+        }
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      });
+    } catch (e) {
+      console.warn('LocalDB delete warning for ' + storeName, e);
     }
   },
 
@@ -3777,26 +3923,23 @@ async function loadCustomers(forceSync = false) {
   updateSyncStatusBadge('🔄 Syncing...', true);
 
   try {
-    const res = await fetch('/api/admin/customers?limit=100');
+    const res = await fetch(`/api/admin/customers?limit=100&_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' }
+    });
     const data = await res.json();
 
     if (data.success) {
       const incoming = data.data?.customers || data.data || [];
       if (Array.isArray(incoming)) {
-        if (incoming.length === 0) {
-          cachedCustomersList = [];
-          await LocalDB.clear('customers');
-          renderCustomersTable();
-          updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
-          return;
-        } else {
-          cachedCustomersList = incoming.map(c => ({ ...c, is_synced: true }));
-          await LocalDB.clear('customers');
+        cachedCustomersList = incoming.map(c => ({ ...c, is_synced: true }));
+        await LocalDB.clear('customers');
+        if (cachedCustomersList.length > 0) {
           await LocalDB.putBatch('customers', cachedCustomersList, true);
-          renderCustomersTable();
-          updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
-          return;
         }
+        renderCustomersTable();
+        updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
+        return;
       }
     }
 
@@ -4067,6 +4210,12 @@ async function refreshActiveCustomerDetail() {
 }
 window.refreshActiveCustomerDetail = refreshActiveCustomerDetail;
 
+function closeCustomerDetailModal() {
+  const modal = document.getElementById('customerDetailModal');
+  if (modal) modal.classList.add('hidden');
+}
+window.closeCustomerDetailModal = closeCustomerDetailModal;
+
 async function confirmDeleteCustomerFromPage() {
   if (!activeCustomerDetail) return;
   const deleted = await confirmDeleteCustomer(activeCustomerDetail.id, activeCustomerDetail.name, activeCustomerDetail.phone);
@@ -4076,22 +4225,44 @@ async function confirmDeleteCustomerFromPage() {
 }
 window.confirmDeleteCustomerFromPage = confirmDeleteCustomerFromPage;
 
+async function confirmDeleteCustomerFromModal() {
+  if (!activeCustomerDetail) return;
+  const deleted = await confirmDeleteCustomer(activeCustomerDetail.id, activeCustomerDetail.name, activeCustomerDetail.phone);
+  if (deleted) {
+    closeCustomerDetailModal();
+  }
+}
+window.confirmDeleteCustomerFromModal = confirmDeleteCustomerFromModal;
+
 // ─── Delete Customer Handlers ─────────────────────────────────
 async function confirmDeleteCustomer(customerId, customerName, phone) {
   const displayName = customerName || phone || 'this customer';
-  const proceed = confirm(`Are you sure you want to delete data for "${displayName}"?\n\nThis will remove their profile and chat history from the database to save storage.`);
+  const proceed = confirm(`Are you sure you want to delete customer "${displayName}"?\n\nThis will remove their profile and chat history.`);
   if (!proceed) return false;
 
-  const deleteOrders = confirm(`Do you also want to permanently delete their past orders?\n\n• Click OK to permanently delete their order records.\n• Click Cancel to keep anonymous sales statistics.`);
+  // 1. Optimistic UI update: instantly remove from memory and table
+  cachedCustomersList = (cachedCustomersList || []).filter(c => {
+    if (customerId && c.id === customerId) return false;
+    if (phone && (c.phone === phone || c.whatsappPhone === phone)) return false;
+    return true;
+  });
+  renderCustomersTable();
+
+  // 2. Remove immediately from LocalDB (IndexedDB and localStorage)
+  if (customerId) await LocalDB.delete('customers', customerId);
+  if (phone) await LocalDB.delete('customers', phone);
+
+  // 3. Close customer detail modal if open
+  closeCustomerDetailModal();
 
   try {
     let res;
     if (customerId) {
-      res = await fetch(`/api/admin/customers/${encodeURIComponent(customerId)}?deleteOrders=${deleteOrders}`, {
+      res = await fetch(`/api/admin/customers/${encodeURIComponent(customerId)}?deleteOrders=false`, {
         method: 'DELETE',
       });
     } else if (phone && phone !== '-') {
-      res = await fetch(`/api/admin/customers/by-phone/${encodeURIComponent(phone)}?deleteOrders=${deleteOrders}`, {
+      res = await fetch(`/api/admin/customers/by-phone/${encodeURIComponent(phone)}?deleteOrders=false`, {
         method: 'DELETE',
       });
     } else {
@@ -4099,28 +4270,24 @@ async function confirmDeleteCustomer(customerId, customerName, phone) {
       return false;
     }
 
-    const data = await res.json();
-    if (data.success) {
-      showToast('Customer data deleted successfully!', 'success');
-      closeCustomerDetailModal();
-      await loadCustomers();
+    const data = await res.json().catch(() => ({}));
+    if (res.ok || data.success || data.alreadyDeleted || res.status === 404) {
+      showToast(`Customer "${displayName}" deleted successfully!`, 'success');
+      await loadCustomers(true);
       return true;
     } else {
       showToast(data.error || 'Failed to delete customer', 'error');
+      await loadCustomers(true);
       return false;
     }
   } catch (err) {
+    console.error('Delete customer error:', err);
     showToast(`Error deleting customer: ${err.message}`, 'error');
+    await loadCustomers(true);
     return false;
   }
 }
 window.confirmDeleteCustomer = confirmDeleteCustomer;
-
-function confirmDeleteCustomerFromModal() {
-  if (!activeCustomerDetail) return;
-  confirmDeleteCustomer(activeCustomerDetail.id, activeCustomerDetail.name, activeCustomerDetail.phone);
-}
-window.confirmDeleteCustomerFromModal = confirmDeleteCustomerFromModal;
 
 // ─── Bulk Cleanup / Purge Modal Controller ────────────────────
 function openCustomerCleanupModal() {
@@ -4166,7 +4333,8 @@ async function executeCustomerCleanup() {
     if (data.success) {
       showToast(`Successfully purged ${data.data?.count || 0} customer records!`, 'success');
       closeCustomerCleanupModal();
-      await loadCustomers();
+      await LocalDB.clear('customers');
+      await loadCustomers(true);
     } else {
       showToast(data.error || 'Failed to purge customer records', 'error');
     }
@@ -4569,10 +4737,10 @@ async function deleteFaq(id, question) {
     const res = await fetch(`/api/admin/faqs/${id}`, { method: 'DELETE' });
     const data = await res.json();
     if (!data.success) {
-      showToast('Error', data.error?.message || 'Failed to delete FAQ', 'error');
+      showToast(data.error?.message || 'Failed to delete FAQ', 'error');
       return;
     }
-    showToast('Deleted', 'FAQ removed from knowledge base', 'success');
+    showToast('FAQ removed from knowledge base', 'success');
     loadFaqs();
   } catch (err) {
     showToast('Error', err.message, 'error');
@@ -4760,10 +4928,10 @@ async function deleteFaqCategory(id, name, faqsCount) {
     const res = await fetch(url, { method: 'DELETE' });
     const data = await res.json();
     if (!data.success) {
-      showToast('Error', data.error?.message || 'Failed to delete category', 'error');
+      showToast(data.error?.message || 'Failed to delete category', 'error');
       return;
     }
-    showToast('Deleted', 'Category removed successfully', 'success');
+    showToast('Category removed successfully', 'success');
     loadFaqCategoriesTable();
     loadFaqCategoriesForDropdown();
     loadFaqs();

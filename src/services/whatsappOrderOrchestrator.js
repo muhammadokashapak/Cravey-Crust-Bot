@@ -144,9 +144,6 @@ export function formatCategoryResponse(category) {
                 ? `from Rs.${Number(item.variants[0].price)}` 
                 : `Rs.${Number(item.base_price)}`;
             catMsg += `${item.name}: ${priceStr}\n`;
-            if (item.description) {
-                catMsg += `${item.description}\n`;
-            }
         });
     }
     catMsg += `\nOrder karne ke liye likhein: quantity item_name (e.g. 2 ${category.menu_items?.[0]?.name || 'item'}).`;
@@ -572,7 +569,6 @@ Direct order karne ke liye item likhein (e.g. 2 Chicken Extreme ya 1 Deal 1).`,
         let dealsMsg = `${restName} Special Deals\n\n`;
         deals.forEach((d) => {
             dealsMsg += `${d.name}: Rs.${Number(d.deal_price)}\n`;
-            if (d.description) dealsMsg += `${d.description}\n`;
             if (d.deal_items && d.deal_items.length > 0) {
                 const itemsStr = d.deal_items.map(di => `${di.quantity}x ${di.menu_item?.name || 'Item'}`).join(', ');
                 dealsMsg += `Includes: ${itemsStr}\n`;
@@ -595,7 +591,6 @@ Direct order karne ke liye item likhein (e.g. 2 Chicken Extreme ya 1 Deal 1).`,
             if (targetDeal) {
                 draft.lastInquiredDeal = targetDeal;
                 let msg = `*${targetDeal.name}* (Rs. ${Number(targetDeal.deal_price)}):\n\n`;
-                if (targetDeal.description) msg += `${targetDeal.description}\n\n`;
                 if (targetDeal.deal_items && targetDeal.deal_items.length > 0) {
                     msg += `Items shamil hain:\n`;
                     targetDeal.deal_items.forEach(di => {

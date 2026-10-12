@@ -512,7 +512,6 @@ export async function resolveBusinessAnswer({
             let dealsMsg = `${restName} Special Deals\n\n`;
             deals.forEach((d) => {
                 dealsMsg += `${d.name}: Rs.${Number(d.deal_price)}\n`;
-                if (d.description) dealsMsg += `${d.description}\n`;
                 if (d.deal_items && d.deal_items.length > 0) {
                     const itemsStr = d.deal_items.map((di) => `${di.quantity}x ${di.menu_item?.name || 'Item'}`).join(', ');
                     dealsMsg += `Includes: ${itemsStr}\n`;
@@ -547,9 +546,6 @@ export async function resolveBusinessAnswer({
                         ? `from Rs.${Number(item.variants[0].price)}`
                         : `Rs.${Number(item.base_price)}`;
                 catMsg += `${item.name}: ${priceStr}\n`;
-                if (item.description) {
-                    catMsg += `${item.description}\n`;
-                }
             });
         }
         catMsg += `\nOrder karne ke liye likhein: quantity item_name (e.g. 2 ${matchedCategory.menu_items?.[0]?.name || 'item'}).`;

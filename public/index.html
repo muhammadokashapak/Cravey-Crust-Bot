@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=6.9.4">
+  <link rel="stylesheet" href="style.css?v=7.0.0">
 </head>
 <body>
   <div class="bg-fx"></div>
@@ -255,10 +255,6 @@
           <button id="btnSyncAllModules" class="btn btn-secondary btn-sm" type="button" onclick="window.syncAllModules()" title="Synchronize all cached modules (Master data & delta orders)">
             ⚡ <span>Sync All</span>
           </button>
-          <div id="statusPill" class="status-pill status-loading">
-            <span class="status-dot"></span>
-            <span id="statusText">Connecting...</span>
-          </div>
           <button id="dashLogoutBtn" class="btn-dash-logout" type="button" title="Sign out from dashboard">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -1462,8 +1458,18 @@
         <!-- Deal Items Manager -->
         <div class="deal-items-section">
           <div class="deal-items-header">
-            <h4>Items Included in this Deal</h4>
+            <div>
+              <h4 style="margin: 0; font-size: 13px;">Items Included in this Deal</h4>
+              <span class="subtext" style="font-size: 11px; display: block; margin-top: 2px;">Step-by-step: 1. Category → 2. Item/Flavour → 3. Size/Variant → 4. Quantity</span>
+            </div>
             <button type="button" id="addDealItemRowBtn" class="btn btn-secondary btn-sm" onclick="window.addDealItemRow()">+ Add Item</button>
+          </div>
+          <div class="deal-items-col-labels">
+            <span>1. Category</span>
+            <span>2. Item / Flavour</span>
+            <span>3. Size / Variant</span>
+            <span>Qty</span>
+            <span></span>
           </div>
           <div id="dealItemsContainer" class="deal-items-container">
             <!-- Dynamic rows inserted here -->
@@ -2007,6 +2013,6 @@
     <div id="toastMessage" class="toast-message">Notification</div>
   </div>
 
-  <script src="app.js?v=6.9.4"></script>
+  <script src="app.js?v=7.0.0"></script>
 </body>
 </html>
