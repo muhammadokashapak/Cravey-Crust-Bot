@@ -80,6 +80,10 @@ async function main() {
     }
     console.log(`✅ Restaurant settings: ${settings.length} seeded`);
 
+    // ── Seed Complete Live Menu, Deals, Delivery Areas, and FAQs ──────
+    const { seedCustomMenuAndFaqs } = await import('../scripts/seed_custom_menu_and_faqs.js');
+    await seedCustomMenuAndFaqs();
+
     console.log('\n🌱 Seed complete!\n');
     console.log('═══════════════════════════════════════════════');
     console.log(`  Restaurant: ${restaurant.name}`);

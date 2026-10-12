@@ -523,6 +523,29 @@ async function seed() {
     }
     console.log('✅ 12 deals created in Deals table.');
 
+    // ── 6.5. Seed Active Promotions (from Discounts sheet) ────────────────────
+    console.log('🎟️ Creating promotions from Discounts sheet...');
+    await prisma.promotionTarget.deleteMany({
+        where: { promotion: { restaurant_id: restaurantId } },
+    });
+    await prisma.promotion.deleteMany({
+        where: { restaurant_id: restaurantId },
+    });
+
+    await prisma.promotion.create({
+        data: {
+            restaurant_id: restaurantId,
+            name: 'Cravey Mega Savings',
+            code: 'SAVINGS30',
+            description: '30% discount on orders above Rs. 500 (Excluding deals)',
+            discount_type: 'PERCENTAGE',
+            discount_value: 30,
+            minimum_order: 500,
+            is_active: true,
+        },
+    });
+    console.log('✅ Active promotion Cravey Mega Savings (SAVINGS30 - 30%) created.');
+
     // ── 7. Seed FAQ Categories & FAQs ─────────────────────────────────────────
     console.log('💡 Creating FAQ categories and FAQs...');
     const faqCategoryDefs = [
@@ -602,8 +625,8 @@ async function seed() {
         {
             category: 'Payments',
             question: 'Payment Methods & EasyPaisa Details',
-            answer: 'Payment options: Cash on Delivery (COD) ya advance EasyPaisa.',
-            keywords: ['payment', 'payment methods', 'easypaisa', 'cod', 'cash on delivery', 'advance payment'],
+            answer: 'Payment options: Cash on Delivery (COD) ya advance EasyPaisa. Customer se poocho: "Aap Cash on Delivery karenge ya Easypaisa se advance? EasyPaisa number hai: 03434919319 (Muhammad Shoaib)."',
+            keywords: ['payment', 'payment methods', 'easypaisa', 'cod', 'cash on delivery', 'advance payment', '03434919319', 'muhammad shoaib'],
             alternative_questions: ['Payment kaise karein?', 'EasyPaisa number kya hai?', 'Do you accept Cash on Delivery?'],
             sort_order: 7,
         },
@@ -677,9 +700,13 @@ async function seed() {
     console.log('🎉 Database seeding complete!');
 }
 
-seed()
-    .then(() => process.exit(0))
-    .catch((err) => {
-        console.error('❌ Seeding failed:', err);
-        process.exit(1);
-    });
+export { seed as seedCustomMenuAndFaqs };
+
+if (process.argv[1] && process.argv[1].includes('seed_custom_menu_and_faqs.js')) {
+    seed()
+        .then(() => process.exit(0))
+        .catch((err) => {
+            console.error('❌ Seeding failed:', err);
+            process.exit(1);
+        });
+}
