@@ -41,17 +41,32 @@ router.get('/', async (req, res) => {
             ];
         }
 
-        const items = await prisma.menuItem.findMany({
-            where,
-            include: {
-                category: { select: { id: true, name: true, slug: true } },
-                variants: {
-                    orderBy: { sort_order: 'asc' },
-                    select: { id: true, name: true, price: true, is_available: true, sort_order: true },
+        let items;
+        try {
+            items = await prisma.menuItem.findMany({
+                where,
+                include: {
+                    category: { select: { id: true, name: true, slug: true } },
+                    variants: {
+                        orderBy: { sort_order: 'asc' },
+                        select: { id: true, name: true, price: true, is_available: true, sort_order: true },
+                    },
                 },
-            },
-            orderBy: [{ category: { sort_order: 'asc' } }, { name: 'asc' }],
-        });
+                orderBy: [{ category: { sort_order: 'asc' } }, { name: 'asc' }],
+            });
+        } catch (orderErr) {
+            console.warn('[ADMIN] Falling back to standard name sort for menu items:', orderErr.message);
+            items = await prisma.menuItem.findMany({
+                where,
+                include: {
+                    category: { select: { id: true, name: true, slug: true } },
+                    variants: {
+                        select: { id: true, name: true, price: true, is_available: true, sort_order: true },
+                    },
+                },
+                orderBy: [{ name: 'asc' }],
+            });
+        }
 
         const formatted = items.map(item => ({
             id: item.id,
@@ -63,10 +78,10 @@ router.get('/', async (req, res) => {
             spicy_level: item.spicy_level,
             is_available: item.is_available,
             is_active: item.is_active,
-            category: item.category,
+            category: item.category || { id: item.category_id, name: 'Uncategorized', slug: 'uncategorized' },
             category_id: item.category_id,
-            variants_count: item.variants.length,
-            variants: item.variants.map(v => ({
+            variants_count: Array.isArray(item.variants) ? item.variants.length : 0,
+            variants: (item.variants || []).map(v => ({
                 id: v.id,
                 name: v.name,
                 price: Number(v.price),
@@ -82,7 +97,7 @@ router.get('/', async (req, res) => {
         console.error('[ADMIN] Error listing menu items:', err);
         return res.status(500).json({
             success: false,
-            error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve menu items' },
+            error: { code: 'INTERNAL_ERROR', message: err.message || 'Failed to retrieve menu items' },
         });
     }
 });
@@ -154,7 +169,14 @@ router.post('/', async (req, res) => {
         }
 
         const prisma = getDbClient();
-        const restaurantId = req.user?.restaurantId;
+        let restaurantId = req.user?.restaurantId;
+        if (!restaurantId) {
+            try {
+                const { getDefaultRestaurantId } = await import('../../src/services/restaurantService.js');
+                restaurantId = await getDefaultRestaurantId();
+            } catch (_) {}
+        }
+
         const {
             name,
             category_id,
@@ -192,7 +214,7 @@ router.post('/', async (req, res) => {
         // Check duplicate name or slug in restaurant
         const existing = await prisma.menuItem.findFirst({
             where: {
-                restaurant_id: restaurantId,
+                ...(restaurantId ? { restaurant_id: restaurantId } : {}),
                 OR: [
                     { slug: baseSlug },
                     { name: { equals: name, mode: 'insensitive' } },

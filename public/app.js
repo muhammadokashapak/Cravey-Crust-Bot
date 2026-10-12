@@ -1,6 +1,6 @@
-// ─── Automatic Client Cache Invalidation (v7.0.0) ───────────
+// ─── Automatic Client Cache Invalidation (v7.0.1) ───────────
 (function() {
-  const currentVer = '7.0.0';
+  const currentVer = '7.0.1';
   if (localStorage.getItem('cc_cache_ver') !== currentVer) {
     localStorage.setItem('cc_cache_ver', currentVer);
     // Wipe all entity cache keys
@@ -11,17 +11,7 @@
     });
     if (window.indexedDB) {
       try {
-        const req = indexedDB.open('CraveyCrustLocalDB', 2);
-        req.onsuccess = (e) => {
-          const db = e.target.result;
-          if (db && db.objectStoreNames) {
-            const storesToClear = Array.from(db.objectStoreNames);
-            if (storesToClear.length > 0) {
-              const tx = db.transaction(storesToClear, 'readwrite');
-              storesToClear.forEach(s => tx.objectStore(s).clear());
-            }
-          }
-        };
+        indexedDB.deleteDatabase('CraveyCrustLocalDB');
       } catch (_) {}
     }
   }
@@ -1692,14 +1682,25 @@ async function loadMenuItems(resetPage = false) {
   const availFilter = document.getElementById('menuAvailFilter')?.value || '';
   const search = document.getElementById('menuSearchInput')?.value.trim() || '';
 
-  // 1. Cache-First Strategy: Instant 0ms render from LocalDB
-  if (!categoryFilter && !availFilter && !search) {
-    const localCached = await LocalDB.getAll('menu');
-    if (localCached && localCached.length > 0) {
-      cachedMenuItemsList = localCached;
-      renderMenuItemsTable();
-    } else {
-      tbody.innerHTML = '<tr><td colspan="8" class="table-empty">Loading menu items...</td></tr>';
+  // 1. Instant Render if already cached in memory
+  if (cachedMenuItemsList && cachedMenuItemsList.length > 0) {
+    renderMenuItemsTable();
+  } else if (!categoryFilter && !availFilter && !search) {
+    try {
+      const localCached = await Promise.race([
+        LocalDB.getAll('menu'),
+        new Promise(resolve => setTimeout(() => resolve([]), 200))
+      ]);
+      if (localCached && localCached.length > 0 && (!cachedMenuItemsList || cachedMenuItemsList.length === 0)) {
+        cachedMenuItemsList = localCached;
+        renderMenuItemsTable();
+      } else if (!cachedMenuItemsList || cachedMenuItemsList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="table-empty">Loading menu items...</td></tr>';
+      }
+    } catch (_) {
+      if (!cachedMenuItemsList || cachedMenuItemsList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="table-empty">Loading menu items...</td></tr>';
+      }
     }
   } else {
     tbody.innerHTML = '<tr><td colspan="8" class="table-empty">Loading menu items...</td></tr>';
@@ -1715,21 +1716,26 @@ async function loadMenuItems(resetPage = false) {
     const data = await res.json();
     if (!data.success) {
       if (!cachedMenuItemsList || cachedMenuItemsList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="table-empty" style="color: #ff6b6b;">Error: ${data.error?.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="table-empty" style="color: #ff6b6b;">Error: ${data.error?.message || 'Failed to load menu items'}</td></tr>`;
       }
       return;
     }
 
     const items = data.data || [];
     cachedMenuItemsList = items;
-    if (!categoryFilter && !availFilter && !search) {
-      await LocalDB.putBatch('menu', items, true);
-    }
+    // RENDER IMMEDIATELY — NEVER WAIT FOR CACHE WRITE
     renderMenuItemsTable();
+
+    // Background cache write (never blocks UI)
+    if (!categoryFilter && !availFilter && !search) {
+      try {
+        LocalDB.putBatch('menu', items, true);
+      } catch (_) {}
+    }
   } catch (err) {
     console.warn('Menu fetch failed; running in offline cache mode:', err);
     if (!cachedMenuItemsList || cachedMenuItemsList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="table-empty">Offline cache mode active</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="table-empty" style="color: #ff6b6b;">Failed to load: ${err.message}</td></tr>`;
     }
   }
 }
@@ -1895,7 +1901,8 @@ if (menuItemForm) {
       if (data.success) {
         showToast(isEdit ? 'Menu item updated' : 'Menu item created', 'success');
         window.closeMenuItemModal();
-        loadMenuItems();
+        if (typeof loadCategoriesForDropdown === 'function') loadCategoriesForDropdown();
+        loadMenuItems(true);
       } else {
         showToast(data.error?.message || 'Failed to save menu item', 'error');
       }
@@ -3304,12 +3311,14 @@ async function loadOrders(resetPage = false) {
     const orders = data.data?.orders || [];
     activeOrdersList = orders;
 
-    // Cache orders locally if no filter active
+    // Render immediately so UI never blocks on cache writes
+    renderOrdersTable();
+
+    // Cache orders locally in background if no filter active
     if (!searchVal && !dateVal && (!currentOrderStatusFilter || currentOrderStatusFilter === 'ALL')) {
-      await LocalDB.clear('orders');
-      if (orders.length > 0) {
-        await LocalDB.putBatch('orders', orders, true);
-      }
+      LocalDB.clear('orders').then(() => {
+        if (orders.length > 0) LocalDB.putBatch('orders', orders, true);
+      }).catch(() => {});
     }
 
     // Update nav badge count for active orders
@@ -3319,8 +3328,6 @@ async function loadOrders(resetPage = false) {
       navBadge.textContent = activeCount;
       navBadge.classList.toggle('hidden', activeCount === 0);
     }
-
-    renderOrdersTable();
   } catch (err) {
     console.warn('Failed to fetch orders, running in cached mode:', err);
     if (!activeOrdersList || activeOrdersList.length === 0) {
@@ -3682,56 +3689,84 @@ const LocalDB = {
     if (this._db) return this._db;
     if (typeof window === 'undefined' || !window.indexedDB) return null;
     return new Promise((resolve) => {
-      const request = indexedDB.open(this.dbName, this.version);
-      request.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        const stores = [
-          'customers',
-          'orders',
-          'menu',
-          'categories',
-          'deals',
-          'settings',
-          'faqs',
-          'dashboard',
-          'drafts',
-          'metadata'
-        ];
-        stores.forEach(name => {
-          if (!db.objectStoreNames.contains(name)) {
-            const keyPath = (name === 'metadata' || name === 'dashboard' || name === 'settings') ? 'key' : 'id';
-            const store = db.createObjectStore(name, { keyPath });
-            if (name !== 'metadata' && name !== 'dashboard' && name !== 'settings') {
-              store.createIndex('updated_at', 'updated_at', { unique: false });
-              store.createIndex('is_synced', 'is_synced', { unique: false });
+      const timer = setTimeout(() => resolve(null), 1000);
+      try {
+        const request = indexedDB.open(this.dbName, this.version);
+        request.onblocked = () => {
+          clearTimeout(timer);
+          resolve(null);
+        };
+        request.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          const stores = [
+            'customers',
+            'orders',
+            'menu',
+            'categories',
+            'deals',
+            'settings',
+            'faqs',
+            'dashboard',
+            'drafts',
+            'metadata'
+          ];
+          stores.forEach(name => {
+            if (!db.objectStoreNames.contains(name)) {
+              const keyPath = (name === 'metadata' || name === 'dashboard' || name === 'settings') ? 'key' : 'id';
+              const store = db.createObjectStore(name, { keyPath });
+              if (name !== 'metadata' && name !== 'dashboard' && name !== 'settings') {
+                store.createIndex('updated_at', 'updated_at', { unique: false });
+                store.createIndex('is_synced', 'is_synced', { unique: false });
+              }
             }
-          }
-        });
-      };
-      request.onsuccess = (e) => {
-        this._db = e.target.result;
-        resolve(this._db);
-      };
-      request.onerror = () => resolve(null);
+          });
+        };
+        request.onsuccess = (e) => {
+          clearTimeout(timer);
+          this._db = e.target.result;
+          resolve(this._db);
+        };
+        request.onerror = () => {
+          clearTimeout(timer);
+          resolve(null);
+        };
+      } catch (_) {
+        clearTimeout(timer);
+        resolve(null);
+      }
     });
   },
 
   async getAll(storeName) {
     try {
       const db = await this.init();
-      if (!db) {
+      if (!db || !db.objectStoreNames || !db.objectStoreNames.contains(storeName)) {
         const raw = localStorage.getItem(`cc_cache_${storeName}`);
         return raw ? JSON.parse(raw) : [];
       }
       return new Promise((resolve) => {
-        const tx = db.transaction(storeName, 'readonly');
-        const store = tx.objectStore(storeName);
-        const req = store.getAll();
-        req.onsuccess = () => resolve(req.result || []);
-        req.onerror = () => {
+        const timer = setTimeout(() => {
           const raw = localStorage.getItem(`cc_cache_${storeName}`);
           resolve(raw ? JSON.parse(raw) : []);
-        };
+        }, 500);
+        try {
+          const tx = db.transaction(storeName, 'readonly');
+          const store = tx.objectStore(storeName);
+          const req = store.getAll();
+          req.onsuccess = () => {
+            clearTimeout(timer);
+            resolve(req.result || []);
+          };
+          req.onerror = () => {
+            clearTimeout(timer);
+            const raw = localStorage.getItem(`cc_cache_${storeName}`);
+            resolve(raw ? JSON.parse(raw) : []);
+          };
+        } catch (_) {
+          clearTimeout(timer);
+          const raw = localStorage.getItem(`cc_cache_${storeName}`);
+          resolve(raw ? JSON.parse(raw) : []);
+        }
       });
     } catch {
       const raw = localStorage.getItem(`cc_cache_${storeName}`);
@@ -3744,17 +3779,22 @@ const LocalDB = {
     try {
       localStorage.setItem(`cc_cache_${storeName}`, JSON.stringify(items));
       const db = await this.init();
-      if (!db) return;
+      if (!db || !db.objectStoreNames || !db.objectStoreNames.contains(storeName)) return;
       return new Promise((resolve) => {
-        const tx = db.transaction(storeName, 'readwrite');
-        const store = tx.objectStore(storeName);
-        items.forEach(item => {
-          if (!item) return;
-          const record = (typeof item === 'object') ? { ...item, is_synced: isSynced } : item;
-          store.put(record);
-        });
-        tx.oncomplete = () => resolve(true);
-        tx.onerror = () => resolve(false);
+        try {
+          const tx = db.transaction(storeName, 'readwrite');
+          const store = tx.objectStore(storeName);
+          items.forEach(item => {
+            if (!item) return;
+            const record = (typeof item === 'object') ? { ...item, is_synced: isSynced } : item;
+            store.put(record);
+          });
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+          tx.onabort = () => resolve(false);
+        } catch (_) {
+          resolve(false);
+        }
       });
     } catch (e) {
       console.warn('LocalDB putBatch warning for ' + storeName, e);
@@ -3766,13 +3806,18 @@ const LocalDB = {
       localStorage.removeItem(`cc_cache_${storeName}`);
       localStorage.removeItem(`cc_last_sync_${storeName}`);
       const db = await this.init();
-      if (!db) return;
+      if (!db || !db.objectStoreNames || !db.objectStoreNames.contains(storeName)) return;
       return new Promise((resolve) => {
-        const tx = db.transaction(storeName, 'readwrite');
-        const store = tx.objectStore(storeName);
-        store.clear();
-        tx.oncomplete = () => resolve(true);
-        tx.onerror = () => resolve(false);
+        try {
+          const tx = db.transaction(storeName, 'readwrite');
+          const store = tx.objectStore(storeName);
+          store.clear();
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+          tx.onabort = () => resolve(false);
+        } catch (_) {
+          resolve(false);
+        }
       });
     } catch (e) {
       console.warn('LocalDB clear warning for ' + storeName, e);
@@ -3933,12 +3978,14 @@ async function loadCustomers(forceSync = false) {
       const incoming = data.data?.customers || data.data || [];
       if (Array.isArray(incoming)) {
         cachedCustomersList = incoming.map(c => ({ ...c, is_synced: true }));
-        await LocalDB.clear('customers');
-        if (cachedCustomersList.length > 0) {
-          await LocalDB.putBatch('customers', cachedCustomersList, true);
-        }
         renderCustomersTable();
         updateSyncStatusBadge(`☁️ Synced (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`);
+
+        LocalDB.clear('customers').then(() => {
+          if (cachedCustomersList.length > 0) {
+            LocalDB.putBatch('customers', cachedCustomersList, true);
+          }
+        }).catch(() => {});
         return;
       }
     }
