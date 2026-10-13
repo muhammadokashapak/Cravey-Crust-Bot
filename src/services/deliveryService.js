@@ -68,6 +68,34 @@ export const RESTAURANT_CENTER = {
 };
 
 /**
+ * Map micro-landmarks, stops, and chowks to their primary town/sector for GPS pin / live location matching.
+ */
+export const SUB_AREA_TO_PRIMARY = {
+    'sanam-chok':       'ghauri-town-all-phase',
+    'karachi-house':    'ghauri-town-all-phase',
+    'juma-bazar':       'ghauri-town-all-phase',
+    'albadar-masjid':   'ghauri-town-all-phase',
+    'ghauri-vip':       'ghauri-town-all-phase',
+    'basit-town':       'ghauri-town-all-phase',
+    'malik-town':       'ghauri-town-all-phase',
+    'marwa-town':       'ghauri-town-all-phase',
+    'madina-town':      'khana-pull',
+    'sarfraz-town':     'khana-pull',
+    'bilal-town':       'khana-pull',
+    'sharifabad':       'khana-pull',
+    'zia-masjid':       'khana-pull',
+    'zia-market':       'khana-pull',
+    'school-stop':      'tarlai',
+    'dakhana-stop':     'tarlai',
+    'sudran-road':      'tarlai',
+    'mehrban-town':     'tarlai',
+    'chistiyan-market': 'tarlai',
+    'zamna-bad':        'taramari',
+    'p-v-scheme':       'taramari',
+    'tali-mor':         'taramari',
+};
+
+/**
  * Helper to match text against known areas.
  */
 function findAreaByText(areas, text) {
@@ -207,15 +235,7 @@ export async function checkDeliveryAvailability(params) {
         orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
     });
 
-    // 3. Match by name or address if provided
-    if (!matchedArea && (areaName || address)) {
-        const textFound = findAreaByText(allAreas, `${areaName || ''} ${address || ''}`);
-        if (textFound && textFound.is_active) {
-            matchedArea = textFound;
-        }
-    }
-
-    // 4. Match by GPS coordinates if area was not resolved by name
+    // 3. If GPS coordinates provided, match by coordinates first
     if (!matchedArea && lat != null && lng != null) {
         const distToRestaurant = calculateHaversineDistance(lat, lng, RESTAURANT_CENTER.lat, RESTAURANT_CENTER.lng);
 
@@ -254,7 +274,24 @@ export async function checkDeliveryAvailability(params) {
         }
     }
 
-    // 5. If still not matched, return clean rejection
+    // 4. Match by name or address if coordinates were not provided or did not resolve
+    if (!matchedArea && (areaName || address)) {
+        const textFound = findAreaByText(allAreas, `${areaName || ''} ${address || ''}`);
+        if (textFound && textFound.is_active) {
+            matchedArea = textFound;
+        }
+    }
+
+    // 5. Map micro-landmarks, stops, and chowks to their primary town/sector (e.g. Sanam Chowk -> Ghauri Town)
+    if (matchedArea && SUB_AREA_TO_PRIMARY[matchedArea.slug]) {
+        const primarySlug = SUB_AREA_TO_PRIMARY[matchedArea.slug];
+        const primary = allAreas.find(a => a.slug === primarySlug && a.is_active);
+        if (primary) {
+            matchedArea = primary;
+        }
+    }
+
+    // 6. If still not matched, return clean rejection
     if (!matchedArea) {
         if (areaName || address) {
             return {
@@ -276,11 +313,20 @@ export async function checkDeliveryAvailability(params) {
     const subtotalNum = hasSubtotal ? Number(subtotal) : null;
     const minMet = subtotalNum !== null ? subtotalNum >= minimumOrder : true;
 
+    // Clean, natural display name for customers
+    const rawName = matchedArea.name;
+    const cleanDisplayName = rawName
+        .replace(/\s+all\s+phase/i, '')
+        .replace(/^Gulberg green$/i, 'Gulberg Greens')
+        .replace(/^Khana Pull$/i, 'Khanna Pul')
+        .trim();
+
     return {
         available: true,
         area: {
             id: matchedArea.id,
-            name: matchedArea.name,
+            name: cleanDisplayName,
+            originalName: matchedArea.name,
             slug: matchedArea.slug,
             deliveryFee,
             minimumOrder,
