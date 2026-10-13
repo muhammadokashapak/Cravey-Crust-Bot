@@ -402,7 +402,7 @@
         "text": "={{ $json.message || 'Customer ne apni location share ki hai.' }}",
         "needsFallback": true,
         "options": {
-          "systemMessage": "=Tum Cravey Crust ke WhatsApp ordering agent \"Burger Raja\" ho. Roman Urdu mein, chhote (2-4 line) aur polite jawab do. Asterisk (*) kabhi mat use karo. Ek waqt mein sirf ek sawal poochho.\n\nCUSTOMER: {{ $('Prepare Session').first().json.whatsappPhone ? 'Verified WhatsApp number: ' + $('Prepare Session').first().json.whatsappPhone + ' (agar customer kahe isi number par rabta karo to yehi use hoga, dobara mat poochho).' : 'WhatsApp number verify nahi hai, is liye order se pehle customer se contact number zaroor maango.' }}\n{{ $('Check Cache & Classify Intent').first().json.confirmIntent ? 'ABHI KA MESSAGE: customer ne shayad confirm kiya hai. Agar tumhara pichla message order summary tha, to ab FORAN Create Confirmed Order tool call karo, dobara mat poochho. Agar pichla message cancellation ka tha to Confirm Order Cancellation (true) call karo.' : '' }}\n\nDATA: Menu, prices, deals, timings, delivery, promos kabhi apni taraf se mat banao. Sirf tools se lo. Item/price ke liye Search Menu Item, categories ke liye Get Menu Categories, deals ke liye Get Current Deals, promo ke liye Get Active Promotions, store/FAQ/timing ke liye Search FAQs. Item ya deal na mile to kaho ke filhal available nahi. Promotions khali hon to kaho: \"Filhal koi active discount code dastiyab nahi hai, lekin aap hamari mazedar deals enjoy kar sakte hain!\"\n\nTOOLS (tez jawab ke liye): Sirf zaroori tool call karo. Jo data is chat mein pehle tool se mil chuka ho dobara mat mangwao. Jis tool response mein cart/total pehle se ho uske baad Get Cart dobara call mat karo. Kai items hon to har item ka Search Menu Item ek saath chalao. Tool error aaye to customer ko seedha batao, bina naye input ke wohi call dobara mat karo.\n\nCART RULES (ZAROORI):\n1. Add to Cart mein sirf exact menuItemId (+variantId) ya exact dealId bhejo, dono saath kabhi nahi. Quantity/notes ke liye Update Cart Item, hatane ke liye Remove Cart Item, reset ke liye Clear Cart. Subtotal/total Calculate Cart Totals se lo.\n2. HAR ITEM YA DEAL ADD HONE KE BAAD (Add to Cart call ke baad): Customer ko batayein ke item add ho gaya hai, aur HAMESHA yeh poochhein: \"Kya aap kuch aur add karna chahenge, ya order checkout karein?\"\n3. KABHI BHI item add hote hi direct delivery address ya payment details MAT maango. Customer ko mazeed items (burger, pizza, fries, drinks, paani) add karne ka poora moqa do.\n4. CHECKOUT DETAILS (naam, delivery address/location, payment method COD ya Easypaisa) sirf tab maango jab customer kahe ke \"aur kuch nahi\", \"bas yahi\", \"nahi\", \"no\", \"checkout kar do\", \"bill kitna bana\", ya khud apna pata/location bhej de.\n\nLOCATION AUR DELIVERY AREA CHECK (ZAROORI):\nJab bhi customer apni location share kare (WhatsApp location pin, Google Maps link, ya area ka naam):\n1. Pehle FORAN 'Check Delivery Availability' tool call karo (latitude/longitude ya areaName ke sath).\n2. Agar location delivery area mein mojood ho (available: true):\n   Customer ko saaf saaf aur khush-dili se wazeh batao:\n   \"Aapki location hamare delivery area mein aati hai ([Area Name]). Delivery fee: Rs. [deliveryFee] hai.\"\n   Aur phir is ke mutabiq agla step deal karo:\n   - Agar cart mein items pehle se hain (checkout step): Foran 'Calculate Cart Totals' call karke updated summary (Items, Subtotal, Delivery Fee, Total, Name, Address, Contact, Payment) dikhao aur poochho: \"Order confirm karne ke liye haan likhein.\"\n   - Agar cart abhi khali hai: Batayein ke delivery is area mein dastiyab hai aur poochhein: \"Aap aaj kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Deals dastiyab hain!\"\n3. Agar location delivery area se bahar ho (available: false):\n   Customer ko politely batao: \"Maazrat, yeh location filhal hamare delivery area se bahar hai. Hamari delivery sirf Cravey Crust ke coverage areas (Tarlai, Ghauri Town, Taramari, Al-Noor, Khanna Pul vaghera) mein dastiyab hai.\"\n\nORDER CONFIRMATION (CRITICAL):\nSummary dikhane ke baad customer ka koi bhi positive jawab (haan, han, ji, yes, ok, confirm, confirm kar do, kar do, kr du, theek hai, done) CONFIRMATION hai.\nDOBARA MAT POOCHHO! FORAN 'Create Confirmed Order' tool call karo (customerName, deliveryAddress, deliveryAreaName, paymentMethod COD/EASYPAISA pichli chat se lo).\nBINA Create Confirmed Order TOOL CALL KIYE KABHI BHI TEXT MEIN MAT KAHO KE ORDER CONFIRM HO GAYA!\nTool response mein jab asli order_number (CC-...) aaye, sirf tabhi customer ko kaho: \"Aapka order confirm ho gaya hai! Order number: CC-... hai. Total: Rs. ... Payment: ...\" (order number CC-... lazmi likhna hai).\nTool error aye to reason dekh kar solve karo (jaise missing contact number ya name).\n\nSTATUS/CANCEL: Order number par Get Order Status. Cancel ke liye pehle Request Order Cancellation, summary dikha kar poochho. Customer ke haan/nahi par Confirm Order Cancellation (true/false).\n\nHUMAN HANDOVER (AGENT SE BAAT):\nAgar customer kahe ke \"mein ne bot se bat nahi krni agent se krni ha\", \"bot se baat nahi karni\", \"agent se baat karni hai\", \"kisi bande se baat karwao\", \"manager\", \"staff\", \"call me\", ya insaan se baat ki request kare:\nFORAN 'Request Human Handover' tool call karo (durationMinutes: 120).\nPhir yeh kaho: \"Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot agle 2 ghante ke liye mute ho gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!\"",
+          "systemMessage": "=Tum Cravey Crust ke WhatsApp agent \"Burger Raja\" ho. Roman Urdu, 2-4 line, polite. Asterisk (*) mat use karo. Ek waqt ek sawal.\n\nPHONE: {{ $('Prepare Session').first().json.whatsappPhone ? 'Verified: ' + $('Prepare Session').first().json.whatsappPhone + ' (dobara mat maango)' : 'Number verify nahi, order se pehle contact number zaroor maango.' }}\n{{ $('Check Cache & Classify Intent').first().json.confirmIntent ? 'CONFIRM INTENT: Agar pichla msg order summary tha to FORAN Create Confirmed Order call karo. Cancellation tha to Confirm Order Cancellation(true) karo.' : '' }}\n\nDATA: Sab kuch tools se lo, apni taraf se kabhi nahi. Item/price->Search Menu Item, categories->Get Menu Categories, deals->Get Current Deals, promo->Get Active Promotions, FAQ/timing/address->Search FAQs, delivery->Check Delivery Availability. Tool error ya khali response: \"Abhi system se data nahi mil raha.\" Promotions khali: \"Filhal koi discount code nahi, lekin deals enjoy karein!\"\n\nTOOLS: Sirf zaroori call karo. Jo data mil chuka dobara mat mangwao. Kai items ek saath search karo. Tool error aaye to customer ko seedha batao.\n\nCART:\n1. Add: menuItemId+variantId YA dealId (dono nahi). Update: Update Cart Item. Remove: Remove Cart Item. Clear: Clear Cart. Bill: Calculate Cart Totals.\n2. Item add ke baad HAMESHA poochho: \"Kuch aur add karna chahenge ya checkout karein?\"\n3. Item add hote hi delivery/payment mat maango.\n4. Checkout details tab maango jab customer \"nahi\"/\"checkout\"/\"location\" bheje.\n\nLOCATION: Location mile to FORAN Check Delivery Availability call karo (lat/lng ya areaName).\n- available:true: \"Aapki location [Area] mein hai. Fee: Rs.[X].\" Cart ho to Calculate Cart Totals + summary + \"haan likhen.\" Cart khali ho to kya order karna poochho.\n- available:false: \"Maazrat, yeh area delivery range se bahar hai.\" Areas tool se batao.\n\nORDER CONFIRM: Haan/ji/yes/ok/done milte hi FORAN Create Confirmed Order call karo, dobara mat poochho. CC-... number aaye tab hi \"order confirm hua\" kaho. Error ho to reason se solve karo.\n\nSTATUS/CANCEL: Get Order Status. Cancel: Request Order Cancellation phir Confirm Order Cancellation(true/false).\n\nHANDOVER: \"agent\"/\"bande se\"/\"manager\" sunte hi FORAN Request Human Handover(durationMinutes:120). Phir: \"Main request forward kar raha hoon, bot 2 ghante mute. Representative rabta karega.\"",
           "maxIterations": 8
         }
       },
@@ -466,7 +466,7 @@
       "parameters": {
         "sessionIdType": "customKey",
         "sessionKey": "={{ $json.sessionKey + '-v4' }}",
-        "contextWindowLength": 10
+        "contextWindowLength": 4
       },
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
@@ -560,7 +560,7 @@
           "parameters": [
             {
               "name": "q",
-              "value": "={{ $fromAI('query', 'FAQ keyword', 'string') }}"
+              "value": "={{ $fromAI('query', 'Keyword', 'string') }}"
             }
           ]
         },
@@ -740,7 +740,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ areaName: $fromAI('areaName', 'Area name e.g. Ghauri Town, Tarlai, Khanna, or empty', 'string', '') || $('Prepare Session').first().json.locationName || undefined, address: $('Prepare Session').first().json.locationAddress || undefined, latitude: Number($fromAI('latitude', 'Latitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
+        "jsonBody": "={{ JSON.stringify({ areaName: $fromAI('areaName', 'Area name e.g. Ghauri Town, Tarlai, Khanna, or empty', 'string', '') || $('Prepare Session').first().json.locationName || undefined, address: $('Prepare Session').first().json.locationAddress || undefined, latitude: Number($fromAI('latitude', 'Latitude', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
         "options": {
           "response": {
             "response": {
@@ -762,7 +762,7 @@
     {
       "parameters": {
         "toolDescription": "Get order status using CC order number.",
-        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Order number e.g. CC-20261012-0001', 'string')) }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'CC order number', 'string')) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -850,7 +850,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ menuItemId: $fromAI('menuItemId', 'Menu item ID, empty for deals', 'string', '') || undefined, variantId: $fromAI('variantId', 'Variant ID if any', 'string', '') || undefined, dealId: $fromAI('dealId', 'Deal ID, empty for menu items', 'string', '') || undefined, quantity: $fromAI('quantity', 'Quantity integer', 'number', 1), notes: $fromAI('notes', 'Item instructions', 'string', '') || undefined }) }}",
+        "jsonBody": "={{ JSON.stringify({ menuItemId: $fromAI('menuItemId', 'Menu item ID', 'string', '') || undefined, variantId: $fromAI('variantId', 'Variant ID', 'string', '') || undefined, dealId: $fromAI('dealId', 'Deal ID', 'string', '') || undefined, quantity: $fromAI('quantity', 'Qty', 'number', 1), notes: $fromAI('notes', 'Notes', 'string', '') || undefined }) }}",
         "options": {
           "response": {
             "response": {
@@ -885,7 +885,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ quantity: $fromAI('quantity', 'New quantity or 0', 'number'), notes: $fromAI('notes', 'Updated notes or empty', 'string') }) }}",
+        "jsonBody": "={{ JSON.stringify({ quantity: $fromAI('quantity', 'New qty', 'number'), notes: $fromAI('notes', 'Notes', 'string') }) }}",
         "options": {
           "response": {
             "response": {
@@ -984,7 +984,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ promoCode: $fromAI('promoCode', 'Only if customer gave a code', 'string', '') || undefined, deliveryAreaId: $fromAI('deliveryAreaId', 'Area ID from delivery check', 'string', '') || undefined, deliveryAreaName: $fromAI('deliveryAreaName', 'Delivery area name', 'string', '') || $('Prepare Session').first().json.locationName || undefined, address: $('Prepare Session').first().json.locationAddress || undefined, latitude: Number($fromAI('latitude', 'Latitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
+        "jsonBody": "={{ JSON.stringify({ promoCode: $fromAI('promoCode', 'Promo code', 'string', '') || undefined, deliveryAreaId: $fromAI('deliveryAreaId', 'Area ID', 'string', '') || undefined, deliveryAreaName: $fromAI('deliveryAreaName', 'Area name', 'string', '') || $('Prepare Session').first().json.locationName || undefined, address: $('Prepare Session').first().json.locationAddress || undefined, latitude: Number($fromAI('latitude', 'Latitude', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
         "options": {
           "response": {
             "response": {
@@ -1019,7 +1019,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  sessionKey: $('Prepare Session').first().json.sessionKey,\n  customerName: $fromAI('customerName', 'Customer ka naam (pichli chat se)', 'string'),\n  phone: ($fromAI('phone', 'Sirf agar customer ne alag contact number diya ho, warna khali chhodo', 'string', '') || $('Prepare Session').first().json.whatsappPhone || undefined),\n  contactNumberMode: 'provided',\n  confirmationNumberMode: 'default',\n  confirmationPhone: $fromAI('confirmationPhone', 'Sirf agar customer ne kisi aur number par confirmation maangi, warna khali', 'string', '') || undefined,\n  delivery: {\n    address: ($fromAI('deliveryAddress', 'Customer ka confirmed delivery address', 'string') || $('Prepare Session').first().json.locationAddress || undefined),\n    areaName: ($fromAI('deliveryAreaName', 'Delivery area ka naam', 'string', '') || $('Prepare Session').first().json.locationName || ''),\n    areaId: $fromAI('deliveryAreaId', 'Area ID agar delivery check se mili, warna khali', 'string', '') || undefined,\n    latitude: (Number($fromAI('latitude', 'Shared location ki latitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLat) || $('Webhook').first().json.body?.location?.latitude) || undefined,\n    longitude: (Number($fromAI('longitude', 'Shared location ki longitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLng) || $('Webhook').first().json.body?.location?.longitude) || undefined,\n    googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || ''\n  },\n  paymentMethod: String($fromAI('paymentMethod', 'COD ya EASYPAISA', 'string', 'COD') || 'COD').toUpperCase().replace(/\\s+/g, ''),\n  promoCode: $fromAI('promoCode', 'Promo code agar diya ho, warna khali', 'string', '') || undefined,\n  notes: $fromAI('notes', 'Order notes, warna khali', 'string', '') || undefined,\n  idempotencyKey: $('Prepare Session').first().json.messageId || undefined\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  sessionKey: $('Prepare Session').first().json.sessionKey,\n  customerName: $fromAI('customerName', 'Customer name', 'string'),\n  phone: ($fromAI('phone', 'Contact number if different', 'string', '') || $('Prepare Session').first().json.whatsappPhone || undefined),\n  contactNumberMode: 'provided',\n  confirmationNumberMode: 'default',\n  confirmationPhone: $fromAI('confirmationPhone', 'Alt confirmation number', 'string', '') || undefined,\n  delivery: {\n    address: ($fromAI('deliveryAddress', 'Delivery address', 'string') || $('Prepare Session').first().json.locationAddress || undefined),\n    areaName: ($fromAI('deliveryAreaName', 'Area name', 'string', '') || $('Prepare Session').first().json.locationName || ''),\n    areaId: $fromAI('deliveryAreaId', 'Area ID', 'string', '') || undefined,\n    latitude: (Number($fromAI('latitude', 'Latitude', 'number', 0)) || Number($('Prepare Session').first().json.locationLat) || $('Webhook').first().json.body?.location?.latitude) || undefined,\n    longitude: (Number($fromAI('longitude', 'Longitude', 'number', 0)) || Number($('Prepare Session').first().json.locationLng) || $('Webhook').first().json.body?.location?.longitude) || undefined,\n    googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || ''\n  },\n  paymentMethod: String($fromAI('paymentMethod', 'COD or EASYPAISA', 'string', 'COD') || 'COD').toUpperCase().replace(/\\s+/g, ''),\n  promoCode: $fromAI('promoCode', 'Promo code', 'string', '') || undefined,\n  notes: $fromAI('notes', 'Order notes', 'string', '') || undefined,\n  idempotencyKey: $('Prepare Session').first().json.messageId || undefined\n}) }}",
         "options": {
           "response": {
             "response": {
@@ -1089,7 +1089,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey, confirmed: $fromAI('confirmed', 'true for yes/haan, false for no/nahi', 'boolean') }) }}",
+        "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey, confirmed: $fromAI('confirmed', 'true=yes false=no', 'boolean') }) }}",
         "options": {
           "response": {
             "response": {
@@ -1124,7 +1124,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ sessionId: 'primary', chatId: $fromAI('chatId', 'Alternate WhatsApp number', 'string'), message: $fromAI('message', 'Plain text order summary without asterisks', 'string') }) }}",
+        "jsonBody": "={{ JSON.stringify({ sessionId: 'primary', chatId: $fromAI('chatId', 'Alt WhatsApp number', 'string'), message: $fromAI('message', 'Order summary text', 'string') }) }}",
         "options": {
           "response": {
             "response": {
@@ -1159,7 +1159,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId, sessionKey: $('Prepare Session').first().json.sessionKey, durationMinutes: 120, reason: $fromAI('reason', 'Customer reason', 'string', 'Customer requested human support') }) }}",
+        "jsonBody": "={{ JSON.stringify({ chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId, sessionKey: $('Prepare Session').first().json.sessionKey, durationMinutes: 120, reason: $fromAI('reason', 'Reason', 'string', 'Customer requested human support') }) }}",
         "options": {
           "response": {
             "response": {
