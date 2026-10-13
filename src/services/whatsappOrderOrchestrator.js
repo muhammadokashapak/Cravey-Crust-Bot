@@ -37,6 +37,7 @@ import {
     isDeliveryInfoQuery,
 } from './businessKnowledgeResolver.js';
 import { normalizePhone, deleteCustomerByPhone } from './customerService.js';
+import { muteChatForHandover } from './handoverService.js';
 import { extractGoogleMapsUrl } from '../../utils/location.js';
 import { logger } from '../utils/logger.js';
 
@@ -746,6 +747,20 @@ Direct order karne ke liye item likhein (e.g. 2 Chicken Extreme ya 1 Deal 1).`,
     if (intent === 'HUMAN_HANDOFF') {
         const phoneText = formatRestaurantPhone(restaurant);
         const contactInfo = phoneText ? `\n\n${phoneText}` : '\n\nAap apna sawal ya paighaam yahan type kar saktay hain, hamari team jald rabta karegi.';
+
+        // Mute chat for human handover & alert the scanned WhatsApp number
+        muteChatForHandover({
+            chatId,
+            sessionKey: convSession.session_key,
+            durationMinutes: 120,
+            reason: 'Customer requested human support representative',
+            customerName: convSession.customer?.name || null,
+            customerPhone: verifiedPhone || null,
+            sock,
+        }).catch((err) => {
+            logger.warn({ err: err.message }, '[ORCHESTRATOR] Handover notification error');
+        });
+
         return {
             text: `Aap ko hamari support team se connect kiya ja raha hai.${contactInfo}`,
             intent: 'HUMAN_HANDOFF',
@@ -1250,6 +1265,19 @@ Direct order: likhein 2 zinger ya 1 pizza`,
 
     // HUMAN_HANDOFF
     if (intent === 'HUMAN_HANDOFF') {
+        // Mute chat for human handover & alert the scanned WhatsApp number
+        muteChatForHandover({
+            chatId,
+            sessionKey: convSession.session_key,
+            durationMinutes: 120,
+            reason: 'Customer requested human support representative',
+            customerName: convSession.customer?.name || null,
+            customerPhone: verifiedPhone || null,
+            sock,
+        }).catch((err) => {
+            logger.warn({ err: err.message }, '[ORCHESTRATOR] Handover notification error');
+        });
+
         return {
             text: 'Main aapki request restaurant team ko forward karne ke liye ready hoon. Team representative aapse jald rabta karega.',
             intent,

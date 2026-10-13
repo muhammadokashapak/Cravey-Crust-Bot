@@ -10,10 +10,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -464,
-        1408
+        100,
+        300
       ],
-      "id": "3a00a9c9-23c8-49e5-b97f-2374cae5120a",
+      "id": "53625f53-3101-4be6-83e7-db6bc1b95215",
       "name": "Webhook",
       "webhookId": "5eac53b2-0d19-443a-9b0f-d5373e9a61dd"
     },
@@ -83,10 +83,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -224,
-        1408
+        320,
+        300
       ],
-      "id": "80f2adbb-7d12-44bb-8c9f-c6063ec0f339",
+      "id": "9ce6c5fa-ed59-43d2-953e-4de27824a281",
       "name": "Prepare Session"
     },
     {
@@ -117,11 +117,187 @@
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.2,
       "position": [
-        -96,
-        1408
+        540,
+        300
       ],
-      "id": "7fd76194-9d52-4a05-a59b-4054ccad5925",
+      "id": "5773b4a3-3793-4182-bf0b-8c06c61caa63",
       "name": "Skip Empty Message"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const rawMsg = (($json.message || $input?.item?.json?.message || '').toString()).trim().toLowerCase();\nconst cleanMsg = rawMsg.replace(/[^\\w\\s\\u0600-\\u06FF]/g, ' ').replace(/\\s+/g, ' ').trim();\n\nlet route = 'agent';\nlet output = '';\n\n// 1. Critical bypass check: Ordering actions, specific food items, cart, tracking, cancellation, handover MUST go to LLM Agent\nconst isOrderTracking = /\\b(mera order|order kahan|order status|track|tracking|kahan pohncha|cc-\\d+)\\b/i.test(cleanMsg);\nconst isActionOrSpecificItem = isOrderTracking || /\\b(order|chahiye|mangwana|karna hai|kardo|kar do|banao|pack|confirm|haan|yes|nahi|no|cancel|gali|house|street|road|sector|phase|flavour|flavor|fajita|tikka|extreme|peri|tandori|tandoori|ranch|malai|creamy|bbq|zinger|jalapeno|fillet|crispy burger|nuggets|wings|fries|sauce|calzone|slice|garlic bread|small|medium|large|party size|add|cart|remove|plus|minus|agent|human|call me|rabta karo)\\b/i.test(cleanMsg);\n\nif (!isActionOrSpecificItem) {\n  // 2. Greetings Cache (0 Tokens)\n  const greetings = ['hi', 'hello', 'salam', 'assalam o alaikum', 'assalam alaikum', 'aoa', 'hey', 'slam', 'slaam', 'kese ho', 'kaise ho', 'kia hal hai', 'kya haal hai', 'سلام', 'السلام علیکم'];\n  if (greetings.includes(cleanMsg)) {\n    route = 'quick_reply';\n    output = 'Walaikum Assalam! Cravey Crust mein khushamdeed! Main hoon Burger Raja. Aaj aap kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Value Deals dastiyab hain!';\n  }\n  // 3. Timings Cache (0 Tokens)\n  else if (cleanMsg.includes('timing') || cleanMsg.includes('timings') || cleanMsg.includes('open') || cleanMsg.includes('kab khulta') || cleanMsg.includes('band hota') || cleanMsg.includes('khula hai') || cleanMsg.includes('auqat') || cleanMsg.includes('ٹائمنگ') || cleanMsg.includes('اوپن')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust rozana dopehar 12:00 PM se raat 2:00 AM tak open hota hai. Aap apna order kisi bhi waqt place kar sakte hain!';\n  }\n  // 4. Location Cache (0 Tokens)\n  else if (cleanMsg.includes('location') || cleanMsg.includes('address') || cleanMsg.includes('branch') || cleanMsg.includes('kahan') || cleanMsg.includes('kidhar') || cleanMsg.includes('لوکیشن') || cleanMsg.includes('پتہ')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust Main Lehtrar Road, Tarlai / Ghauri Town Islamabad ke qareeb waqay hai. Delivery hamare poore coverage area mein dastiyab hai!';\n  }\n  // 5. Halal FAQ Cache (0 Tokens)\n  else if (cleanMsg.includes('halal') || cleanMsg.includes('halal food') || cleanMsg.includes('meat halal') || cleanMsg.includes('حلال')) {\n    route = 'quick_reply';\n    output = 'Ji bilkul! Cravey Crust ka tamam chicken aur tamam ingredients 100% certified Halal, taaza aur ba-qaidah checked hain.';\n  }\n  // 6. Payment Methods Cache (0 Tokens)\n  else if (cleanMsg.includes('payment') || cleanMsg.includes('kese pay') || cleanMsg.includes('kaise pay') || cleanMsg.includes('easypaisa') || cleanMsg.includes('card chalta') || cleanMsg.includes('online pay') || cleanMsg.includes('cash on delivery') || cleanMsg.includes('cod') || cleanMsg.includes('پیمنٹ')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust par Cash on Delivery (COD) aur EasyPaisa dono payment tareeqay dastiyab hain. Order confirm karte waqt aap apna pasandeeda tareeqa chun sakte hain.';\n  }\n  // 7. Delivery Info Cache (0 Tokens)\n  else if (cleanMsg.includes('delivery charges') || cleanMsg.includes('delivery fee') || cleanMsg.includes('free delivery') || cleanMsg.includes('delivery kitne') || cleanMsg.includes('ڈلیوری چارجز')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust par standard delivery charges faslay (distance) ke mutabiq Rs. 100 se Rs. 250 tak hotay hain. Apne area ka naam batayein taake hum exact delivery fee bata sakein!';\n  }\n  // 8. Promotions / Discounts Cache (0 Tokens)\n  else if (cleanMsg.includes('discount') || cleanMsg.includes('promo') || cleanMsg.includes('voucher') || cleanMsg.includes('coupon') || cleanMsg.includes('off hai') || cleanMsg.includes('discount code') || cleanMsg.includes('riayat') || cleanMsg.includes('bachat') || cleanMsg.includes('ڈسکاؤنٹ') || cleanMsg.includes('رعایت')) {\n    route = 'quick_reply';\n    output = 'Filhal koi alag discount promo code active nahi hai, lekin hamari \"Value Deals\" pehle se hi bhari riayat (discount) par dastiyab hain (Starting from Rs. 599)! Aap Deals dekh kar order enjoy kar sakte hain.';\n  }\n  // 9. LIVE MENU CATEGORIES (0 Tokens, Auto-Sync from Dashboard!)\n  else if (cleanMsg.includes('menu') || cleanMsg.includes('rate list') || cleanMsg.includes('price list') || cleanMsg.includes('food list') || cleanMsg.includes('list dikhao') || cleanMsg.includes('kya kya hai') || cleanMsg === 'kya hai' || cleanMsg === 'list' || cleanMsg.includes('مینو') || cleanMsg.includes('ریٹ لسٹ')) {\n    route = 'live_categories';\n  }\n  // 10. LIVE DEALS (0 Tokens, Auto-Sync from Dashboard!)\n  else if (cleanMsg.includes('deal') || cleanMsg.includes('deals') || cleanMsg.includes('combo') || cleanMsg.includes('package') || cleanMsg.includes('offers') || cleanMsg.includes('ڈیل') || cleanMsg.includes('ڈیلز')) {\n    route = 'live_deals';\n  }\n}\n\nreturn {\n  ...$json,\n  route,\n  output\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        300
+      ],
+      "id": "721cb9c1-0265-4993-be14-88f9fefcdadc",
+      "name": "Check Cache & Classify Intent"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "quick_reply",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "live_categories",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "live_deals",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1040,
+        300
+      ],
+      "id": "f5c5a3ac-3c25-4e36-8411-3ead5a2e5b72",
+      "name": "Route by Intent"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://bot.craveycrust.com/api/internal/menu/categories",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-API-Secret",
+              "value": "my-test-secret-123"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1300,
+        140
+      ],
+      "id": "a1b2c3d4-e5f6-4701-8899-aabbccddeef1",
+      "name": "Fetch Live Categories"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const items = $json.data || $json || [];\nlet output = '';\n\nif (Array.isArray(items) && items.length > 0) {\n  const list = items.map((c, i) => `${i + 1}. ${c.name}`).join('\\n');\n  output = `Hamare menu mein yeh categories hain:\\n${list}\\n\\nAap konsi category dekhna chahenge?`;\n} else {\n  output = 'Hamare menu mein Classic Pizzas, Burgers, Deals aur Sides dastiyab hain. Aap konsi category dekhna chahenge?';\n}\n\nreturn {\n  sessionId: $('Prepare Session').first().json.sessionId || 'primary',\n  chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid,\n  output\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        140
+      ],
+      "id": "b2c3d4e5-f6a7-4802-9900-bbccddeeff12",
+      "name": "Format Live Categories"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://bot.craveycrust.com/api/internal/deals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-API-Secret",
+              "value": "my-test-secret-123"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1300,
+        300
+      ],
+      "id": "c3d4e5f6-a7b8-4903-aa11-ccddeeff1223",
+      "name": "Fetch Live Deals"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const items = $json.data || $json || [];\nlet output = '';\n\nif (Array.isArray(items) && items.length > 0) {\n  const list = items.slice(0, 6).map((d, i) => `${i + 1}. ${d.name} - Rs. ${d.price || d.deal_price || ''}`).join('\\n');\n  output = `Cravey Crust ki active deals yeh hain:\\n${list}\\n\\nAap in mein se konsi deal order karna chahenge?`;\n} else {\n  output = 'Cravey Crust par value deals Rs. 599 se shuru hoti hain. Aap Deal 1, Deal 2 ya Family Deals check kar sakte hain!';\n}\n\nreturn {\n  sessionId: $('Prepare Session').first().json.sessionId || 'primary',\n  chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid,\n  output\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        300
+      ],
+      "id": "d4e5f6a7-b8c9-4a14-bb22-ddeeff122334",
+      "name": "Format Live Deals"
     },
     {
       "parameters": {
@@ -129,16 +305,16 @@
         "text": "={{ $json.message || 'Customer ne apni location share ki hai.' }}",
         "needsFallback": true,
         "options": {
-          "systemMessage": "DYNAMIC WHATSAPP ORDERING AGENT — STRICT OPERATING RULES\n\n1. 100% DYNAMIC — NO HARDCODED DATA:\n- NEVER hardcode any restaurant name, bot persona name, timings, address, menu items, categories, deals, or discount codes.\n- Call Get Store Info or Search FAQs to know the live restaurant name, bot name, address, timings, and EasyPaisa account.\n- Call Get Menu Categories to see active categories.\n- Call Get Current Menu to see all active menu items, variants, and live prices.\n- Call Search Menu Item when a customer asks for a specific food item (e.g. roll, burger, pizza).\n- Call Get Current Deals when a customer asks for deals or combo offers.\n- Call Get Active Promotions when a customer asks for discount vouchers or promo codes. If the tool returns empty (data: []), reply: 'Filhal koi active discount code dastiyab nahi hai, lekin aap hamari mazedar deals enjoy kar sakte hain!'. NEVER assume or invent old promo codes like SAVINGS30 from memory.\n- If an item or deal is deleted from the dashboard, the tool will NOT return it — politely inform the customer that it is currently not available.\n- If a new item or deal is added to the dashboard, the tool will return it — present it with its exact name and price.\n\n2. NO ASTERISKS / STARS (*):\n- CRITICAL: NEVER output any asterisks (*) or double asterisks (**) in any customer reply. Absolutely NO stars.\n- Output clean plain text, numbers, or dashes (-) for bullet points. Bold markup with stars is strictly prohibited.\n\n3. LANGUAGE & TONE:\n- Always reply in natural, polite Roman Urdu. Ask one clear question at a time. Be friendly and concise.\n\n4. CART & PRICING (BACKEND OWNS DATA):\n- Always call Get Cart to inspect the active backend cart.\n- To add items: use Add to Cart with exact menuItemId + optional variantId, or exact dealId. Never pass menuItemId and dealId together.\n- To update quantity: use Update Cart Item with exact cartItemId.\n- To remove an item: use Remove Cart Item with exact cartItemId.\n- To cancel an unfinished cart: call Clear Cart.\n- Before presenting the final summary: ALWAYS call Calculate Cart Totals with the customer-confirmed delivery area/address. Never calculate subtotals, delivery fees, or totals yourself.\n\n5. CHECKOUT & ORDER CREATION:\n- Collect customer name, contact phone (set contactNumberMode=\"same_whatsapp\" for current WhatsApp number or \"provided\" if customer gives digits), full delivery address/area, and payment method (COD or Easypaisa).\n- Show a final summary including: items, quantities, subtotal, delivery fee, total, address, contact choice, and payment method (WITHOUT ANY ASTERISKS).\n- WAIT for an explicit confirmation (\"Haan confirm hai / Yes\") from customer.\n- Only then call Create Confirmed Order exactly once. Use data.orderNumber returned.\n- ALTERNATE NUMBER: if the customer asks to send the order details or confirmation to another number, at ANY point (before OR after the order is created), call Send Alternate Confirmation with chatId = that number exactly as given and message = the full order summary including the real order number. If no order exists yet, create it first (after explicit confirmation), then send. ONLY tell the customer it was sent if the tool returned success true. If the tool fails or returns an error, tell them honestly that it could not be sent and offer to retry. NEVER say details were sent or noted without actually calling the tool.\n\n6. ORDER STATUS LOOKUP:\n- When customer asks \"Mera order kahan hai?\" or gives an order number: call Get Order Status with orderNumber.\n\n7. CANCELLATION (TWO SEPARATE TURNS WITH ITEMS & BILL BREAKDOWN):\n- Turn 1: Customer asks to cancel order #[ORDER_NUMBER]. Call Request Order Cancellation with orderNumber. The tool returns the order details, items list, and total bill. Present the full items list, quantities, prices, and grand total to the customer, for example:\nAap ke order #[ORDER_NUMBER] mein yeh items shamil hain:\n- [Item 1] x [Qty] (Rs. [Price])\n- [Item 2] x [Qty] (Rs. [Price])\nTotal Bill: Rs. [Total]\n\nKya aap waqai is order ko cancel karna chahte hain? Haan ya Nahi confirm kar dein.\n- Turn 2: Only after a NEW message where customer explicitly says yes/haan, call Confirm Order Cancellation with confirmed=true. If customer says no/nahi, call with confirmed=false.\n\n8. HUMAN HANDOVER (2 HOURS SILENCE & MEMORY CLEAR):\n- When customer asks to speak with a human agent, real person, staff, representative, or manager (e.g. 'human se baat karwao', 'real person', 'agent se connect karo', 'call me', etc.):\n- Call Request Human Handover immediately.\n- Then reply politely in Roman Urdu (WITHOUT ANY ASTERISKS):\n'Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon. Thodi hi der mein koi hamara representative aap se rabta karega. Hamara bot agle 2 ghante tak silent rahega taake hamari team aap se bat cheet kar sake.'\n- The backend will automatically clear pending cart memory and mute the bot for 2 hours so that the human team can chat directly without bot interference."
+          "systemMessage": "Cravey Crust WhatsApp ordering bot.\n\nRULES:\n- Answer ONLY what is asked in 2-3 short lines of Roman Urdu. Never use asterisks (*).\n- Never say \"permission nahi hai\". Be direct and helpful.\n- Menu: Call Get Menu Categories. Ask what category they want.\n- Item/Price: Call Search Menu Item for specific item price.\n- Deals: Call Get Current Deals. Mention 2-3 top deals.\n- Delivery: Ask customer area name, then call Check Delivery Availability.\n\nORDERING:\n- Never calculate totals; call Calculate Cart Totals.\n- Collect name, phone, address, payment (COD/Easypaisa).\n- Show summary, create order ONLY after explicit confirmation. Call Create Confirmed Order once.\n- Cancel: 2 turns (1: request cancel; 2: confirm cancel on yes/no).\n- Human: Call Request Human Handover and inform staff will contact."
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        48,
-        1408
+        1300,
+        480
       ],
-      "id": "fafb6ae2-fcff-400d-95da-c181ec36e811",
+      "id": "0f931560-e9de-41b0-82a1-a8fe158b90a0",
       "name": "AI Agent"
     },
     {
@@ -149,10 +325,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
       "position": [
-        -160,
-        1712
+        1060,
+        680
       ],
-      "id": "c4864e36-0164-41ab-9028-4b45c185b8a3",
+      "id": "1f2547ee-8995-439f-9704-7a17044fd526",
       "name": "Google Gemini Chat Model",
       "credentials": {
         "googlePalmApi": {
@@ -163,21 +339,20 @@
     },
     {
       "parameters": {
-        "modelName": "models/gemini-3.5-flash-lite",
         "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
-      "typeVersion": 1.2,
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
       "position": [
-        16,
-        1808
+        1300,
+        680
       ],
-      "id": "9e995d7f-f450-4acb-a957-88180846e588",
-      "name": "Gemini Fallback 02",
+      "id": "0521fe87-45c4-48a2-a0cb-09866c3f763e",
+      "name": "DeepSeek Chat Model",
       "credentials": {
-        "googlePalmApi": {
-          "id": "RtCVxwz43k0pMrwg",
-          "name": "Google Gemini(PaLM) Api account 2"
+        "deepSeekApi": {
+          "id": "wNcraJYZ11bQD501",
+          "name": "DeepSeek account"
         }
       }
     },
@@ -185,20 +360,63 @@
       "parameters": {
         "sessionIdType": "customKey",
         "sessionKey": "={{ $json.sessionKey + '-v4' }}",
-        "contextWindowLength": 20
+        "contextWindowLength": 2
       },
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
       "position": [
-        192,
-        1760
+        1540,
+        680
       ],
-      "id": "caf10827-195e-4098-a62d-14e010cd0744",
+      "id": "62549975-2d88-4fb8-9d1a-8a654fcf9ff3",
       "name": "Simple Memory"
     },
     {
       "parameters": {
-        "toolDescription": "Call to fetch live restaurant name, bot assistant name, address, business hours, and payment details. ALWAYS use this instead of hardcoding any store identity.",
+        "method": "POST",
+        "url": "https://bot.craveycrust.com/api/n8n/send-message",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Bot-Secret",
+              "value": "my-test-secret-123"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "sessionId",
+              "value": "primary"
+            },
+            {
+              "name": "chatId",
+              "value": "={{ $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ ($json.output || $json.text || '').replace(/\\*/g, '').trim() }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 40000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1820,
+        300
+      ],
+      "id": "51c5fcdc-4225-40de-9c04-b25c7f1c8cc5",
+      "name": "Send WhatsApp Reply"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Fetch store hours, address, info.",
         "url": "https://bot.craveycrust.com/api/internal/restaurant",
         "sendHeaders": true,
         "headerParameters": {
@@ -216,22 +434,22 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        128,
-        2096
+        500,
+        900
       ],
-      "id": "051cd9fd-03dc-4d25-a8cd-8d5476b9a5ac",
+      "id": "c24c9b46-d418-483d-b5d3-62902cb70e14",
       "name": "Get Store Info"
     },
     {
       "parameters": {
-        "toolDescription": "Search Cravey Crust FAQs for store timings, location, address, delivery policy, halal status, or review link.",
+        "toolDescription": "Search FAQs for timing, location, halal.",
         "url": "https://bot.craveycrust.com/api/internal/faqs/search",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
             {
               "name": "q",
-              "value": "={{ $fromAI('query', 'Topic or keyword, e.g. timing, location, delivery charges, halal, reviews', 'string') }}"
+              "value": "={{ $fromAI('query', 'FAQ keyword', 'string') }}"
             }
           ]
         },
@@ -251,22 +469,22 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        256,
-        2096
+        740,
+        900
       ],
-      "id": "adf617ad-cc11-4f4e-a321-4438d7df1715",
+      "id": "47e052b1-eb28-40e8-972b-35d228d026ff",
       "name": "Search FAQs"
     },
     {
       "parameters": {
-        "toolDescription": "Search active menu items by keyword (e.g. zinger, roll, fajita, pizza). Returns matching items with exact IDs, base prices and variants.",
+        "toolDescription": "Search menu by name. Returns IDs, prices, variants.",
         "url": "https://bot.craveycrust.com/api/internal/menu/search",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
             {
               "name": "q",
-              "value": "={{ $fromAI('query', 'Menu item name or keyword to search for', 'string') }}"
+              "value": "={{ $fromAI('query', 'Item name', 'string') }}"
             }
           ]
         },
@@ -286,15 +504,15 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        416,
-        2096
+        980,
+        900
       ],
-      "id": "a524ac4a-281c-4281-a17b-b5d8145fbb20",
+      "id": "7d482961-ac63-4c5c-a79d-1b50ec18c7ab",
       "name": "Search Menu Item"
     },
     {
       "parameters": {
-        "toolDescription": "Call to show active categories to fresh customers (e.g. Classic Pizzas, Burgers, Deals).",
+        "toolDescription": "Get active menu categories.",
         "url": "https://bot.craveycrust.com/api/internal/menu/categories",
         "sendHeaders": true,
         "headerParameters": {
@@ -312,41 +530,15 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        560,
-        2096
+        1220,
+        900
       ],
-      "id": "783c8b58-3e68-4ddb-b2c7-c57235a21d98",
+      "id": "6ec6314a-6bcb-4e5d-8ac1-36f1cb59eade",
       "name": "Get Menu Categories"
     },
     {
       "parameters": {
-        "toolDescription": "Call for complete menu list. Returns all active categories with available items and variants.",
-        "url": "https://bot.craveycrust.com/api/internal/menu",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Internal-API-Secret",
-              "value": "my-test-secret-123"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 30000
-        }
-      },
-      "type": "n8n-nodes-base.httpRequestTool",
-      "typeVersion": 4.5,
-      "position": [
-        704,
-        2096
-      ],
-      "id": "4a09c218-0d65-4fc2-ab5d-c6bced8f75a3",
-      "name": "Get Current Menu"
-    },
-    {
-      "parameters": {
-        "toolDescription": "Call for deal/combo offers. Returns active deals with deal IDs, prices, and included items.",
+        "toolDescription": "Get active deals with IDs and prices.",
         "url": "https://bot.craveycrust.com/api/internal/deals",
         "sendHeaders": true,
         "headerParameters": {
@@ -364,15 +556,15 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        832,
-        2096
+        1460,
+        900
       ],
-      "id": "abfeddb0-7709-410b-a5a3-19f7519ad879",
+      "id": "a0d64932-5854-4c54-ba55-1305d333b4ed",
       "name": "Get Current Deals"
     },
     {
       "parameters": {
-        "toolDescription": "Call for promo codes, discount vouchers, or active promotions.",
+        "toolDescription": "Get active promo codes and discounts.",
         "url": "https://bot.craveycrust.com/api/internal/promotions/active",
         "sendHeaders": true,
         "headerParameters": {
@@ -390,15 +582,15 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        976,
-        2096
+        1700,
+        900
       ],
-      "id": "ca6f1dcc-4b1e-47b8-955e-c5ed554c5b56",
+      "id": "1cc7fea0-d8ee-4a3c-9a68-1c31d14f7504",
       "name": "Get Active Promotions"
     },
     {
       "parameters": {
-        "toolDescription": "Check if a delivery area/neighborhood is in range. Returns available: true/false and delivery fee.",
+        "toolDescription": "Check area delivery coverage and fee.",
         "method": "POST",
         "url": "https://bot.craveycrust.com/api/internal/delivery/check",
         "sendHeaders": true,
@@ -412,7 +604,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ areaName: $fromAI('areaName', 'Customer confirmed delivery area name, e.g. Ghauri Town, Tarlai, etc.', 'string'), latitude: $fromAI('latitude', 'Optional latitude from pinned location', 'number'), longitude: $fromAI('longitude', 'Optional longitude from pinned location', 'number') }) }}",
+        "jsonBody": "={{ JSON.stringify({ areaName: $fromAI('areaName', 'Area name', 'string'), latitude: $fromAI('latitude', 'Latitude or empty', 'number'), longitude: $fromAI('longitude', 'Longitude or empty', 'number') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -420,41 +612,15 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1120,
-        2096
+        1940,
+        900
       ],
-      "id": "4b3c1531-dd14-428a-ad45-a69ad87a5bd8",
+      "id": "d79d1bdd-0080-4ce8-a90b-4a056028debd",
       "name": "Check Delivery Availability"
     },
     {
       "parameters": {
-        "toolDescription": "Call ONLY when customer asks which areas Cravey Crust delivers to. Returns full list of active delivery areas.",
-        "url": "https://bot.craveycrust.com/api/internal/delivery",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Internal-API-Secret",
-              "value": "my-test-secret-123"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 30000
-        }
-      },
-      "type": "n8n-nodes-base.httpRequestTool",
-      "typeVersion": 4.5,
-      "position": [
-        1264,
-        2096
-      ],
-      "id": "89aa0df9-4933-46c8-9e05-3679cfc63cea",
-      "name": "Get Delivery Areas"
-    },
-    {
-      "parameters": {
-        "toolDescription": "Fetch active cart before describing, editing, or calculating totals.",
+        "toolDescription": "Get current customer cart.",
         "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) }}",
         "sendQuery": true,
         "queryParameters": {
@@ -485,15 +651,15 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        672,
-        1296
+        500,
+        1100
       ],
-      "id": "73d10ff9-8f37-48ed-88c1-091a52dc5468",
+      "id": "bcb369fe-b095-4697-b764-1f6ad621ec1a",
       "name": "Get Cart"
     },
     {
       "parameters": {
-        "toolDescription": "Add one verified current menu item or deal to cart. Supply exactly one of menuItemId or dealId.",
+        "toolDescription": "Add item or deal to cart (send menuItemId OR dealId).",
         "method": "POST",
         "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items' }}",
         "sendHeaders": true,
@@ -507,7 +673,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ menuItemId: $fromAI('menuItemId', 'Exact menu item id returned by menu tools. Leave empty when adding a deal.', 'string'), variantId: $fromAI('variantId', 'Exact selected variant id, or empty if none applies.', 'string'), dealId: $fromAI('dealId', 'Exact deal id from Get Current Deals. Leave empty when adding a menu item.', 'string'), quantity: $fromAI('quantity', 'Positive integer quantity.', 'number'), notes: $fromAI('notes', 'Special item instructions, otherwise empty.', 'string') }) }}",
+        "jsonBody": "={{ JSON.stringify({ menuItemId: $fromAI('menuItemId', 'Menu item ID or empty', 'string'), variantId: $fromAI('variantId', 'Variant ID or empty', 'string'), dealId: $fromAI('dealId', 'Deal ID or empty', 'string'), quantity: $fromAI('quantity', 'Quantity integer', 'number'), notes: $fromAI('notes', 'Item instructions or empty', 'string') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -515,17 +681,17 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        816,
-        1296
+        740,
+        1100
       ],
-      "id": "6255f45f-c2a4-4e8b-bb4d-116eef4a7ba5",
+      "id": "08e6c0ba-18c3-4427-8def-ac7737dbeabd",
       "name": "Add to Cart"
     },
     {
       "parameters": {
-        "toolDescription": "Change quantity or notes of an existing cart item. Use exact cartItemId from Get Cart.",
+        "toolDescription": "Update cart item qty/notes.",
         "method": "PATCH",
-        "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items/' + encodeURIComponent($fromAI('cartItemId', 'Exact cart item id returned by Get Cart.', 'string')) }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items/' + encodeURIComponent($fromAI('cartItemId', 'Cart item ID', 'string')) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -537,7 +703,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ quantity: $fromAI('quantity', 'New positive quantity, or 0 to remove.', 'number'), notes: $fromAI('notes', 'Updated instructions; leave empty if not changing.', 'string') }) }}",
+        "jsonBody": "={{ JSON.stringify({ quantity: $fromAI('quantity', 'New quantity or 0', 'number'), notes: $fromAI('notes', 'Updated notes or empty', 'string') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -545,17 +711,17 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        960,
-        1296
+        980,
+        1100
       ],
-      "id": "262d8614-080b-4bb7-94d1-755082884090",
+      "id": "832663fa-5e4b-4169-96c2-9ddb5c8d2812",
       "name": "Update Cart Item"
     },
     {
       "parameters": {
-        "toolDescription": "Remove a cart item using its exact cartItemId from Get Cart.",
+        "toolDescription": "Remove item from cart by cartItemId.",
         "method": "DELETE",
-        "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items/' + encodeURIComponent($fromAI('cartItemId', 'Exact cart item id returned by Get Cart.', 'string')) }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items/' + encodeURIComponent($fromAI('cartItemId', 'Cart item ID', 'string')) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -572,15 +738,15 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1104,
-        1296
+        1220,
+        1100
       ],
-      "id": "dc23fb03-4888-4f43-8c3d-69befcc9f0f7",
+      "id": "1f6c4be6-3cf5-4a99-b0b7-3b15a5253e0c",
       "name": "Remove Cart Item"
     },
     {
       "parameters": {
-        "toolDescription": "Clear active cart when customer cancels unfinished order or asks to start over.",
+        "toolDescription": "Clear current unfinished cart.",
         "method": "DELETE",
         "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) }}",
         "sendHeaders": true,
@@ -599,15 +765,15 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1232,
-        1296
+        1460,
+        1100
       ],
-      "id": "68d2c131-3cbf-46d2-a5e6-0eddba3dfd5b",
+      "id": "2f0451be-63e9-4f3b-b572-caceeadc9988",
       "name": "Clear Cart"
     },
     {
       "parameters": {
-        "toolDescription": "Backend recalculates authoritative prices, discounts, delivery fee and total. Always call before presenting checkout summary.",
+        "toolDescription": "Calculate cart totals, delivery fee, and bill.",
         "method": "POST",
         "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/calculate' }}",
         "sendHeaders": true,
@@ -621,7 +787,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ promoCode: $fromAI('promoCode', 'Customer promo code or empty.', 'string'), deliveryAreaId: $fromAI('deliveryAreaId', 'Verified delivery area id if known, otherwise empty.', 'string'), deliveryAreaName: $fromAI('deliveryAreaName', 'Customer confirmed delivery area/neighborhood.', 'string'), latitude: $fromAI('latitude', 'Verified latitude if pinned, otherwise empty.', 'number'), longitude: $fromAI('longitude', 'Verified longitude if pinned, otherwise empty.', 'number') }) }}",
+        "jsonBody": "={{ JSON.stringify({ promoCode: $fromAI('promoCode', 'Promo code or empty', 'string'), deliveryAreaId: $fromAI('deliveryAreaId', 'Area ID or empty', 'string'), deliveryAreaName: $fromAI('deliveryAreaName', 'Delivery area name', 'string'), latitude: $fromAI('latitude', 'Latitude or empty', 'number'), longitude: $fromAI('longitude', 'Longitude or empty', 'number') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -629,15 +795,15 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        672,
-        1088
+        1700,
+        1100
       ],
-      "id": "19bb232d-9cd8-4081-ac20-7ce4a3f6470d",
+      "id": "3d45aa2f-af16-41fb-8b08-d5e8ea04ccd6",
       "name": "Calculate Cart Totals"
     },
     {
       "parameters": {
-        "toolDescription": "Create confirmed order from active cart. Call ONLY after customer explicitly confirms the final summary.",
+        "toolDescription": "Create confirmed order after customer explicitly confirms summary.",
         "method": "POST",
         "url": "https://bot.craveycrust.com/api/internal/orders",
         "sendHeaders": true,
@@ -651,7 +817,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey, customerName: $fromAI('customerName', 'Customer name explicitly provided by customer.', 'string'), phone: $fromAI('phone', 'Exact phone when contactNumberMode is provided; otherwise empty.', 'string'), contactNumberMode: $fromAI('contactNumberMode', 'same_whatsapp or provided.', 'string'), confirmationNumberMode: $fromAI('confirmationNumberMode', 'default, same_whatsapp, or provided.', 'string'), confirmationPhone: $fromAI('confirmationPhone', 'Alternate confirmation number if customer requested; otherwise empty.', 'string'), delivery: { address: $fromAI('deliveryAddress', 'Full customer-confirmed delivery address.', 'string'), areaName: $fromAI('deliveryAreaName', 'Customer-confirmed delivery area/neighborhood.', 'string'), areaId: $fromAI('deliveryAreaId', 'Verified delivery area id if available; otherwise empty.', 'string'), latitude: $('Webhook').first().json.body?.location?.latitude ?? undefined, longitude: $('Webhook').first().json.body?.location?.longitude ?? undefined, googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || '' }, paymentMethod: $fromAI('paymentMethod', 'COD or EASYPAISA, as selected by customer.', 'string'), promoCode: $fromAI('promoCode', 'Customer promo code or empty.', 'string'), notes: $fromAI('notes', 'Special instructions or empty.', 'string'), idempotencyKey: $('Prepare Session').first().json.messageId || undefined }) }}",
+        "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey, customerName: $fromAI('customerName', 'Customer name', 'string'), phone: $fromAI('phone', 'Phone if provided', 'string'), contactNumberMode: $fromAI('contactNumberMode', 'same_whatsapp or provided', 'string'), confirmationNumberMode: $fromAI('confirmationNumberMode', 'default, same_whatsapp, or provided', 'string'), confirmationPhone: $fromAI('confirmationPhone', 'Alternate phone or empty', 'string'), delivery: { address: $fromAI('deliveryAddress', 'Confirmed address', 'string'), areaName: $fromAI('deliveryAreaName', 'Confirmed area name', 'string'), areaId: $fromAI('deliveryAreaId', 'Area ID or empty', 'string'), latitude: $('Webhook').first().json.body?.location?.latitude ?? undefined, longitude: $('Webhook').first().json.body?.location?.longitude ?? undefined, googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || '' }, paymentMethod: $fromAI('paymentMethod', 'COD or EASYPAISA', 'string'), promoCode: $fromAI('promoCode', 'Promo code or empty', 'string'), notes: $fromAI('notes', 'Notes or empty', 'string'), idempotencyKey: $('Prepare Session').first().json.messageId || undefined }) }}",
         "options": {
           "timeout": 60000
         }
@@ -659,16 +825,16 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        816,
-        1088
+        1940,
+        1100
       ],
-      "id": "d644551f-751b-442b-b1bb-60c11bc80762",
+      "id": "7f763811-83d5-4b9c-b2d1-8cf315f2cf16",
       "name": "Create Confirmed Order"
     },
     {
       "parameters": {
-        "toolDescription": "Lookup real-time status and details of an existing order using CC order number.",
-        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Exact CC order number, e.g. CC-20261012-0001', 'string')) }}",
+        "toolDescription": "Get order status using CC order number.",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Order number e.g. CC-20261012-0001', 'string')) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -685,17 +851,17 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        960,
-        1088
+        2180,
+        900
       ],
-      "id": "79c7ee92-324f-4a84-a314-5e280686a0a8",
+      "id": "63684cbe-e668-4fbb-b7fa-7fbe9fb81293",
       "name": "Get Order Status"
     },
     {
       "parameters": {
-        "toolDescription": "Step 1 of cancellation: Look up order items, quantities, and total bill, then prepare pending cancellation. Present the full items list and bill to customer before confirming.",
+        "toolDescription": "Step 1: Fetch order items and bill, request cancellation.",
         "method": "POST",
-        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Exact CC order number.', 'string')) + '/request-cancel' }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Order number', 'string')) + '/request-cancel' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -715,17 +881,17 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1104,
-        1088
+        2180,
+        1100
       ],
-      "id": "46fb1216-e239-4c40-9c09-5a56a530aa4b",
+      "id": "f717140d-ca07-45db-aea3-fa205e6ddea6",
       "name": "Request Order Cancellation"
     },
     {
       "parameters": {
-        "toolDescription": "Step 2 of cancellation: Finalize cancellation after customer explicitly sends yes/haan (confirmed=true) or no/nahi (confirmed=false).",
+        "toolDescription": "Step 2: Confirm cancellation after explicit yes/no.",
         "method": "POST",
-        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Exact CC order number.', 'string')) + '/confirm-cancel' }}",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Order number', 'string')) + '/confirm-cancel' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -737,7 +903,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey, confirmed: $fromAI('confirmed', 'Boolean true on yes/haan; false on no/nahi.', 'boolean') }) }}",
+        "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey, confirmed: $fromAI('confirmed', 'true for yes/haan, false for no/nahi', 'boolean') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -745,15 +911,15 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1232,
-        1088
+        1100,
+        1300
       ],
-      "id": "fab73ea9-11c8-4d7f-9982-15ae71f1dfdc",
+      "id": "c2b51498-202c-49d0-b121-b9fbd38a334d",
       "name": "Confirm Order Cancellation"
     },
     {
       "parameters": {
-        "toolDescription": "Send the order confirmation text to a different WhatsApp number. Use it when the customer asks to send the order details to another number, before or after the order is created. Needs the real order number in the message, so call Create Confirmed Order first if no order exists yet.",
+        "toolDescription": "Send order confirmation to alternate WhatsApp number.",
         "method": "POST",
         "url": "https://bot.craveycrust.com/api/n8n/send-message",
         "sendHeaders": true,
@@ -767,7 +933,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ sessionId: 'primary', chatId: $fromAI('chatId', 'Alternate WhatsApp number exactly as the customer gave it, e.g. 03470393013', 'string'), message: $fromAI('message', 'Full order confirmation in plain Roman Urdu text, no asterisks: order number, items with quantities, subtotal, delivery fee, total, address, payment method.', 'string') }) }}",
+        "jsonBody": "={{ JSON.stringify({ sessionId: 'primary', chatId: $fromAI('chatId', 'Alternate WhatsApp number', 'string'), message: $fromAI('message', 'Plain text order summary without asterisks', 'string') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -775,15 +941,15 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1376,
-        1088
+        1340,
+        1300
       ],
-      "id": "0cde95ed-5665-49a1-83c9-50408aeeff93",
+      "id": "3c31128a-23b4-4b84-b4aa-0f829730fa6c",
       "name": "Send Alternate Confirmation"
     },
     {
       "parameters": {
-        "toolDescription": "Call when customer asks to speak with a human agent, representative, real person, staff, or asks someone to call them. Mutes the bot for 2 hours and clears pending unconfirmed cart memory.",
+        "toolDescription": "Hand over to human agent and mute bot for 2 hours.",
         "method": "POST",
         "url": "https://bot.craveycrust.com/api/internal/handover",
         "sendHeaders": true,
@@ -797,7 +963,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId, sessionKey: $('Prepare Session').first().json.sessionKey, durationMinutes: 120, reason: $fromAI('reason', 'Customer reason for requesting a human representative', 'string') }) }}",
+        "jsonBody": "={{ JSON.stringify({ chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId, sessionKey: $('Prepare Session').first().json.sessionKey, durationMinutes: 120, reason: $fromAI('reason', 'Customer reason', 'string') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -805,40 +971,11 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1520,
-        1088
+        1580,
+        1300
       ],
-      "id": "handover-tool-node",
+      "id": "9c00445d-c164-4517-b6c2-225dcce261dd",
       "name": "Request Human Handover"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://bot.craveycrust.com/api/n8n/send-message",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Bot-Secret",
-              "value": "my-test-secret-123"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  sessionId: 'primary',\n  chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId,\n  message: (($('AI Agent').first().json?.output || $json.output || '') + '').replace(/\\*/g, '').trim()\n}) }}",
-        "options": {
-          "timeout": 30000
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        528,
-        1552
-      ],
-      "id": "25932060-18bb-4838-b775-606a394dc958",
-      "name": "Send WhatsApp Reply"
     }
   ],
   "connections": {
@@ -868,7 +1005,7 @@
       "main": [
         [
           {
-            "node": "AI Agent",
+            "node": "Check Cache & Classify Intent",
             "type": "main",
             "index": 0
           }
@@ -893,17 +1030,6 @@
             "node": "AI Agent",
             "type": "ai_languageModel",
             "index": 0
-          }
-        ]
-      ]
-    },
-    "Gemini Fallback 02": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_languageModel",
-            "index": 1
           }
         ]
       ]
@@ -963,17 +1089,6 @@
         ]
       ]
     },
-    "Get Current Menu": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Get Current Deals": {
       "ai_tool": [
         [
@@ -997,17 +1112,6 @@
       ]
     },
     "Check Delivery Availability": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Delivery Areas": {
       "ai_tool": [
         [
           {
@@ -1145,6 +1249,104 @@
           {
             "node": "AI Agent",
             "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Check Cache & Classify Intent": {
+      "main": [
+        [
+          {
+            "node": "Route by Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Intent": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Live Categories",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Live Deals",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Live Categories": {
+      "main": [
+        [
+          {
+            "node": "Format Live Categories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Live Categories": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Live Deals": {
+      "main": [
+        [
+          {
+            "node": "Format Live Deals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Live Deals": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
             "index": 0
           }
         ]

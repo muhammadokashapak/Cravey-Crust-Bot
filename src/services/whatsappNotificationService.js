@@ -207,10 +207,27 @@ export async function sendCancellationNotification({ order, reason, sock }) {
 }
 
 /**
- * Send human handover alert to admin/owner
+ * Send human handover alert to the scanned WhatsApp number and configured admin/owner
  */
-export async function sendAdminHandoverAlert({ customerChatId, customerPhone, durationMinutes = 120, reason = 'Human representative requested', sock }) {
+export async function sendAdminHandoverAlert({ customerChatId, customerPhone, customerName, durationMinutes = 120, reason = 'Human representative requested', sock }) {
     try {
+        const activeSock = resolveSocket(sock);
+        if (!activeSock) {
+            logger.warn({ customerChatId }, '[HANDOVER] Admin alert skipped: WhatsApp socket not connected');
+            return { success: false, error: 'WhatsApp socket not connected' };
+        }
+
+        const recipients = new Set();
+
+        // 1. Automatically detect the phone number that scanned the QR code (this bot's logged-in account)
+        const scannedRaw = activeSock.user?.id || activeSock.authState?.creds?.me?.id || '';
+        const scannedDigits = scannedRaw.split('@')[0]?.split(':')[0]?.replace(/\D/g, '');
+        const scannedJid = formatPhoneToJid(scannedDigits);
+        if (scannedJid) {
+            recipients.add(scannedJid);
+        }
+
+        // 2. Also check if an explicit admin notification number is set in DB or .env
         const prisma = getDbClient();
         const restId = await getDefaultRestaurantId();
 
@@ -228,29 +245,54 @@ export async function sendAdminHandoverAlert({ customerChatId, customerPhone, du
         }
 
         const adminJid = formatPhoneToJid(adminPhone);
-        if (!adminJid) {
-            logger.warn({ customerChatId }, '[HANDOVER] Admin alert skipped: No valid admin phone configured');
-            return { success: false, error: 'No valid admin phone configured' };
+        if (adminJid) {
+            recipients.add(adminJid);
         }
 
-        const activeSock = resolveSocket(sock);
-        if (!activeSock) {
-            logger.warn({ customerChatId }, '[HANDOVER] Admin alert skipped: WhatsApp socket not connected');
-            return { success: false, error: 'WhatsApp socket not connected' };
+        if (recipients.size === 0) {
+            logger.warn({ customerChatId }, '[HANDOVER] Admin alert skipped: No valid scanned or configured recipient found');
+            return { success: false, error: 'No valid recipient phone found' };
         }
+
+        // Format customer phone & direct chat link
+        let cleanCustomerDigits = (customerPhone || '').replace(/\D/g, '');
+        if (!cleanCustomerDigits && customerChatId) {
+            cleanCustomerDigits = customerChatId.split('@')[0]?.split(':')[0]?.replace(/\D/g, '');
+        }
+        if (cleanCustomerDigits.startsWith('03')) {
+            cleanCustomerDigits = '92' + cleanCustomerDigits.slice(1);
+        }
+
+        const waLink = cleanCustomerDigits.length >= 10 ? `https://wa.me/${cleanCustomerDigits}` : null;
+        const displayPhone = cleanCustomerDigits
+            ? (cleanCustomerDigits.startsWith('92') ? '0' + cleanCustomerDigits.slice(2) : cleanCustomerDigits)
+            : (customerChatId || 'Unknown');
+        const displayName = customerName && String(customerName).trim() ? String(customerName).trim() : 'Customer';
 
         const alertText = 
-`🚨 Human Handover Request
+`🚨 *HUMAN HANDOVER REQUEST* 🚨
 
-Customer: ${customerPhone || customerChatId}
-Reason: ${reason}
-Bot Status: Muted for this chat for ${durationMinutes} minutes.
+Aap ke WhatsApp bot par aik customer ne baat karne ki request ki hai:
 
-Aap is customer se direct WhatsApp par rabta kar sakte hain. Bot silent rahega.`;
+👤 *Customer:* ${displayName}
+📱 *Phone Number:* ${displayPhone}
+${waLink ? `💬 *Direct Chat Link:* ${waLink}\n` : ''}❓ *Wajah / Reason:* ${reason}
+⏱️ *Bot Status:* Muted (Agley ${durationMinutes} minutes tak bot is customer ko auto-reply nahi karega)
 
-        await activeSock.sendMessage(adminJid, { text: alertText });
-        logger.info({ customerChatId, adminJid }, '[HANDOVER] Admin handover alert dispatched');
-        return { success: true };
+👉 *Action:* Aap direct customer ke number par ya diye gaye chat link par rabta kar saktay hain.`;
+
+        let sentCount = 0;
+        for (const recipientJid of recipients) {
+            try {
+                await activeSock.sendMessage(recipientJid, { text: alertText });
+                sentCount++;
+                logger.info({ customerChatId, recipientJid }, '[HANDOVER] Handover alert dispatched to recipient');
+            } catch (sendErr) {
+                logger.error({ err: sendErr.message, recipientJid }, '[HANDOVER] Failed sending alert to recipient');
+            }
+        }
+
+        return { success: sentCount > 0, recipients: Array.from(recipients) };
     } catch (err) {
         logger.error({ err: err.message, customerChatId }, '[HANDOVER] Failed to send admin handover alert');
         return { success: false, error: err.message };

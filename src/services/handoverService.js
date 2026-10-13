@@ -29,7 +29,7 @@ export function normalizePhoneOrJid(identifier) {
  * Mute a chat for human handover (default 2 hours / 120 minutes)
  * and clear active cart/session memory so unconfirmed orders don't linger.
  */
-export async function muteChatForHandover({ chatId, sessionKey, durationMinutes = 120, reason = 'Customer requested human support', sock }) {
+export async function muteChatForHandover({ chatId, sessionKey, durationMinutes = 120, reason = 'Customer requested human support', customerName, customerPhone, sock }) {
     const rawChatId = (chatId || '').trim();
     const rawSessionKey = (sessionKey || '').trim();
     const phoneDigits = normalizePhoneOrJid(rawChatId) || normalizePhoneOrJid(rawSessionKey);
@@ -57,6 +57,9 @@ export async function muteChatForHandover({ chatId, sessionKey, durationMinutes 
 
     logger.info({ rawChatId, phoneDigits, mutedUntil, durationMinutes }, '[HANDOVER] Chat muted for human support');
 
+    let resolvedCustomerName = customerName || null;
+    let resolvedCustomerPhone = customerPhone || phoneDigits || null;
+
     // ── 1. Clear Active Cart & Memory in Database ──
     try {
         const prisma = getDbClient();
@@ -70,8 +73,19 @@ export async function muteChatForHandover({ chatId, sessionKey, durationMinutes 
             if (sessionQuery.length > 0) {
                 const sessions = await prisma.conversationSession.findMany({
                     where: { OR: sessionQuery },
-                    select: { id: true, session_key: true },
+                    select: {
+                        id: true,
+                        session_key: true,
+                        customer: { select: { name: true, phone: true } },
+                    },
                 });
+
+                if (!resolvedCustomerName && sessions.length > 0) {
+                    resolvedCustomerName = sessions.find(s => s.customer?.name)?.customer?.name || null;
+                }
+                if (!resolvedCustomerPhone && sessions.length > 0) {
+                    resolvedCustomerPhone = sessions.find(s => s.customer?.phone)?.customer?.phone || null;
+                }
 
                 for (const s of sessions) {
                     // Reset session stage and clear pending orders
@@ -105,7 +119,8 @@ export async function muteChatForHandover({ chatId, sessionKey, durationMinutes 
     // ── 2. Send Admin Notification via WhatsApp ──
     sendAdminHandoverAlert({
         customerChatId: rawChatId,
-        customerPhone: phoneDigits,
+        customerPhone: resolvedCustomerPhone,
+        customerName: resolvedCustomerName,
         durationMinutes: record.durationMinutes,
         reason,
         sock,

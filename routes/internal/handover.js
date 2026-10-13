@@ -9,7 +9,7 @@ const router = Router();
  */
 router.post('/', async (req, res) => {
     try {
-        const { chatId, sessionKey, durationMinutes = 120, reason } = req.body || {};
+        const { chatId, sessionKey, durationMinutes = 120, reason, customerName, customerPhone, pushName } = req.body || {};
 
         if (!chatId && !sessionKey) {
             return res.status(400).json({
@@ -23,6 +23,8 @@ router.post('/', async (req, res) => {
             sessionKey,
             durationMinutes: Number(durationMinutes) || 120,
             reason: reason || 'Customer requested human support representative',
+            customerName: customerName || pushName || null,
+            customerPhone: customerPhone || null,
         });
 
         return res.json(result);
