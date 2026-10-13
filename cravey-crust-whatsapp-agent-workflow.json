@@ -10,10 +10,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -5632,
-        3488
+        -5376,
+        3232
       ],
-      "id": "c692d9e8-d0fd-4b59-aabc-800f6e6d2f19",
+      "id": "d7bcdcde-7d46-4dc8-93dc-cc5bb37e10ec",
       "name": "Webhook",
       "webhookId": "5eac53b2-0d19-443a-9b0f-d5373e9a61dd"
     },
@@ -36,7 +36,19 @@
             {
               "id": "1129b8c1-2ed8-4334-9ea8-ac0cdb42182a",
               "name": "message",
-              "value": "={{ $json.body?.message || $json.body?.text || $json.body?.chatInput || '' }}",
+              "value": "={{ ($json.body?.location?.latitude && $json.body?.location?.longitude) ? ('Customer ne location pin share ki: lat=' + $json.body.location.latitude + ', lng=' + $json.body.location.longitude + ($json.body?.location?.mapUrl ? ', url=' + $json.body.location.mapUrl : '')) : ($json.body?.message || $json.body?.text || $json.body?.chatInput || '') }}",
+              "type": "string"
+            },
+            {
+              "id": "3b29ef5a-8b1e-4509-a720-d8a412389fed",
+              "name": "locationLat",
+              "value": "={{ $json.body?.location?.latitude || (String($json.body?.message || $json.body?.text || '').match(/(?:q=|@)(-?\\d+\\.\\d+),\\s*(-?\\d+\\.\\d+)/)?.[1]) || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "7a30cf1b-9c2f-461a-b831-e9b523490afe",
+              "name": "locationLng",
+              "value": "={{ $json.body?.location?.longitude || (String($json.body?.message || $json.body?.text || '').match(/(?:q=|@)(-?\\d+\\.\\d+),\\s*(-?\\d+\\.\\d+)/)?.[2]) || '' }}",
               "type": "string"
             },
             {
@@ -89,10 +101,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -5664,
-        3200
+        -5184,
+        3232
       ],
-      "id": "4cfefb24-5576-4f9b-bc87-8bcde90bbbdb",
+      "id": "753f4c2e-49f1-4a31-955a-029a9830634d",
       "name": "Prepare Session"
     },
     {
@@ -123,24 +135,24 @@
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.2,
       "position": [
-        -5584,
-        2992
+        -4976,
+        3232
       ],
-      "id": "feff3a6f-c58a-4d81-80c2-047ac74a2bde",
+      "id": "44183ee5-3751-4c01-8eb6-2e3159a00ead",
       "name": "Skip Empty Message"
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const rawMsg = (($json.message || $input?.item?.json?.message || '').toString()).trim().toLowerCase();\nconst cleanMsg = rawMsg.replace(/[^\\w\\s\\u0600-\\u06FF]/g, ' ').replace(/\\s+/g, ' ').trim();\n\nlet route = 'agent';\nlet output = '';\n\n// 1. Critical bypass check: Ordering actions, specific food items, cart, tracking, cancellation, handover MUST go to LLM Agent\nconst isOrderTracking = /\\b(mera order|order kahan|order status|track|tracking|kahan pohncha|cc-\\d+)\\b/i.test(cleanMsg);\nconst isActionOrSpecificItem = isOrderTracking || /\\b(order|chahiye|mangwana|karna hai|kardo|kar do|banao|pack|confirm|haan|yes|nahi|no|cancel|gali|house|street|road|sector|phase|flavour|flavor|fajita|tikka|extreme|peri|tandori|tandoori|ranch|malai|creamy|bbq|zinger|jalapeno|fillet|crispy burger|nuggets|wings|fries|sauce|calzone|slice|garlic bread|small|medium|large|party size|add|cart|remove|plus|minus|agent|human|call me|rabta karo|bande|banda|insan|manager|admin|complaint|shikayat|madad|help)\\b/i.test(cleanMsg);\n\nif (!isActionOrSpecificItem) {\n  // 2. Greetings Cache (0 Tokens)\n  const greetings = ['hi', 'hello', 'salam', 'assalam o alaikum', 'assalam alaikum', 'aoa', 'hey', 'slam', 'slaam', 'kese ho', 'kaise ho', 'kia hal hai', 'kya haal hai', 'سلام', 'السلام علیکم'];\n  if (greetings.includes(cleanMsg)) {\n    route = 'quick_reply';\n    output = 'Walaikum Assalam! Cravey Crust mein khushamdeed! Main hoon Burger Raja. Aaj aap kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Value Deals dastiyab hain!';\n  }\n  // 3. Timings Cache (0 Tokens)\n  else if (cleanMsg.includes('timing') || cleanMsg.includes('timings') || cleanMsg.includes('open') || cleanMsg.includes('kab khulta') || cleanMsg.includes('band hota') || cleanMsg.includes('khula hai') || cleanMsg.includes('auqat') || cleanMsg.includes('ٹائمنگ') || cleanMsg.includes('اوپن')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust rozana dopehar 12:00 PM se raat 2:00 AM tak open hota hai. Aap apna order kisi bhi waqt place kar sakte hain!';\n  }\n  // 4. Location Cache (0 Tokens)\n  else if (cleanMsg.includes('location') || cleanMsg.includes('address') || cleanMsg.includes('branch') || cleanMsg.includes('kahan') || cleanMsg.includes('kidhar') || cleanMsg.includes('لوکیشن') || cleanMsg.includes('پتہ')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust Main Lehtrar Road, Tarlai / Ghauri Town Islamabad ke qareeb waqay hai. Delivery hamare poore coverage area mein dastiyab hai!';\n  }\n  // 5. Halal FAQ Cache (0 Tokens)\n  else if (cleanMsg.includes('halal') || cleanMsg.includes('halal food') || cleanMsg.includes('meat halal') || cleanMsg.includes('حلال')) {\n    route = 'quick_reply';\n    output = 'Ji bilkul! Cravey Crust ka tamam chicken aur tamam ingredients 100% certified Halal, taaza aur ba-qaidah checked hain.';\n  }\n  // 6. Payment Methods Cache (0 Tokens)\n  else if (cleanMsg.includes('payment') || cleanMsg.includes('kese pay') || cleanMsg.includes('kaise pay') || cleanMsg.includes('easypaisa') || cleanMsg.includes('card chalta') || cleanMsg.includes('online pay') || cleanMsg.includes('cash on delivery') || cleanMsg.includes('cod') || cleanMsg.includes('پیمنٹ')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust par Cash on Delivery (COD) aur EasyPaisa dono payment tareeqay dastiyab hain. Order confirm karte waqt aap apna pasandeeda tareeqa chun sakte hain.';\n  }\n  // 7. Delivery Info Cache (0 Tokens)\n  else if (cleanMsg.includes('delivery charges') || cleanMsg.includes('delivery fee') || cleanMsg.includes('free delivery') || cleanMsg.includes('delivery kitne') || cleanMsg.includes('ڈلیوری چارجز')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust par standard delivery charges faslay (distance) ke mutabiq Rs. 100 se Rs. 250 tak hotay hain. Apne area ka naam batayein taake hum exact delivery fee bata sakein!';\n  }\n  // 8. Promotions / Discounts Cache (0 Tokens)\n  else if (cleanMsg.includes('discount') || cleanMsg.includes('promo') || cleanMsg.includes('voucher') || cleanMsg.includes('coupon') || cleanMsg.includes('off hai') || cleanMsg.includes('discount code') || cleanMsg.includes('riayat') || cleanMsg.includes('bachat') || cleanMsg.includes('ڈسکاؤنٹ') || cleanMsg.includes('رعایت')) {\n    route = 'quick_reply';\n    output = 'Filhal koi alag discount promo code active nahi hai, lekin hamari \\\"Value Deals\\\" pehle se hi bhari riayat (discount) par dastiyab hain (Starting from Rs. 599)! Aap Deals dekh kar order enjoy kar sakte hain.';\n  }\n  // 9. LIVE MENU CATEGORIES (0 Tokens, Auto-Sync from Dashboard!)\n  else if (cleanMsg.includes('menu') || cleanMsg.includes('rate list') || cleanMsg.includes('price list') || cleanMsg.includes('food list') || cleanMsg.includes('list dikhao') || cleanMsg.includes('kya kya hai') || cleanMsg === 'kya hai' || cleanMsg === 'list' || cleanMsg.includes('مینو') || cleanMsg.includes('ریٹ لسٹ')) {\n    route = 'live_categories';\n  }\n  // 10. LIVE DEALS (0 Tokens, Auto-Sync from Dashboard!)\n  else if (cleanMsg.includes('deal') || cleanMsg.includes('deals') || cleanMsg.includes('combo') || cleanMsg.includes('package') || cleanMsg.includes('offers') || cleanMsg.includes('ڈیل') || cleanMsg.includes('ڈیلز')) {\n    route = 'live_deals';\n  }\n}\n\nreturn {\n  ...$json,\n  route,\n  output\n};"
+        "jsCode": "const raw = String($json.message || '').trim().toLowerCase();\nconst clean = raw.replace(/[^\\w\\s\\u0600-\\u06FF]/g, ' ').replace(/\\s+/g, ' ').trim();\nconst wordCount = clean ? clean.split(' ').length : 0;\nconst has = (re) => re.test(clean);                       // English/Roman Urdu words\nconst any = (arr) => arr.some(k => clean.includes(k));    // Urdu script\n\nlet route = 'agent';\nlet output = '';\n\n// 1. Human Handover / Reject Bot Intent Detection\nconst rejectBot = /\\b(bot se|bot k sath|robot|bot nahi|bot se nahi|bot se bat nahi|bot se baat nahi)\\b/i.test(clean);\nconst wantHuman = /\\b(agent se|human se|bande se|representative se|manager se)\\b/i.test(clean);\nconst isHandoverExact = ['agent', 'human', 'representative', 'staff', 'manager', 'help', 'madad'].includes(clean);\nconst isHandoverKeyword = has(/\\b(agent chahiye|human chahiye|representative chahiye|banda chahiye|insan chahiye|call agent|talk to human|talk to agent|agent se baat|human se baat|bande se baat|call me|rabta karo|rabta karwao|shikayat|complaint)\\b/);\n\nif (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword) {\n  route = 'handover';\n  output = 'Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!';\n} else {\n  // 2. Specific deal or item inquiry must go to agent (e.g. \"burger wali deal main kya kya ha\")\n  const isDealOrItemInquiry = has(/\\b(kya kya hai|kya hai|kia hai|kia kya|isme kya|is mein kya|detail|details|includes|shamil|konsi cheez|burger|pizza|pasta|pani|water|drink|coke|sprite|wings|fries|garlic bread)\\b/);\n\n  // Yeh sab seedha agent ke paas jayega (order flow, address, number, lambay messages, item inquiry)\n  const mustGoToAgent =\n    isDealOrItemInquiry ||\n    wordCount === 0 || wordCount > 7 || /\\d/.test(clean) ||\n    has(/\\b(order|chahiye|mangwana|mangwa|karna hai|kardo|kar do|banao|pack|confirm|haan|han|ji|yes|nahi|no|ok|cancel|cod|easypaisa|easy paisa|cash|gali|house|street|road|sector|phase|flavour|flavor|fajita|tikka|extreme|peri|tandoori|tandori|ranch|malai|creamy|bbq|zinger|jalapeno|fillet|nuggets|wings|fries|sauce|calzone|slice|garlic|small|medium|large|party|add|cart|remove|plus|minus|track|tracking|status|location|pin|maps)\\b/);\n\n  if (!mustGoToAgent) {\n    const greetings = ['hi','hello','salam','assalam o alaikum','assalam alaikum','aoa','hey','slam','slaam','kese ho','kaise ho','kia hal hai','kya haal hai','سلام','السلام علیکم'];\n\n    if (greetings.includes(clean)) {\n      route = 'quick_reply';\n      output = 'Walaikum Assalam! Cravey Crust mein khushamdeed! Main hoon Burger Raja. Aaj aap kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Value Deals dastiyab hain!';\n    } else if (has(/\\b(timing|timings|open|khulta|khula|auqat)\\b/) || clean.includes('band hota') || any(['ٹائمنگ','اوپن'])) {\n      route = 'quick_reply';\n      output = 'Cravey Crust rozana dopehar 12:00 PM se raat 2:00 AM tak open hota hai. Aap apna order kisi bhi waqt place kar sakte hain!';\n    } else if (has(/\\b(address|branch|kahan|kidhar)\\b/) || any(['پتہ'])) {\n      route = 'quick_reply';\n      output = 'Cravey Crust Main Lehtrar Road, Tarlai / Ghauri Town Islamabad ke qareeb waqay hai. Delivery hamare poore coverage area mein dastiyab hai!';\n    } else if (has(/\\bhalal\\b/) || any(['حلال'])) {\n      route = 'quick_reply';\n      output = 'Ji bilkul! Cravey Crust ka tamam chicken aur tamam ingredients 100% certified Halal, taaza aur ba-qaidah checked hain.';\n    } else if (has(/\\b(payment|payments)\\b/) || clean.includes('kese pay') || clean.includes('kaise pay') || clean.includes('online pay') || clean.includes('card chalta') || any(['پیمنٹ'])) {\n      route = 'quick_reply';\n      output = 'Cravey Crust par Cash on Delivery (COD) aur EasyPaisa dono payment tareeqay dastiyab hain. Order confirm karte waqt aap apna pasandeeda tareeqa chun sakte hain.';\n    } else if (clean.includes('delivery charges') || clean.includes('delivery fee') || clean.includes('free delivery') || clean.includes('delivery kitne') || any(['ڈلیوری چارجز'])) {\n      route = 'quick_reply';\n      output = 'Cravey Crust par standard delivery charges faslay (distance) ke mutabiq Rs. 100 se Rs. 250 tak hotay hain. Apne area ka naam batayein taake hum exact delivery fee bata sakein!';\n    } else if (has(/\\b(discount|promo|voucher|coupon|riayat|bachat)\\b/) || any(['ڈسکاؤنٹ','رعایت'])) {\n      route = 'quick_reply';\n      output = 'Filhal koi alag discount promo code active nahi hai, lekin hamari \"Value Deals\" pehle se hi bhari riayat (discount) par dastiyab hain (Starting from Rs. 599)! Aap Deals dekh kar order enjoy kar sakte hain.';\n    } else if (has(/\\b(thanks|thank you|thankyou|shukriya|shukria|jazakallah|jazak allah)\\b/)) {\n      route = 'quick_reply';\n      output = 'Aapka bohat shukriya! Koi aur madad chahiye to bata dein, hum hazir hain.';\n    } else if (has(/\\b(menu|list)\\b/) || clean.includes('rate list') || clean.includes('price list') || clean.includes('food list') || clean === 'kya hai' || any(['مینو','ریٹ لسٹ'])) {\n      route = 'live_categories';\n    } else if (has(/\\b(deal|deals|combo|package|offers)\\b/) || any(['ڈیل','ڈیلز'])) {\n      route = 'live_deals';\n    }\n  }\n}\n\n// ---- Order confirmation detector (agent ko hint dene ke liye) ----\nconst confirmRe = /\\b(confirm|confirmed|haan|han|haa|ji|jee|yes|yeah|yep|ok|okay|theek|thik|done|kardo|kar do|kr do|krdo|kardu|kar du|kr du|krdu|place|bhej do|bhejdo|proceed)\\b/;\nconst negRe = /\\b(nahi|nahin|nai|no|cancel|mat|dont|don t)\\b/;\nconst confirmIntent = wordCount > 0 && wordCount <= 8 && !/\\d/.test(clean) && confirmRe.test(clean) && !negRe.test(clean);\n\nreturn { ...$json, route, output, confirmIntent };"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -5536,
-        2768
+        -4768,
+        3232
       ],
-      "id": "443bc6eb-dfdd-463c-a73a-1c98f52faa1b",
+      "id": "1047f828-4901-4325-b8c0-34dde50c16ef",
       "name": "Check Cache & Classify Intent"
     },
     {
@@ -209,6 +221,27 @@
                 ],
                 "combinator": "and"
               }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "handover",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
             }
           ]
         },
@@ -219,10 +252,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        -5264,
-        2768
+        -4560,
+        3200
       ],
-      "id": "cb837cd1-2eb3-42e7-98a8-4722b9b7d403",
+      "id": "3785183c-a93a-47c5-a77f-b6665fa613ac",
       "name": "Route by Intent"
     },
     {
@@ -244,10 +277,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -5008,
-        2608
+        -4096,
+        3056
       ],
-      "id": "24a13fb0-dc9f-44fb-96c5-1e0413cac0a7",
+      "id": "5170238d-7667-4d52-8c51-3b30b57c45aa",
       "name": "Fetch Live Categories"
     },
     {
@@ -258,10 +291,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -4768,
-        2608
+        -3856,
+        3056
       ],
-      "id": "5a9bd91a-e0c3-4ea4-8c1c-5d86e156b5eb",
+      "id": "f632db63-3ca3-413b-989a-171db4a0979f",
       "name": "Format Live Categories"
     },
     {
@@ -283,25 +316,73 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -5008,
-        2768
+        -4096,
+        3216
       ],
-      "id": "fbbe6d94-8a01-4336-a570-e92c05f870ed",
+      "id": "9d811271-fb77-468a-bb21-196dace66df1",
       "name": "Fetch Live Deals"
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const items = $json.data || $json || [];\nlet output = '';\n\nif (Array.isArray(items) && items.length > 0) {\n  const list = items.slice(0, 6).map((d, i) => `${i + 1}. ${d.name} - Rs. ${d.price || d.deal_price || ''}`).join('\\n');\n  output = `Cravey Crust ki active deals yeh hain:\\n${list}\\n\\nAap in mein se konsi deal order karna chahenge?`;\n} else {\n  output = 'Cravey Crust par value deals Rs. 599 se shuru hoti hain. Aap Deal 1, Deal 2 ya Family Deals check kar sakte hain!';\n}\n\nreturn {\n  sessionId: $('Prepare Session').first().json.sessionId || 'primary',\n  chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid,\n  output\n};"
+        "jsCode": "const items = $json.data || $json || [];\nlet output = '';\n\nif (Array.isArray(items) && items.length > 0) {\n  const list = items.slice(0, 6).map((d, i) => `${i + 1}. ${d.name} - Rs. ${d.price ?? d.dealPrice ?? d.deal_price ?? ''}`).join('\\n');\n  output = `Cravey Crust ki active deals yeh hain:\\n${list}\\n\\nAap in mein se konsi deal order karna chahenge?`;\n} else {\n  output = 'Cravey Crust par value deals Rs. 599 se shuru hoti hain. Aap Deal 1, Deal 2 ya Family Deals check kar sakte hain!';\n}\n\nreturn {\n  sessionId: $('Prepare Session').first().json.sessionId || 'primary',\n  chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid,\n  output\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -4768,
-        2768
+        -3856,
+        3216
       ],
-      "id": "d34ea759-4990-4816-9ec6-edf91e79bd90",
+      "id": "b99371c8-48b5-4a8a-81ec-70c78e779fb5",
       "name": "Format Live Deals"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bot.craveycrust.com/api/internal/handover",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-API-Secret",
+              "value": "my-test-secret-123"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId,\n  sessionKey: $('Prepare Session').first().json.sessionKey,\n  durationMinutes: 120,\n  reason: $('Prepare Session').first().json.message || 'Customer requested human support representative',\n  pushName: $('Prepare Session').first().json.pushName || undefined,\n  customerPhone: $('Prepare Session').first().json.whatsappPhone || undefined\n}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -4096,
+        3376
+      ],
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Execute Handover Mute"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  sessionId: 'primary',\n  chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || '',\n  output: 'Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!'\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3856,
+        3376
+      ],
+      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "name": "Format Handover Reply"
     },
     {
       "parameters": {
@@ -309,30 +390,35 @@
         "text": "={{ $json.message || 'Customer ne apni location share ki hai.' }}",
         "needsFallback": true,
         "options": {
-          "systemMessage": "Cravey Crust WhatsApp ordering bot.\n\nRULES:\n- Answer ONLY what is asked in 2-3 short lines of Roman Urdu. Never use asterisks (*).\n- Never say \"permission nahi hai\". Be direct and helpful.\n- Menu: Call Get Menu Categories. Ask what category they want.\n- Item/Price: Call Search Menu Item for specific item price.\n- Deals: Call Get Current Deals. Mention 2-3 top deals.\n- Delivery: Ask customer area name, then call Check Delivery Availability.\n\nORDERING:\n- Never calculate totals; call Calculate Cart Totals.\n- Collect name, phone, address, payment (COD/Easypaisa).\n- Show summary, create order ONLY after explicit confirmation. Call Create Confirmed Order once.\n- Cancel: 2 turns (1: request cancel; 2: confirm cancel on yes/no).\n- Human / Agent: Jab bhi customer human agent, staff, real person, complaint ya manager se baat karna chahe, call Request Human Handover immediately with reason. Customer ko batayein ke hamara representative aapse jald rabta karega aur bot silent rahega."
+          "systemMessage": "=Tum Cravey Crust ke WhatsApp ordering agent \"Burger Raja\" ho. Roman Urdu mein, chhote (2-4 line) aur polite jawab do. Asterisk (*) kabhi mat use karo. Ek waqt mein sirf ek sawal poochho.\n\nCUSTOMER: {{ $('Prepare Session').first().json.whatsappPhone ? 'Verified WhatsApp number: ' + $('Prepare Session').first().json.whatsappPhone + ' (agar customer kahe isi number par rabta karo to yehi use hoga, dobara mat poochho).' : 'WhatsApp number verify nahi hai, is liye order se pehle customer se contact number zaroor maango.' }}\n{{ $('Check Cache & Classify Intent').first().json.confirmIntent ? 'ABHI KA MESSAGE: customer ne shayad confirm kiya hai. Agar tumhara pichla message order summary tha, to ab FORAN Create Confirmed Order tool call karo, dobara mat poochho. Agar pichla message cancellation ka tha to Confirm Order Cancellation (true) call karo.' : '' }}\n\nDATA: Menu, prices, deals, timings, delivery, promos kabhi apni taraf se mat banao. Sirf tools se lo. Item/price ke liye Search Menu Item, categories ke liye Get Menu Categories, deals ke liye Get Current Deals, promo ke liye Get Active Promotions, store/FAQ/timing ke liye Search FAQs. Item ya deal na mile to kaho ke filhal available nahi. Promotions khali hon to kaho: \"Filhal koi active discount code dastiyab nahi hai, lekin aap hamari mazedar deals enjoy kar sakte hain!\"\n\nTOOLS (tez jawab ke liye): Sirf zaroori tool call karo. Jo data is chat mein pehle tool se mil chuka ho dobara mat mangwao. Jis tool response mein cart/total pehle se ho uske baad Get Cart dobara call mat karo. Kai items hon to har item ka Search Menu Item ek saath chalao. Tool error aaye to customer ko seedha batao, bina naye input ke wohi call dobara mat karo.\n\nCART RULES (ZAROORI):\n1. Add to Cart mein sirf exact menuItemId (+variantId) ya exact dealId bhejo, dono saath kabhi nahi. Quantity/notes ke liye Update Cart Item, hatane ke liye Remove Cart Item, reset ke liye Clear Cart. Subtotal/total Calculate Cart Totals se lo.\n2. HAR ITEM YA DEAL ADD HONE KE BAAD (Add to Cart call ke baad): Customer ko batayein ke item add ho gaya hai, aur HAMESHA yeh poochhein: \"Kya aap kuch aur add karna chahenge, ya order checkout karein?\"\n3. KABHI BHI item add hote hi direct delivery address ya payment details MAT maango. Customer ko mazeed items (burger, pizza, fries, drinks, paani) add karne ka poora moqa do.\n4. CHECKOUT DETAILS (naam, delivery address/location, payment method COD ya Easypaisa) sirf tab maango jab customer kahe ke \"aur kuch nahi\", \"bas yahi\", \"nahi\", \"no\", \"checkout kar do\", \"bill kitna bana\", ya khud apna pata/location bhej de.\n\nLOCATION AUR DELIVERY AREA CHECK (ZAROORI):\nJab bhi customer apni location share kare (WhatsApp location pin, Google Maps link, ya area ka naam):\n1. Pehle FORAN 'Check Delivery Availability' tool call karo (latitude/longitude ya areaName ke sath).\n2. Agar location delivery area mein mojood ho (available: true):\n   Customer ko saaf saaf aur khush-dili se wazeh batao:\n   \"Aapki location hamare delivery area mein aati hai ([Area Name]). Delivery fee: Rs. [deliveryFee] hai.\"\n   Aur phir is ke mutabiq agla step deal karo:\n   - Agar cart mein items pehle se hain (checkout step): Foran 'Calculate Cart Totals' call karke updated summary (Items, Subtotal, Delivery Fee, Total, Name, Address, Contact, Payment) dikhao aur poochho: \"Order confirm karne ke liye haan likhein.\"\n   - Agar cart abhi khali hai: Batayein ke delivery is area mein dastiyab hai aur poochhein: \"Aap aaj kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Deals dastiyab hain!\"\n3. Agar location delivery area se bahar ho (available: false):\n   Customer ko politely batao: \"Maazrat, yeh location filhal hamare delivery area se bahar hai. Hamari delivery sirf Cravey Crust ke coverage areas (Tarlai, Ghauri Town, Taramari, Al-Noor, Khanna Pul vaghera) mein dastiyab hai.\"\n\nORDER CONFIRMATION (CRITICAL):\nSummary dikhane ke baad customer ka koi bhi positive jawab (haan, han, ji, yes, ok, confirm, confirm kar do, kar do, kr du, theek hai, done) CONFIRMATION hai.\nDOBARA MAT POOCHHO! FORAN 'Create Confirmed Order' tool call karo (customerName, deliveryAddress, deliveryAreaName, paymentMethod COD/EASYPAISA pichli chat se lo).\nBINA Create Confirmed Order TOOL CALL KIYE KABHI BHI TEXT MEIN MAT KAHO KE ORDER CONFIRM HO GAYA!\nTool response mein jab asli order_number (CC-...) aaye, sirf tabhi customer ko kaho: \"Aapka order confirm ho gaya hai! Order number: CC-... hai. Total: Rs. ... Payment: ...\" (order number CC-... lazmi likhna hai).\nTool error aye to reason dekh kar solve karo (jaise missing contact number ya name).\n\nSTATUS/CANCEL: Order number par Get Order Status. Cancel ke liye pehle Request Order Cancellation, summary dikha kar poochho. Customer ke haan/nahi par Confirm Order Cancellation (true/false).\n\nHUMAN HANDOVER (AGENT SE BAAT):\nAgar customer kahe ke \"mein ne bot se bat nahi krni agent se krni ha\", \"bot se baat nahi karni\", \"agent se baat karni hai\", \"kisi bande se baat karwao\", \"manager\", \"staff\", \"call me\", ya insaan se baat ki request kare:\nFORAN 'Request Human Handover' tool call karo (durationMinutes: 120).\nPhir yeh kaho: \"Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot agle 2 ghante ke liye mute ho gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!\"",
+          "maxIterations": 8
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        -5008,
-        2960
+        -4400,
+        3536
       ],
-      "id": "61987c52-35af-469b-a4ae-781f7ceaa934",
-      "name": "AI Agent"
+      "id": "5fc1eba0-7ec5-4ff4-99b3-33a6472a286c",
+      "name": "AI Agent",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "modelName": "models/gemini-3.5-flash-lite",
-        "options": {}
+        "options": {
+          "maxOutputTokens": 1024,
+          "temperature": 0.2
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
       "position": [
-        -5248,
-        3232
+        -4736,
+        3840
       ],
-      "id": "8bf6fb05-7904-421b-a36f-917a05311c07",
+      "id": "770d21cc-74fd-4f91-8cca-103a7355ea82",
       "name": "Google Gemini Chat Model",
       "credentials": {
         "googlePalmApi": {
@@ -343,15 +429,19 @@
     },
     {
       "parameters": {
-        "options": {}
+        "model": "deepseek-flash",
+        "options": {
+          "maxTokens": 1024,
+          "temperature": 0.2
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
       "typeVersion": 1,
       "position": [
-        -5024,
-        3248
+        -4608,
+        3904
       ],
-      "id": "80750357-e61c-42e5-a3de-e430a5eb4941",
+      "id": "df06fc44-7d1c-4753-9f48-8d9a86f279b8",
       "name": "DeepSeek Chat Model",
       "credentials": {
         "deepSeekApi": {
@@ -364,15 +454,15 @@
       "parameters": {
         "sessionIdType": "customKey",
         "sessionKey": "={{ $json.sessionKey + '-v4' }}",
-        "contextWindowLength": 2
+        "contextWindowLength": 10
       },
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
       "position": [
-        -4912,
-        3456
+        -4416,
+        4032
       ],
-      "id": "8ce72672-a833-49c0-9b83-e92bdb9453f4",
+      "id": "bbe559a7-3254-4435-a7f5-531c31ed87e8",
       "name": "Simple Memory"
     },
     {
@@ -412,10 +502,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -4496,
-        2768
+        -3584,
+        3216
       ],
-      "id": "4e5a0f81-684c-44dc-b998-a43cf598b7ba",
+      "id": "0ee4cdf1-cdb1-4542-88e9-6c4deca19298",
       "name": "Send WhatsApp Reply"
     },
     {
@@ -432,16 +522,21 @@
           ]
         },
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -4512,
-        3040
+        -4016,
+        3616
       ],
-      "id": "3d80590d-ce8c-431c-a963-ef9a960b82d2",
+      "id": "2fee4fe1-e930-4483-9680-323b530b03e5",
       "name": "Get Store Info"
     },
     {
@@ -467,16 +562,21 @@
           ]
         },
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -4272,
-        3040
+        -3776,
+        3616
       ],
-      "id": "81fa11eb-8d9d-4e86-a52e-c9c3f703e3dc",
+      "id": "ff769f93-d8bb-40d3-8986-5e7b480febd0",
       "name": "Search FAQs"
     },
     {
@@ -502,16 +602,21 @@
           ]
         },
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -4032,
-        3040
+        -3536,
+        3616
       ],
-      "id": "a44cd1d9-d7c8-4431-be71-11a62f98487e",
+      "id": "cb0358d1-1681-4072-8545-ce33bc4e20bc",
       "name": "Search Menu Item"
     },
     {
@@ -528,16 +633,21 @@
           ]
         },
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3792,
-        3040
+        -3296,
+        3616
       ],
-      "id": "c2a35787-d0d8-4e7e-b28d-712c3229fd89",
+      "id": "4a6b742e-7372-4e4a-928b-544894d7aca2",
       "name": "Get Menu Categories"
     },
     {
@@ -554,16 +664,21 @@
           ]
         },
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3552,
-        3040
+        -3056,
+        3616
       ],
-      "id": "544adac1-7663-4aee-bd65-c2d4fa6c7142",
+      "id": "5936453c-7f63-4883-8a65-68bbb675000c",
       "name": "Get Current Deals"
     },
     {
@@ -580,21 +695,26 @@
           ]
         },
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3312,
-        3040
+        -2816,
+        3616
       ],
-      "id": "8d9ef628-d6c6-4381-aee4-85e7d5981d8c",
+      "id": "5bf6d975-342e-4b8c-bed6-ce2b88f0aa31",
       "name": "Get Active Promotions"
     },
     {
       "parameters": {
-        "toolDescription": "Check area delivery coverage and fee.",
+        "toolDescription": "Check area delivery coverage and fee. Provide areaName, or latitude & longitude.",
         "method": "POST",
         "url": "https://bot.craveycrust.com/api/internal/delivery/check",
         "sendHeaders": true,
@@ -608,18 +728,23 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ areaName: $fromAI('areaName', 'Area name', 'string'), latitude: $fromAI('latitude', 'Latitude or empty', 'number'), longitude: $fromAI('longitude', 'Longitude or empty', 'number') }) }}",
+        "jsonBody": "={{ JSON.stringify({ areaName: $fromAI('areaName', 'Area name, empty if only location pin/coordinates', 'string', ''), latitude: Number($fromAI('latitude', 'Latitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3072,
-        3040
+        -2576,
+        3616
       ],
-      "id": "76ed15ba-289a-44bc-9b64-c692e2c33f98",
+      "id": "75966a16-dfe5-4838-b56b-fc11e201b79b",
       "name": "Check Delivery Availability"
     },
     {
@@ -636,16 +761,21 @@
           ]
         },
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -2832,
-        3040
+        -2336,
+        3616
       ],
-      "id": "9e4bfbee-a191-441f-a8d8-fe606c651a16",
+      "id": "0baf944b-47f5-4dee-b7c8-83d5f14b03d6",
       "name": "Get Order Status"
     },
     {
@@ -675,21 +805,26 @@
           ]
         },
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -4656,
-        3328
+        -4160,
+        3904
       ],
-      "id": "3ca2d543-aaf2-4f10-8845-329cee24c2c3",
+      "id": "2a70d428-a0df-4de2-b334-f15ceef80937",
       "name": "Get Cart"
     },
     {
       "parameters": {
-        "toolDescription": "Add item or deal to cart (send menuItemId OR dealId).",
+        "toolDescription": "Add item or deal to cart (send menuItemId OR dealId). After adding, ask if they want anything else.",
         "method": "POST",
         "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items' }}",
         "sendHeaders": true,
@@ -703,18 +838,23 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ menuItemId: $fromAI('menuItemId', 'Menu item ID or empty', 'string'), variantId: $fromAI('variantId', 'Variant ID or empty', 'string'), dealId: $fromAI('dealId', 'Deal ID or empty', 'string'), quantity: $fromAI('quantity', 'Quantity integer', 'number'), notes: $fromAI('notes', 'Item instructions or empty', 'string') }) }}",
+        "jsonBody": "={{ JSON.stringify({ menuItemId: $fromAI('menuItemId', 'Menu item ID, empty for deals', 'string', '') || undefined, variantId: $fromAI('variantId', 'Variant ID if any', 'string', '') || undefined, dealId: $fromAI('dealId', 'Deal ID, empty for menu items', 'string', '') || undefined, quantity: $fromAI('quantity', 'Quantity integer', 'number', 1), notes: $fromAI('notes', 'Item instructions', 'string', '') || undefined }) }}",
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -4416,
-        3328
+        -3920,
+        3904
       ],
-      "id": "e3f760d7-f6c6-4e1d-9798-a889cebd25f0",
+      "id": "e8bf469d-9943-4939-8de4-fedcc4c55422",
       "name": "Add to Cart"
     },
     {
@@ -735,16 +875,21 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ quantity: $fromAI('quantity', 'New quantity or 0', 'number'), notes: $fromAI('notes', 'Updated notes or empty', 'string') }) }}",
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -4176,
-        3328
+        -3680,
+        3904
       ],
-      "id": "63ba1e4c-929d-4abe-9538-da9434f807af",
+      "id": "2b8542b3-b808-46b6-99ce-7b0c0684d540",
       "name": "Update Cart Item"
     },
     {
@@ -762,16 +907,21 @@
           ]
         },
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3936,
-        3328
+        -3440,
+        3904
       ],
-      "id": "af40c250-ad40-4e79-aa7b-b97e308312f5",
+      "id": "82090906-e683-4c9c-81dc-45eb7f5c2128",
       "name": "Remove Cart Item"
     },
     {
@@ -789,16 +939,21 @@
           ]
         },
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3696,
-        3328
+        -3200,
+        3904
       ],
-      "id": "d5f72ed1-8f03-4322-93b0-a01ee916956a",
+      "id": "c96167c5-fc52-4e91-9e51-ce2540af6065",
       "name": "Clear Cart"
     },
     {
@@ -817,23 +972,28 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ promoCode: $fromAI('promoCode', 'Promo code or empty', 'string'), deliveryAreaId: $fromAI('deliveryAreaId', 'Area ID or empty', 'string'), deliveryAreaName: $fromAI('deliveryAreaName', 'Delivery area name', 'string'), latitude: $fromAI('latitude', 'Latitude or empty', 'number'), longitude: $fromAI('longitude', 'Longitude or empty', 'number') }) }}",
+        "jsonBody": "={{ JSON.stringify({ promoCode: $fromAI('promoCode', 'Only if customer gave a code', 'string', '') || undefined, deliveryAreaId: $fromAI('deliveryAreaId', 'Area ID from delivery check', 'string', '') || undefined, deliveryAreaName: $fromAI('deliveryAreaName', 'Delivery area name', 'string', ''), latitude: Number($fromAI('latitude', 'Latitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3456,
-        3328
+        -2960,
+        3904
       ],
-      "id": "5041da53-995b-41b0-bda7-476e95996700",
+      "id": "653dcd73-f16e-47f2-a339-89ae219e78b6",
       "name": "Calculate Cart Totals"
     },
     {
       "parameters": {
-        "toolDescription": "Create confirmed order after customer explicitly confirms summary.",
+        "toolDescription": "Order place karta hai. Customer ke summary par haan/confirm kehte hi FORAN call karo. Result se CC-... order number milta hai.",
         "method": "POST",
         "url": "https://bot.craveycrust.com/api/internal/orders",
         "sendHeaders": true,
@@ -847,18 +1007,23 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey, customerName: $fromAI('customerName', 'Customer name', 'string'), phone: $fromAI('phone', 'Phone if provided', 'string'), contactNumberMode: $fromAI('contactNumberMode', 'same_whatsapp or provided', 'string'), confirmationNumberMode: $fromAI('confirmationNumberMode', 'default, same_whatsapp, or provided', 'string'), confirmationPhone: $fromAI('confirmationPhone', 'Alternate phone or empty', 'string'), delivery: { address: $fromAI('deliveryAddress', 'Confirmed address', 'string'), areaName: $fromAI('deliveryAreaName', 'Confirmed area name', 'string'), areaId: $fromAI('deliveryAreaId', 'Area ID or empty', 'string'), latitude: $('Webhook').first().json.body?.location?.latitude ?? undefined, longitude: $('Webhook').first().json.body?.location?.longitude ?? undefined, googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || '' }, paymentMethod: $fromAI('paymentMethod', 'COD or EASYPAISA', 'string'), promoCode: $fromAI('promoCode', 'Promo code or empty', 'string'), notes: $fromAI('notes', 'Notes or empty', 'string'), idempotencyKey: $('Prepare Session').first().json.messageId || undefined }) }}",
+        "jsonBody": "={{ JSON.stringify({\n  sessionKey: $('Prepare Session').first().json.sessionKey,\n  customerName: $fromAI('customerName', 'Customer ka naam (pichli chat se)', 'string'),\n  phone: ($fromAI('phone', 'Sirf agar customer ne alag contact number diya ho, warna khali chhodo', 'string', '') || $('Prepare Session').first().json.whatsappPhone || undefined),\n  contactNumberMode: 'provided',\n  confirmationNumberMode: 'default',\n  confirmationPhone: $fromAI('confirmationPhone', 'Sirf agar customer ne kisi aur number par confirmation maangi, warna khali', 'string', '') || undefined,\n  delivery: {\n    address: $fromAI('deliveryAddress', 'Customer ka confirmed delivery address', 'string'),\n    areaName: $fromAI('deliveryAreaName', 'Delivery area ka naam', 'string', ''),\n    areaId: $fromAI('deliveryAreaId', 'Area ID agar delivery check se mili, warna khali', 'string', '') || undefined,\n    latitude: (Number($fromAI('latitude', 'Shared location ki latitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLat) || $('Webhook').first().json.body?.location?.latitude) || undefined,\n    longitude: (Number($fromAI('longitude', 'Shared location ki longitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLng) || $('Webhook').first().json.body?.location?.longitude) || undefined,\n    googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || ''\n  },\n  paymentMethod: String($fromAI('paymentMethod', 'COD ya EASYPAISA', 'string', 'COD') || 'COD').toUpperCase().replace(/\\s+/g, ''),\n  promoCode: $fromAI('promoCode', 'Promo code agar diya ho, warna khali', 'string', '') || undefined,\n  notes: $fromAI('notes', 'Order notes, warna khali', 'string', '') || undefined,\n  idempotencyKey: $('Prepare Session').first().json.messageId || undefined\n}) }}",
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 60000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3392,
-        3488
+        -2896,
+        4064
       ],
-      "id": "a212ada6-3ea0-4856-8a22-8dd0e8a1874c",
+      "id": "7593fd58-f9b6-4087-854b-cb780497eaff",
       "name": "Create Confirmed Order"
     },
     {
@@ -879,16 +1044,21 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey }) }}",
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3152,
-        3488
+        -2656,
+        4064
       ],
-      "id": "db1d7c42-734c-4efa-8f32-577d46ee17ce",
+      "id": "fcaccee0-d0fd-4a92-bb07-f9725c0b7e13",
       "name": "Request Order Cancellation"
     },
     {
@@ -909,16 +1079,21 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey, confirmed: $fromAI('confirmed', 'true for yes/haan, false for no/nahi', 'boolean') }) }}",
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -4064,
-        3536
+        -3568,
+        4112
       ],
-      "id": "65049ce4-b0ef-495e-84a7-ebf7f7f42dcb",
+      "id": "8ae8a7b8-0f4a-4aa4-9aed-554d54a0c568",
       "name": "Confirm Order Cancellation"
     },
     {
@@ -939,21 +1114,26 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ sessionId: 'primary', chatId: $fromAI('chatId', 'Alternate WhatsApp number', 'string'), message: $fromAI('message', 'Plain text order summary without asterisks', 'string') }) }}",
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3824,
-        3536
+        -3328,
+        4112
       ],
-      "id": "bdaf647c-fcbf-4bf7-bf20-c7ede9681523",
+      "id": "9f355179-df22-4d25-90ca-a6e2436739f7",
       "name": "Send Alternate Confirmation"
     },
     {
       "parameters": {
-        "toolDescription": "Hand over chat to human staff, notify restaurant owner/scanned WhatsApp, and mute bot for 2 hours.",
+        "toolDescription": "Hand over to human agent and mute bot for 2 hours.",
         "method": "POST",
         "url": "https://bot.craveycrust.com/api/internal/handover",
         "sendHeaders": true,
@@ -967,19 +1147,38 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId, sessionKey: $('Prepare Session').first().json.sessionKey, customerName: $('Prepare Session').first().json.pushName || $('Webhook').first().json.body?.pushName || undefined, customerPhone: $('Prepare Session').first().json.whatsappPhone || $('Webhook').first().json.body?.phone || undefined, durationMinutes: 120, reason: $fromAI('reason', 'Customer reason for requesting human support', 'string') }) }}",
+        "jsonBody": "={{ JSON.stringify({ chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId, sessionKey: $('Prepare Session').first().json.sessionKey, durationMinutes: 120, reason: $fromAI('reason', 'Customer reason', 'string', 'Customer requested human support') }) }}",
         "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
           "timeout": 30000
         }
       },
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3584,
+        -3088,
+        4112
+      ],
+      "id": "5917e2ad-4a25-443f-94c8-06ff6fd1c925",
+      "name": "Request Human Handover"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const prep = $('Prepare Session').first().json;\nconst cls = $('Check Cache & Classify Intent').first().json;\nlet out = String($json.output || $json.text || '').trim();\nconst agentFailed = !!$json.error || !out;\n\nconst hasOrderNo = /CC-\\d{6,}-\\d{2,}/i.test(out);\n// customer ne confirm kaha, agent ne \"order ho gaya\" bola, lekin tool ka asli order number nahi -> jhoot rokna\nconst claims = /\\b(order|aapka order)\\b[^.!\\n]{0,40}\\b(confirm|place|book|receive)\\w*\\b[^.!\\n]{0,25}\\b(ho gaya|ho gya|ho chuka|ho gayi|kar diya|kar di)\\b/i.test(out) && !/cancel/i.test(out);\n\nif (agentFailed) {\n  out = 'Maazrat, abhi kuch technical masla aa gaya. Meherbani karke apna message dobara bhej dein, ya \"agent\" likhein to hamara team member rabta karega.';\n} else if (cls.confirmIntent && claims && !hasOrderNo) {\n  out = 'Maazrat, system mein masla aane ki wajah se aapka order abhi confirm nahi ho saka. Meherbani karke dobara \"confirm\" likhein, ya \"agent\" likhein to hamara team member madad karega.';\n}\n\nreturn {\n  sessionId: 'primary',\n  chatId: prep.chatId || $('Webhook').first().json.body?.senderJid || '',\n  output: out\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4112,
         3536
       ],
-      "id": "4c4f51e1-98ad-4200-a75c-a369f128849c",
-      "name": "Request Human Handover"
+      "id": "1fbb48e1-f1ce-483e-96e3-fc74c1258e82",
+      "name": "Verify Order Reply"
     }
   ],
   "connections": {
@@ -1052,7 +1251,36 @@
         ],
         [
           {
+            "node": "Execute Handover Mute",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Handover Mute": {
+      "main": [
+        [
+          {
+            "node": "Format Handover Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Handover Reply": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
             "type": "main",
             "index": 0
           }
@@ -1107,7 +1335,7 @@
       "main": [
         [
           {
-            "node": "Send WhatsApp Reply",
+            "node": "Verify Order Reply",
             "type": "main",
             "index": 0
           }
@@ -1351,6 +1579,17 @@
           {
             "node": "AI Agent",
             "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Order Reply": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
             "index": 0
           }
         ]
