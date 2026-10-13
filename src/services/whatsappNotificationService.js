@@ -205,3 +205,55 @@ export async function sendCustomerOrderStatusNotification({ order, newStatus, re
 export async function sendCancellationNotification({ order, reason, sock }) {
     return sendCustomerOrderStatusNotification({ order, newStatus: 'CANCELLED', reason, sock });
 }
+
+/**
+ * Send human handover alert to admin/owner
+ */
+export async function sendAdminHandoverAlert({ customerChatId, customerPhone, durationMinutes = 120, reason = 'Human representative requested', sock }) {
+    try {
+        const prisma = getDbClient();
+        const restId = await getDefaultRestaurantId();
+
+        let adminPhone = null;
+        if (prisma) {
+            const restaurant = await prisma.restaurant.findUnique({
+                where: { id: restId },
+                select: { admin_notification_phone: true, phone: true },
+            });
+            adminPhone = restaurant?.admin_notification_phone || restaurant?.phone;
+        }
+
+        if (!adminPhone && process.env.OWNER_NUMBER) {
+            adminPhone = process.env.OWNER_NUMBER;
+        }
+
+        const adminJid = formatPhoneToJid(adminPhone);
+        if (!adminJid) {
+            logger.warn({ customerChatId }, '[HANDOVER] Admin alert skipped: No valid admin phone configured');
+            return { success: false, error: 'No valid admin phone configured' };
+        }
+
+        const activeSock = resolveSocket(sock);
+        if (!activeSock) {
+            logger.warn({ customerChatId }, '[HANDOVER] Admin alert skipped: WhatsApp socket not connected');
+            return { success: false, error: 'WhatsApp socket not connected' };
+        }
+
+        const alertText = 
+`🚨 Human Handover Request
+
+Customer: ${customerPhone || customerChatId}
+Reason: ${reason}
+Bot Status: Muted for this chat for ${durationMinutes} minutes.
+
+Aap is customer se direct WhatsApp par rabta kar sakte hain. Bot silent rahega.`;
+
+        await activeSock.sendMessage(adminJid, { text: alertText });
+        logger.info({ customerChatId, adminJid }, '[HANDOVER] Admin handover alert dispatched');
+        return { success: true };
+    } catch (err) {
+        logger.error({ err: err.message, customerChatId }, '[HANDOVER] Failed to send admin handover alert');
+        return { success: false, error: err.message };
+    }
+}
+

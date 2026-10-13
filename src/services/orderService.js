@@ -395,8 +395,12 @@ export async function requestOrderCancellation({ restaurantId, orderNumber, sess
         throw err;
     }
 
-    // Verify order belongs to session/chat
-    if (order.source_session_id && order.source_session_id !== session.id) {
+    // Verify order belongs to session/chat/phone
+    const isSameSession = !order.source_session_id || order.source_session_id === session.id;
+    const isSameChat = session.chat_id && (order.chat_id === session.chat_id || order.delivery_address?.includes(session.chat_id));
+    const isSamePhone = session.verified_phone && (order.phone === session.verified_phone || order.whatsapp_phone === session.verified_phone);
+
+    if (order.source_session_id && !isSameSession && !isSameChat && !isSamePhone) {
         const err = new Error('Order does not belong to this conversation session');
         err.code = 'UNAUTHORIZED_ORDER_ACCESS';
         throw err;
@@ -412,11 +416,39 @@ export async function requestOrderCancellation({ restaurantId, orderNumber, sess
         },
     });
 
+    const fullOrder = await getOrderByNumber({ restaurantId: restId, orderNumber: order.order_number });
+    const itemsList = (fullOrder?.items || []).map(it => {
+        const title = it.dealName || (it.itemName + (it.variantName ? ` (${it.variantName})` : ''));
+        const price = it.lineTotal || (it.unitPrice * it.quantity);
+        return `${title} x ${it.quantity} (Rs. ${price})`;
+    });
+
+    const subtotal = fullOrder?.pricing?.subtotal || Number(order.subtotal);
+    const deliveryFee = fullOrder?.pricing?.deliveryFee || Number(order.delivery_fee);
+    const total = fullOrder?.pricing?.total || Number(order.total);
+
+    const confirmationText = 
+`Aap ke order #${order.order_number} mein yeh items shamil hain:
+${itemsList.length > 0 ? itemsList.map(i => '- ' + i).join('\n') : '- ' + (order.order_items?.[0]?.item_name_snapshot || 'Order Items')}
+Subtotal: Rs. ${subtotal}
+Delivery Fee: Rs. ${deliveryFee}
+Total Bill: Rs. ${total}
+
+Kya aap waqai is order ko cancel karna chahte hain? Haan ya Nahi confirm kar dein.`;
+
     return {
         status: 'CANCELLATION_CONFIRMATION_REQUIRED',
         orderNumber: order.order_number,
         currentStatus: order.order_status,
-        message: `Are you sure you want to cancel order ${order.order_number}? Reply YES to confirm or NO to keep it.`,
+        order: {
+            orderNumber: fullOrder?.orderNumber || order.order_number,
+            items: fullOrder?.items || [],
+            itemsSummary: itemsList,
+            subtotal,
+            deliveryFee,
+            total,
+        },
+        message: confirmationText,
     };
 }
 

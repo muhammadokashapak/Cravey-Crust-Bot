@@ -75,6 +75,8 @@ import adminFaqsRouter from './routes/admin/faqs.js';
 import internalFaqsRouter from './routes/internal/faqs.js';
 import internalFaqCategoriesRouter from './routes/internal/faqCategories.js';
 import internalRestaurantRouter from './routes/internal/restaurant.js';
+import internalHandoverRouter from './routes/internal/handover.js';
+import { isChatMuted } from './src/services/handoverService.js';
 
 // ─── Phase 5: WhatsApp Ordering Orchestrator ──────────────
 import { flags } from './src/config/flags.js';
@@ -222,6 +224,7 @@ app.use('/api/internal/faqs', requireInternalSecret, internalFaqsRouter);
 app.use('/api/internal/faq-categories', requireInternalSecret, internalFaqCategoriesRouter);
 app.use('/api/internal/restaurant', requireInternalSecret, internalRestaurantRouter);
 app.use('/api/internal/store/info', requireInternalSecret, internalRestaurantRouter);
+app.use('/api/internal/handover', requireInternalSecret, internalHandoverRouter);
 
 // ─── Dashboard Authentication & Protection ────────────────
 // Open auth endpoints supporting both DB AdminUser (bcrypt) and legacy .env credentials
@@ -1224,6 +1227,13 @@ async function handleMessage(sock, msg, session) {
         // Only skip n8n if it is explicitly an owner command (e.g. .status, .uptime)
         // If owner sends regular text (e.g. "hi", "paratha roll ha?"), forward to n8n AI
         if (!isOwnerCmd) {
+            // ── Check Human Handover Mute (2 Hours Silence) ──
+            const muteStatus = isChatMuted(jid) || isChatMuted(sender) || isChatMuted(senderNum);
+            if (muteStatus?.isMuted) {
+                console.log(`[HANDOVER] Chat ${jid} (${senderNum}) is muted for human support (${muteStatus.remainingMinutes}m remaining). Skipping AI bot.`);
+                return; // Bot remains completely silent!
+            }
+
             setImmediate(() => sendToN8n(buildN8nPayload(sock, msg, session, text)));
             return; // Forwarded to n8n AI agent
         }
@@ -1239,6 +1249,12 @@ async function handleMessage(sock, msg, session) {
                                     (!text || !text.startsWith(PREFIX));
 
     if (isCustomerOrderEligible) {
+        // Also suppress native order flow if muted for human handover
+        const muteStatus = isChatMuted(jid) || isChatMuted(sender);
+        if (muteStatus?.isMuted) {
+            console.log(`[HANDOVER] Chat ${jid} is muted for human support. Skipping native order orchestrator.`);
+            return;
+        }
         try {
             const identity = resolveSenderIdentity(sock, msg, session);
             const normalized = {
