@@ -10,10 +10,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        100,
-        300
+        -5632,
+        3488
       ],
-      "id": "53625f53-3101-4be6-83e7-db6bc1b95215",
+      "id": "c692d9e8-d0fd-4b59-aabc-800f6e6d2f19",
       "name": "Webhook",
       "webhookId": "5eac53b2-0d19-443a-9b0f-d5373e9a61dd"
     },
@@ -74,6 +74,12 @@
               "name": "messageId",
               "value": "={{ $json.body?.messageId || '' }}",
               "type": "string"
+            },
+            {
+              "id": "f8e4b7a1-2d3c-4e5f-9a0b-1c2d3e4f5a6b",
+              "name": "pushName",
+              "value": "={{ $json.body?.pushName || '' }}",
+              "type": "string"
             }
           ]
         },
@@ -83,10 +89,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        320,
-        300
+        -5664,
+        3200
       ],
-      "id": "9ce6c5fa-ed59-43d2-953e-4de27824a281",
+      "id": "4cfefb24-5576-4f9b-bc87-8bcde90bbbdb",
       "name": "Prepare Session"
     },
     {
@@ -117,24 +123,24 @@
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.2,
       "position": [
-        540,
-        300
+        -5584,
+        2992
       ],
-      "id": "5773b4a3-3793-4182-bf0b-8c06c61caa63",
+      "id": "feff3a6f-c58a-4d81-80c2-047ac74a2bde",
       "name": "Skip Empty Message"
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const rawMsg = (($json.message || $input?.item?.json?.message || '').toString()).trim().toLowerCase();\nconst cleanMsg = rawMsg.replace(/[^\\w\\s\\u0600-\\u06FF]/g, ' ').replace(/\\s+/g, ' ').trim();\n\nlet route = 'agent';\nlet output = '';\n\n// 1. Critical bypass check: Ordering actions, specific food items, cart, tracking, cancellation, handover MUST go to LLM Agent\nconst isOrderTracking = /\\b(mera order|order kahan|order status|track|tracking|kahan pohncha|cc-\\d+)\\b/i.test(cleanMsg);\nconst isActionOrSpecificItem = isOrderTracking || /\\b(order|chahiye|mangwana|karna hai|kardo|kar do|banao|pack|confirm|haan|yes|nahi|no|cancel|gali|house|street|road|sector|phase|flavour|flavor|fajita|tikka|extreme|peri|tandori|tandoori|ranch|malai|creamy|bbq|zinger|jalapeno|fillet|crispy burger|nuggets|wings|fries|sauce|calzone|slice|garlic bread|small|medium|large|party size|add|cart|remove|plus|minus|agent|human|call me|rabta karo)\\b/i.test(cleanMsg);\n\nif (!isActionOrSpecificItem) {\n  // 2. Greetings Cache (0 Tokens)\n  const greetings = ['hi', 'hello', 'salam', 'assalam o alaikum', 'assalam alaikum', 'aoa', 'hey', 'slam', 'slaam', 'kese ho', 'kaise ho', 'kia hal hai', 'kya haal hai', 'سلام', 'السلام علیکم'];\n  if (greetings.includes(cleanMsg)) {\n    route = 'quick_reply';\n    output = 'Walaikum Assalam! Cravey Crust mein khushamdeed! Main hoon Burger Raja. Aaj aap kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Value Deals dastiyab hain!';\n  }\n  // 3. Timings Cache (0 Tokens)\n  else if (cleanMsg.includes('timing') || cleanMsg.includes('timings') || cleanMsg.includes('open') || cleanMsg.includes('kab khulta') || cleanMsg.includes('band hota') || cleanMsg.includes('khula hai') || cleanMsg.includes('auqat') || cleanMsg.includes('ٹائمنگ') || cleanMsg.includes('اوپن')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust rozana dopehar 12:00 PM se raat 2:00 AM tak open hota hai. Aap apna order kisi bhi waqt place kar sakte hain!';\n  }\n  // 4. Location Cache (0 Tokens)\n  else if (cleanMsg.includes('location') || cleanMsg.includes('address') || cleanMsg.includes('branch') || cleanMsg.includes('kahan') || cleanMsg.includes('kidhar') || cleanMsg.includes('لوکیشن') || cleanMsg.includes('پتہ')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust Main Lehtrar Road, Tarlai / Ghauri Town Islamabad ke qareeb waqay hai. Delivery hamare poore coverage area mein dastiyab hai!';\n  }\n  // 5. Halal FAQ Cache (0 Tokens)\n  else if (cleanMsg.includes('halal') || cleanMsg.includes('halal food') || cleanMsg.includes('meat halal') || cleanMsg.includes('حلال')) {\n    route = 'quick_reply';\n    output = 'Ji bilkul! Cravey Crust ka tamam chicken aur tamam ingredients 100% certified Halal, taaza aur ba-qaidah checked hain.';\n  }\n  // 6. Payment Methods Cache (0 Tokens)\n  else if (cleanMsg.includes('payment') || cleanMsg.includes('kese pay') || cleanMsg.includes('kaise pay') || cleanMsg.includes('easypaisa') || cleanMsg.includes('card chalta') || cleanMsg.includes('online pay') || cleanMsg.includes('cash on delivery') || cleanMsg.includes('cod') || cleanMsg.includes('پیمنٹ')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust par Cash on Delivery (COD) aur EasyPaisa dono payment tareeqay dastiyab hain. Order confirm karte waqt aap apna pasandeeda tareeqa chun sakte hain.';\n  }\n  // 7. Delivery Info Cache (0 Tokens)\n  else if (cleanMsg.includes('delivery charges') || cleanMsg.includes('delivery fee') || cleanMsg.includes('free delivery') || cleanMsg.includes('delivery kitne') || cleanMsg.includes('ڈلیوری چارجز')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust par standard delivery charges faslay (distance) ke mutabiq Rs. 100 se Rs. 250 tak hotay hain. Apne area ka naam batayein taake hum exact delivery fee bata sakein!';\n  }\n  // 8. Promotions / Discounts Cache (0 Tokens)\n  else if (cleanMsg.includes('discount') || cleanMsg.includes('promo') || cleanMsg.includes('voucher') || cleanMsg.includes('coupon') || cleanMsg.includes('off hai') || cleanMsg.includes('discount code') || cleanMsg.includes('riayat') || cleanMsg.includes('bachat') || cleanMsg.includes('ڈسکاؤنٹ') || cleanMsg.includes('رعایت')) {\n    route = 'quick_reply';\n    output = 'Filhal koi alag discount promo code active nahi hai, lekin hamari \"Value Deals\" pehle se hi bhari riayat (discount) par dastiyab hain (Starting from Rs. 599)! Aap Deals dekh kar order enjoy kar sakte hain.';\n  }\n  // 9. LIVE MENU CATEGORIES (0 Tokens, Auto-Sync from Dashboard!)\n  else if (cleanMsg.includes('menu') || cleanMsg.includes('rate list') || cleanMsg.includes('price list') || cleanMsg.includes('food list') || cleanMsg.includes('list dikhao') || cleanMsg.includes('kya kya hai') || cleanMsg === 'kya hai' || cleanMsg === 'list' || cleanMsg.includes('مینو') || cleanMsg.includes('ریٹ لسٹ')) {\n    route = 'live_categories';\n  }\n  // 10. LIVE DEALS (0 Tokens, Auto-Sync from Dashboard!)\n  else if (cleanMsg.includes('deal') || cleanMsg.includes('deals') || cleanMsg.includes('combo') || cleanMsg.includes('package') || cleanMsg.includes('offers') || cleanMsg.includes('ڈیل') || cleanMsg.includes('ڈیلز')) {\n    route = 'live_deals';\n  }\n}\n\nreturn {\n  ...$json,\n  route,\n  output\n};"
+        "jsCode": "const rawMsg = (($json.message || $input?.item?.json?.message || '').toString()).trim().toLowerCase();\nconst cleanMsg = rawMsg.replace(/[^\\w\\s\\u0600-\\u06FF]/g, ' ').replace(/\\s+/g, ' ').trim();\n\nlet route = 'agent';\nlet output = '';\n\n// 1. Critical bypass check: Ordering actions, specific food items, cart, tracking, cancellation, handover MUST go to LLM Agent\nconst isOrderTracking = /\\b(mera order|order kahan|order status|track|tracking|kahan pohncha|cc-\\d+)\\b/i.test(cleanMsg);\nconst isActionOrSpecificItem = isOrderTracking || /\\b(order|chahiye|mangwana|karna hai|kardo|kar do|banao|pack|confirm|haan|yes|nahi|no|cancel|gali|house|street|road|sector|phase|flavour|flavor|fajita|tikka|extreme|peri|tandori|tandoori|ranch|malai|creamy|bbq|zinger|jalapeno|fillet|crispy burger|nuggets|wings|fries|sauce|calzone|slice|garlic bread|small|medium|large|party size|add|cart|remove|plus|minus|agent|human|call me|rabta karo|bande|banda|insan|manager|admin|complaint|shikayat|madad|help)\\b/i.test(cleanMsg);\n\nif (!isActionOrSpecificItem) {\n  // 2. Greetings Cache (0 Tokens)\n  const greetings = ['hi', 'hello', 'salam', 'assalam o alaikum', 'assalam alaikum', 'aoa', 'hey', 'slam', 'slaam', 'kese ho', 'kaise ho', 'kia hal hai', 'kya haal hai', 'سلام', 'السلام علیکم'];\n  if (greetings.includes(cleanMsg)) {\n    route = 'quick_reply';\n    output = 'Walaikum Assalam! Cravey Crust mein khushamdeed! Main hoon Burger Raja. Aaj aap kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Value Deals dastiyab hain!';\n  }\n  // 3. Timings Cache (0 Tokens)\n  else if (cleanMsg.includes('timing') || cleanMsg.includes('timings') || cleanMsg.includes('open') || cleanMsg.includes('kab khulta') || cleanMsg.includes('band hota') || cleanMsg.includes('khula hai') || cleanMsg.includes('auqat') || cleanMsg.includes('ٹائمنگ') || cleanMsg.includes('اوپن')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust rozana dopehar 12:00 PM se raat 2:00 AM tak open hota hai. Aap apna order kisi bhi waqt place kar sakte hain!';\n  }\n  // 4. Location Cache (0 Tokens)\n  else if (cleanMsg.includes('location') || cleanMsg.includes('address') || cleanMsg.includes('branch') || cleanMsg.includes('kahan') || cleanMsg.includes('kidhar') || cleanMsg.includes('لوکیشن') || cleanMsg.includes('پتہ')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust Main Lehtrar Road, Tarlai / Ghauri Town Islamabad ke qareeb waqay hai. Delivery hamare poore coverage area mein dastiyab hai!';\n  }\n  // 5. Halal FAQ Cache (0 Tokens)\n  else if (cleanMsg.includes('halal') || cleanMsg.includes('halal food') || cleanMsg.includes('meat halal') || cleanMsg.includes('حلال')) {\n    route = 'quick_reply';\n    output = 'Ji bilkul! Cravey Crust ka tamam chicken aur tamam ingredients 100% certified Halal, taaza aur ba-qaidah checked hain.';\n  }\n  // 6. Payment Methods Cache (0 Tokens)\n  else if (cleanMsg.includes('payment') || cleanMsg.includes('kese pay') || cleanMsg.includes('kaise pay') || cleanMsg.includes('easypaisa') || cleanMsg.includes('card chalta') || cleanMsg.includes('online pay') || cleanMsg.includes('cash on delivery') || cleanMsg.includes('cod') || cleanMsg.includes('پیمنٹ')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust par Cash on Delivery (COD) aur EasyPaisa dono payment tareeqay dastiyab hain. Order confirm karte waqt aap apna pasandeeda tareeqa chun sakte hain.';\n  }\n  // 7. Delivery Info Cache (0 Tokens)\n  else if (cleanMsg.includes('delivery charges') || cleanMsg.includes('delivery fee') || cleanMsg.includes('free delivery') || cleanMsg.includes('delivery kitne') || cleanMsg.includes('ڈلیوری چارجز')) {\n    route = 'quick_reply';\n    output = 'Cravey Crust par standard delivery charges faslay (distance) ke mutabiq Rs. 100 se Rs. 250 tak hotay hain. Apne area ka naam batayein taake hum exact delivery fee bata sakein!';\n  }\n  // 8. Promotions / Discounts Cache (0 Tokens)\n  else if (cleanMsg.includes('discount') || cleanMsg.includes('promo') || cleanMsg.includes('voucher') || cleanMsg.includes('coupon') || cleanMsg.includes('off hai') || cleanMsg.includes('discount code') || cleanMsg.includes('riayat') || cleanMsg.includes('bachat') || cleanMsg.includes('ڈسکاؤنٹ') || cleanMsg.includes('رعایت')) {\n    route = 'quick_reply';\n    output = 'Filhal koi alag discount promo code active nahi hai, lekin hamari \\\"Value Deals\\\" pehle se hi bhari riayat (discount) par dastiyab hain (Starting from Rs. 599)! Aap Deals dekh kar order enjoy kar sakte hain.';\n  }\n  // 9. LIVE MENU CATEGORIES (0 Tokens, Auto-Sync from Dashboard!)\n  else if (cleanMsg.includes('menu') || cleanMsg.includes('rate list') || cleanMsg.includes('price list') || cleanMsg.includes('food list') || cleanMsg.includes('list dikhao') || cleanMsg.includes('kya kya hai') || cleanMsg === 'kya hai' || cleanMsg === 'list' || cleanMsg.includes('مینو') || cleanMsg.includes('ریٹ لسٹ')) {\n    route = 'live_categories';\n  }\n  // 10. LIVE DEALS (0 Tokens, Auto-Sync from Dashboard!)\n  else if (cleanMsg.includes('deal') || cleanMsg.includes('deals') || cleanMsg.includes('combo') || cleanMsg.includes('package') || cleanMsg.includes('offers') || cleanMsg.includes('ڈیل') || cleanMsg.includes('ڈیلز')) {\n    route = 'live_deals';\n  }\n}\n\nreturn {\n  ...$json,\n  route,\n  output\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        780,
-        300
+        -5536,
+        2768
       ],
-      "id": "721cb9c1-0265-4993-be14-88f9fefcdadc",
+      "id": "443bc6eb-dfdd-463c-a73a-1c98f52faa1b",
       "name": "Check Cache & Classify Intent"
     },
     {
@@ -213,15 +219,14 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        1040,
-        300
+        -5264,
+        2768
       ],
-      "id": "f5c5a3ac-3c25-4e36-8411-3ead5a2e5b72",
+      "id": "cb837cd1-2eb3-42e7-98a8-4722b9b7d403",
       "name": "Route by Intent"
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "https://bot.craveycrust.com/api/internal/menu/categories",
         "sendHeaders": true,
         "headerParameters": {
@@ -239,10 +244,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1300,
-        140
+        -5008,
+        2608
       ],
-      "id": "a1b2c3d4-e5f6-4701-8899-aabbccddeef1",
+      "id": "24a13fb0-dc9f-44fb-96c5-1e0413cac0a7",
       "name": "Fetch Live Categories"
     },
     {
@@ -253,15 +258,14 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1540,
-        140
+        -4768,
+        2608
       ],
-      "id": "b2c3d4e5-f6a7-4802-9900-bbccddeeff12",
+      "id": "5a9bd91a-e0c3-4ea4-8c1c-5d86e156b5eb",
       "name": "Format Live Categories"
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "https://bot.craveycrust.com/api/internal/deals",
         "sendHeaders": true,
         "headerParameters": {
@@ -279,10 +283,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1300,
-        300
+        -5008,
+        2768
       ],
-      "id": "c3d4e5f6-a7b8-4903-aa11-ccddeeff1223",
+      "id": "fbbe6d94-8a01-4336-a570-e92c05f870ed",
       "name": "Fetch Live Deals"
     },
     {
@@ -293,10 +297,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1540,
-        300
+        -4768,
+        2768
       ],
-      "id": "d4e5f6a7-b8c9-4a14-bb22-ddeeff122334",
+      "id": "d34ea759-4990-4816-9ec6-edf91e79bd90",
       "name": "Format Live Deals"
     },
     {
@@ -305,30 +309,30 @@
         "text": "={{ $json.message || 'Customer ne apni location share ki hai.' }}",
         "needsFallback": true,
         "options": {
-          "systemMessage": "Cravey Crust WhatsApp ordering bot.\n\nRULES:\n- Answer ONLY what is asked in 2-3 short lines of Roman Urdu. Never use asterisks (*).\n- Never say \"permission nahi hai\". Be direct and helpful.\n- Menu: Call Get Menu Categories. Ask what category they want.\n- Item/Price: Call Search Menu Item for specific item price.\n- Deals: Call Get Current Deals. Mention 2-3 top deals.\n- Delivery: Ask customer area name, then call Check Delivery Availability.\n\nORDERING:\n- Never calculate totals; call Calculate Cart Totals.\n- Collect name, phone, address, payment (COD/Easypaisa).\n- Show summary, create order ONLY after explicit confirmation. Call Create Confirmed Order once.\n- Cancel: 2 turns (1: request cancel; 2: confirm cancel on yes/no).\n- Human: Call Request Human Handover and inform staff will contact."
+          "systemMessage": "Cravey Crust WhatsApp ordering bot.\n\nRULES:\n- Answer ONLY what is asked in 2-3 short lines of Roman Urdu. Never use asterisks (*).\n- Never say \"permission nahi hai\". Be direct and helpful.\n- Menu: Call Get Menu Categories. Ask what category they want.\n- Item/Price: Call Search Menu Item for specific item price.\n- Deals: Call Get Current Deals. Mention 2-3 top deals.\n- Delivery: Ask customer area name, then call Check Delivery Availability.\n\nORDERING:\n- Never calculate totals; call Calculate Cart Totals.\n- Collect name, phone, address, payment (COD/Easypaisa).\n- Show summary, create order ONLY after explicit confirmation. Call Create Confirmed Order once.\n- Cancel: 2 turns (1: request cancel; 2: confirm cancel on yes/no).\n- Human / Agent: Jab bhi customer human agent, staff, real person, complaint ya manager se baat karna chahe, call Request Human Handover immediately with reason. Customer ko batayein ke hamara representative aapse jald rabta karega aur bot silent rahega."
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        1300,
-        480
+        -5008,
+        2960
       ],
-      "id": "0f931560-e9de-41b0-82a1-a8fe158b90a0",
+      "id": "61987c52-35af-469b-a4ae-781f7ceaa934",
       "name": "AI Agent"
     },
     {
       "parameters": {
-        "modelName": "models/gemini-3.5-flash",
+        "modelName": "models/gemini-3.5-flash-lite",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
       "position": [
-        1060,
-        680
+        -5248,
+        3232
       ],
-      "id": "1f2547ee-8995-439f-9704-7a17044fd526",
+      "id": "8bf6fb05-7904-421b-a36f-917a05311c07",
       "name": "Google Gemini Chat Model",
       "credentials": {
         "googlePalmApi": {
@@ -344,10 +348,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
       "typeVersion": 1,
       "position": [
-        1300,
-        680
+        -5024,
+        3248
       ],
-      "id": "0521fe87-45c4-48a2-a0cb-09866c3f763e",
+      "id": "80750357-e61c-42e5-a3de-e430a5eb4941",
       "name": "DeepSeek Chat Model",
       "credentials": {
         "deepSeekApi": {
@@ -365,10 +369,10 @@
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
       "position": [
-        1540,
-        680
+        -4912,
+        3456
       ],
-      "id": "62549975-2d88-4fb8-9d1a-8a654fcf9ff3",
+      "id": "8ce72672-a833-49c0-9b83-e92bdb9453f4",
       "name": "Simple Memory"
     },
     {
@@ -393,7 +397,7 @@
             },
             {
               "name": "chatId",
-              "value": "={{ $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid }}"
+              "value": "={{ $json.chatId || $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid }}"
             },
             {
               "name": "message",
@@ -408,10 +412,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1820,
-        300
+        -4496,
+        2768
       ],
-      "id": "51c5fcdc-4225-40de-9c04-b25c7f1c8cc5",
+      "id": "4e5a0f81-684c-44dc-b998-a43cf598b7ba",
       "name": "Send WhatsApp Reply"
     },
     {
@@ -434,10 +438,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        500,
-        900
+        -4512,
+        3040
       ],
-      "id": "c24c9b46-d418-483d-b5d3-62902cb70e14",
+      "id": "3d80590d-ce8c-431c-a963-ef9a960b82d2",
       "name": "Get Store Info"
     },
     {
@@ -469,10 +473,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        740,
-        900
+        -4272,
+        3040
       ],
-      "id": "47e052b1-eb28-40e8-972b-35d228d026ff",
+      "id": "81fa11eb-8d9d-4e86-a52e-c9c3f703e3dc",
       "name": "Search FAQs"
     },
     {
@@ -504,10 +508,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        980,
-        900
+        -4032,
+        3040
       ],
-      "id": "7d482961-ac63-4c5c-a79d-1b50ec18c7ab",
+      "id": "a44cd1d9-d7c8-4431-be71-11a62f98487e",
       "name": "Search Menu Item"
     },
     {
@@ -530,10 +534,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1220,
-        900
+        -3792,
+        3040
       ],
-      "id": "6ec6314a-6bcb-4e5d-8ac1-36f1cb59eade",
+      "id": "c2a35787-d0d8-4e7e-b28d-712c3229fd89",
       "name": "Get Menu Categories"
     },
     {
@@ -556,10 +560,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1460,
-        900
+        -3552,
+        3040
       ],
-      "id": "a0d64932-5854-4c54-ba55-1305d333b4ed",
+      "id": "544adac1-7663-4aee-bd65-c2d4fa6c7142",
       "name": "Get Current Deals"
     },
     {
@@ -582,10 +586,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1700,
-        900
+        -3312,
+        3040
       ],
-      "id": "1cc7fea0-d8ee-4a3c-9a68-1c31d14f7504",
+      "id": "8d9ef628-d6c6-4381-aee4-85e7d5981d8c",
       "name": "Get Active Promotions"
     },
     {
@@ -612,11 +616,37 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1940,
-        900
+        -3072,
+        3040
       ],
-      "id": "d79d1bdd-0080-4ce8-a90b-4a056028debd",
+      "id": "76ed15ba-289a-44bc-9b64-c692e2c33f98",
       "name": "Check Delivery Availability"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get order status using CC order number.",
+        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Order number e.g. CC-20261012-0001', 'string')) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Internal-API-Secret",
+              "value": "my-test-secret-123"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        -2832,
+        3040
+      ],
+      "id": "9e4bfbee-a191-441f-a8d8-fe606c651a16",
+      "name": "Get Order Status"
     },
     {
       "parameters": {
@@ -651,10 +681,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        500,
-        1100
+        -4656,
+        3328
       ],
-      "id": "bcb369fe-b095-4697-b764-1f6ad621ec1a",
+      "id": "3ca2d543-aaf2-4f10-8845-329cee24c2c3",
       "name": "Get Cart"
     },
     {
@@ -681,10 +711,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        740,
-        1100
+        -4416,
+        3328
       ],
-      "id": "08e6c0ba-18c3-4427-8def-ac7737dbeabd",
+      "id": "e3f760d7-f6c6-4e1d-9798-a889cebd25f0",
       "name": "Add to Cart"
     },
     {
@@ -711,10 +741,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        980,
-        1100
+        -4176,
+        3328
       ],
-      "id": "832663fa-5e4b-4169-96c2-9ddb5c8d2812",
+      "id": "63ba1e4c-929d-4abe-9538-da9434f807af",
       "name": "Update Cart Item"
     },
     {
@@ -738,10 +768,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1220,
-        1100
+        -3936,
+        3328
       ],
-      "id": "1f6c4be6-3cf5-4a99-b0b7-3b15a5253e0c",
+      "id": "af40c250-ad40-4e79-aa7b-b97e308312f5",
       "name": "Remove Cart Item"
     },
     {
@@ -765,10 +795,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1460,
-        1100
+        -3696,
+        3328
       ],
-      "id": "2f0451be-63e9-4f3b-b572-caceeadc9988",
+      "id": "d5f72ed1-8f03-4322-93b0-a01ee916956a",
       "name": "Clear Cart"
     },
     {
@@ -795,10 +825,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1700,
-        1100
+        -3456,
+        3328
       ],
-      "id": "3d45aa2f-af16-41fb-8b08-d5e8ea04ccd6",
+      "id": "5041da53-995b-41b0-bda7-476e95996700",
       "name": "Calculate Cart Totals"
     },
     {
@@ -825,37 +855,11 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1940,
-        1100
+        -3392,
+        3488
       ],
-      "id": "7f763811-83d5-4b9c-b2d1-8cf315f2cf16",
+      "id": "a212ada6-3ea0-4856-8a22-8dd0e8a1874c",
       "name": "Create Confirmed Order"
-    },
-    {
-      "parameters": {
-        "toolDescription": "Get order status using CC order number.",
-        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Order number e.g. CC-20261012-0001', 'string')) }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Internal-API-Secret",
-              "value": "my-test-secret-123"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 30000
-        }
-      },
-      "type": "n8n-nodes-base.httpRequestTool",
-      "typeVersion": 4.5,
-      "position": [
-        2180,
-        900
-      ],
-      "id": "63684cbe-e668-4fbb-b7fa-7fbe9fb81293",
-      "name": "Get Order Status"
     },
     {
       "parameters": {
@@ -881,10 +885,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        2180,
-        1100
+        -3152,
+        3488
       ],
-      "id": "f717140d-ca07-45db-aea3-fa205e6ddea6",
+      "id": "db1d7c42-734c-4efa-8f32-577d46ee17ce",
       "name": "Request Order Cancellation"
     },
     {
@@ -911,10 +915,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1100,
-        1300
+        -4064,
+        3536
       ],
-      "id": "c2b51498-202c-49d0-b121-b9fbd38a334d",
+      "id": "65049ce4-b0ef-495e-84a7-ebf7f7f42dcb",
       "name": "Confirm Order Cancellation"
     },
     {
@@ -941,15 +945,15 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1340,
-        1300
+        -3824,
+        3536
       ],
-      "id": "3c31128a-23b4-4b84-b4aa-0f829730fa6c",
+      "id": "bdaf647c-fcbf-4bf7-bf20-c7ede9681523",
       "name": "Send Alternate Confirmation"
     },
     {
       "parameters": {
-        "toolDescription": "Hand over to human agent and mute bot for 2 hours.",
+        "toolDescription": "Hand over chat to human staff, notify restaurant owner/scanned WhatsApp, and mute bot for 2 hours.",
         "method": "POST",
         "url": "https://bot.craveycrust.com/api/internal/handover",
         "sendHeaders": true,
@@ -963,7 +967,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId, sessionKey: $('Prepare Session').first().json.sessionKey, durationMinutes: 120, reason: $fromAI('reason', 'Customer reason', 'string') }) }}",
+        "jsonBody": "={{ JSON.stringify({ chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId, sessionKey: $('Prepare Session').first().json.sessionKey, customerName: $('Prepare Session').first().json.pushName || $('Webhook').first().json.body?.pushName || undefined, customerPhone: $('Prepare Session').first().json.whatsappPhone || $('Webhook').first().json.body?.phone || undefined, durationMinutes: 120, reason: $fromAI('reason', 'Customer reason for requesting human support', 'string') }) }}",
         "options": {
           "timeout": 30000
         }
@@ -971,10 +975,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        1580,
-        1300
+        -3584,
+        3536
       ],
-      "id": "9c00445d-c164-4517-b6c2-225dcce261dd",
+      "id": "4c4f51e1-98ad-4200-a75c-a369f128849c",
       "name": "Request Human Handover"
     }
   ],
@@ -1012,6 +1016,93 @@
         ]
       ]
     },
+    "Check Cache & Classify Intent": {
+      "main": [
+        [
+          {
+            "node": "Route by Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Intent": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Live Categories",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Live Deals",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Live Categories": {
+      "main": [
+        [
+          {
+            "node": "Format Live Categories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Live Categories": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Live Deals": {
+      "main": [
+        [
+          {
+            "node": "Format Live Deals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Live Deals": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "AI Agent": {
       "main": [
         [
@@ -1030,6 +1121,17 @@
             "node": "AI Agent",
             "type": "ai_languageModel",
             "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 1
           }
         ]
       ]
@@ -1122,6 +1224,17 @@
         ]
       ]
     },
+    "Get Order Status": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Get Cart": {
       "ai_tool": [
         [
@@ -1199,17 +1312,6 @@
         ]
       ]
     },
-    "Get Order Status": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Request Order Cancellation": {
       "ai_tool": [
         [
@@ -1253,108 +1355,11 @@
           }
         ]
       ]
-    },
-    "DeepSeek Chat Model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_languageModel",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Check Cache & Classify Intent": {
-      "main": [
-        [
-          {
-            "node": "Route by Intent",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Route by Intent": {
-      "main": [
-        [
-          {
-            "node": "Send WhatsApp Reply",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Fetch Live Categories",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Fetch Live Deals",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "AI Agent",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch Live Categories": {
-      "main": [
-        [
-          {
-            "node": "Format Live Categories",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Format Live Categories": {
-      "main": [
-        [
-          {
-            "node": "Send WhatsApp Reply",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch Live Deals": {
-      "main": [
-        [
-          {
-            "node": "Format Live Deals",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Format Live Deals": {
-      "main": [
-        [
-          {
-            "node": "Send WhatsApp Reply",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
     }
   },
   "pinData": {},
   "meta": {
+    "templateCredsSetupCompleted": true,
     "instanceId": "1bfb2852e5c8ac73154181d1ba55ded3d4372492f8bb7996e9b440e3904e9d5d"
   }
 }
