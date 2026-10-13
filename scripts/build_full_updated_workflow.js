@@ -17,7 +17,7 @@ const prepareSessionAssignments = [
   {
     "id": "1129b8c1-2ed8-4334-9ea8-ac0cdb42182a",
     "name": "message",
-    "value": "={{ ($json.body?.location?.latitude && $json.body?.location?.longitude) ? ('Customer ne location pin share ki: lat=' + $json.body.location.latitude + ', lng=' + $json.body.location.longitude + ($json.body?.location?.mapUrl ? ', url=' + $json.body.location.mapUrl : '')) : ($json.body?.message || $json.body?.text || $json.body?.chatInput || '') }}",
+    "value": "={{ ($json.body?.location?.latitude && $json.body?.location?.longitude) ? ('Customer ne location pin share ki: ' + ($json.body?.location?.name ? 'Jagah: ' + $json.body.location.name + ', ' : '') + ($json.body?.location?.address ? 'Pata: ' + $json.body.location.address + ', ' : '') + 'lat=' + $json.body.location.latitude + ', lng=' + $json.body.location.longitude + ($json.body?.location?.mapUrl ? ', url=' + $json.body.location.mapUrl : '')) : ($json.body?.message || $json.body?.text || $json.body?.chatInput || '') }}",
     "type": "string"
   },
   {
@@ -30,6 +30,18 @@ const prepareSessionAssignments = [
     "id": "7a30cf1b-9c2f-461a-b831-e9b523490afe",
     "name": "locationLng",
     "value": "={{ $json.body?.location?.longitude || (String($json.body?.message || $json.body?.text || '').match(/(?:q=|@)(-?\\d+\\.\\d+),\\s*(-?\\d+\\.\\d+)/)?.[2]) || '' }}",
+    "type": "string"
+  },
+  {
+    "id": "e4f5a6b7-c8d9-40e1-b2c3-d4e5f6a7b8c9",
+    "name": "locationName",
+    "value": "={{ $json.body?.location?.name || '' }}",
+    "type": "string"
+  },
+  {
+    "id": "f5a6b7c8-d9e0-41f2-c3d4-e5f6a7b8c9d0",
+    "name": "locationAddress",
+    "value": "={{ $json.body?.location?.address || '' }}",
     "type": "string"
   },
   {
@@ -846,7 +858,7 @@ const workflow = {
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ areaName: $fromAI('areaName', 'Area name, empty if only location pin/coordinates', 'string', ''), latitude: Number($fromAI('latitude', 'Latitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
+        "jsonBody": "={{ JSON.stringify({ areaName: $fromAI('areaName', 'Area name e.g. Ghauri Town, Tarlai, Khanna, or empty', 'string', '') || $('Prepare Session').first().json.locationName || undefined, address: $('Prepare Session').first().json.locationAddress || undefined, latitude: Number($fromAI('latitude', 'Latitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
         "options": {
           "response": {
             "response": {
@@ -1090,7 +1102,7 @@ const workflow = {
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ promoCode: $fromAI('promoCode', 'Only if customer gave a code', 'string', '') || undefined, deliveryAreaId: $fromAI('deliveryAreaId', 'Area ID from delivery check', 'string', '') || undefined, deliveryAreaName: $fromAI('deliveryAreaName', 'Delivery area name', 'string', ''), latitude: Number($fromAI('latitude', 'Latitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
+        "jsonBody": "={{ JSON.stringify({ promoCode: $fromAI('promoCode', 'Only if customer gave a code', 'string', '') || undefined, deliveryAreaId: $fromAI('deliveryAreaId', 'Area ID from delivery check', 'string', '') || undefined, deliveryAreaName: $fromAI('deliveryAreaName', 'Delivery area name', 'string', '') || $('Prepare Session').first().json.locationName || undefined, address: $('Prepare Session').first().json.locationAddress || undefined, latitude: Number($fromAI('latitude', 'Latitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
         "options": {
           "response": {
             "response": {
@@ -1125,7 +1137,7 @@ const workflow = {
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  sessionKey: $('Prepare Session').first().json.sessionKey,\n  customerName: $fromAI('customerName', 'Customer ka naam (pichli chat se)', 'string'),\n  phone: ($fromAI('phone', 'Sirf agar customer ne alag contact number diya ho, warna khali chhodo', 'string', '') || $('Prepare Session').first().json.whatsappPhone || undefined),\n  contactNumberMode: 'provided',\n  confirmationNumberMode: 'default',\n  confirmationPhone: $fromAI('confirmationPhone', 'Sirf agar customer ne kisi aur number par confirmation maangi, warna khali', 'string', '') || undefined,\n  delivery: {\n    address: $fromAI('deliveryAddress', 'Customer ka confirmed delivery address', 'string'),\n    areaName: $fromAI('deliveryAreaName', 'Delivery area ka naam', 'string', ''),\n    areaId: $fromAI('deliveryAreaId', 'Area ID agar delivery check se mili, warna khali', 'string', '') || undefined,\n    latitude: (Number($fromAI('latitude', 'Shared location ki latitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLat) || $('Webhook').first().json.body?.location?.latitude) || undefined,\n    longitude: (Number($fromAI('longitude', 'Shared location ki longitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLng) || $('Webhook').first().json.body?.location?.longitude) || undefined,\n    googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || ''\n  },\n  paymentMethod: String($fromAI('paymentMethod', 'COD ya EASYPAISA', 'string', 'COD') || 'COD').toUpperCase().replace(/\\s+/g, ''),\n  promoCode: $fromAI('promoCode', 'Promo code agar diya ho, warna khali', 'string', '') || undefined,\n  notes: $fromAI('notes', 'Order notes, warna khali', 'string', '') || undefined,\n  idempotencyKey: $('Prepare Session').first().json.messageId || undefined\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  sessionKey: $('Prepare Session').first().json.sessionKey,\n  customerName: $fromAI('customerName', 'Customer ka naam (pichli chat se)', 'string'),\n  phone: ($fromAI('phone', 'Sirf agar customer ne alag contact number diya ho, warna khali chhodo', 'string', '') || $('Prepare Session').first().json.whatsappPhone || undefined),\n  contactNumberMode: 'provided',\n  confirmationNumberMode: 'default',\n  confirmationPhone: $fromAI('confirmationPhone', 'Sirf agar customer ne kisi aur number par confirmation maangi, warna khali', 'string', '') || undefined,\n  delivery: {\n    address: ($fromAI('deliveryAddress', 'Customer ka confirmed delivery address', 'string') || $('Prepare Session').first().json.locationAddress || undefined),\n    areaName: ($fromAI('deliveryAreaName', 'Delivery area ka naam', 'string', '') || $('Prepare Session').first().json.locationName || ''),\n    areaId: $fromAI('deliveryAreaId', 'Area ID agar delivery check se mili, warna khali', 'string', '') || undefined,\n    latitude: (Number($fromAI('latitude', 'Shared location ki latitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLat) || $('Webhook').first().json.body?.location?.latitude) || undefined,\n    longitude: (Number($fromAI('longitude', 'Shared location ki longitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLng) || $('Webhook').first().json.body?.location?.longitude) || undefined,\n    googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || ''\n  },\n  paymentMethod: String($fromAI('paymentMethod', 'COD ya EASYPAISA', 'string', 'COD') || 'COD').toUpperCase().replace(/\\s+/g, ''),\n  promoCode: $fromAI('promoCode', 'Promo code agar diya ho, warna khali', 'string', '') || undefined,\n  notes: $fromAI('notes', 'Order notes, warna khali', 'string', '') || undefined,\n  idempotencyKey: $('Prepare Session').first().json.messageId || undefined\n}) }}",
         "options": {
           "response": {
             "response": {

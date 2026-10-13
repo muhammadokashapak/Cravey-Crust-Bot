@@ -10,6 +10,7 @@
 
 import { getDbClient } from '../src/db/client.js';
 import { getDefaultRestaurantId } from '../src/services/restaurantService.js';
+import { DELIVERY_AREA_COORDINATES } from '../src/services/deliveryService.js';
 
 async function seed() {
     console.log('🚀 Starting database update for Cravey Crust Menu, Deals, and FAQs...');
@@ -90,6 +91,7 @@ async function seed() {
 
     for (const areaName of deliveryAreasList) {
         const slug = areaName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        const coords = DELIVERY_AREA_COORDINATES[slug] || { lat: 33.6261, lng: 73.1255, radiusKm: 2.5 };
         await prisma.deliveryArea.upsert({
             where: {
                 restaurant_id_slug: {
@@ -102,9 +104,9 @@ async function seed() {
                 delivery_fee: 0,
                 minimum_order: 0,
                 is_active: true,
-                latitude: 33.6261,
-                longitude: 73.1255,
-                radius_km: 10.0,
+                latitude: coords.lat,
+                longitude: coords.lng,
+                radius_km: coords.radiusKm,
             },
             create: {
                 restaurant_id: restaurantId,
@@ -113,13 +115,13 @@ async function seed() {
                 delivery_fee: 0,
                 minimum_order: 0,
                 is_active: true,
-                latitude: 33.6261,
-                longitude: 73.1255,
-                radius_km: 10.0,
+                latitude: coords.lat,
+                longitude: coords.lng,
+                radius_km: coords.radiusKm,
             },
         });
     }
-    console.log(`✅ ${deliveryAreasList.length} free delivery areas updated.`);
+    console.log(`✅ ${deliveryAreasList.length} free delivery areas updated with accurate coordinates.`);
 
     // ── 4. Seed Categories ───────────────────────────────────────────────────
     console.log('📋 Creating categories...');

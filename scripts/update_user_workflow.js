@@ -1,5 +1,206 @@
 import fs from 'fs';
 
+// 1. Prepare Session assignments
+const prepareSessionAssignments = [
+  {
+    "id": "a558b7c3-1620-42cd-807d-427051420a36",
+    "name": "sessionKey",
+    "value": "={{ $json.body?.sessionKey || $json.body?.chatId || $json.body?.phone || '' }}",
+    "type": "string"
+  },
+  {
+    "id": "154c6509-205c-4ede-ac09-be1e96867e90",
+    "name": "chatId",
+    "value": "={{ $json.body?.chatId || '' }}",
+    "type": "string"
+  },
+  {
+    "id": "1129b8c1-2ed8-4334-9ea8-ac0cdb42182a",
+    "name": "message",
+    "value": "={{ ($json.body?.location?.latitude && $json.body?.location?.longitude) ? ('Customer ne location pin share ki: ' + ($json.body?.location?.name ? 'Jagah: ' + $json.body.location.name + ', ' : '') + ($json.body?.location?.address ? 'Pata: ' + $json.body.location.address + ', ' : '') + 'lat=' + $json.body.location.latitude + ', lng=' + $json.body.location.longitude + ($json.body?.location?.mapUrl ? ', url=' + $json.body.location.mapUrl : '')) : ($json.body?.message || $json.body?.text || $json.body?.chatInput || '') }}",
+    "type": "string"
+  },
+  {
+    "id": "3b29ef5a-8b1e-4509-a720-d8a412389fed",
+    "name": "locationLat",
+    "value": "={{ $json.body?.location?.latitude || (String($json.body?.message || $json.body?.text || '').match(/(?:q=|@)(-?\\d+\\.\\d+),\\s*(-?\\d+\\.\\d+)/)?.[1]) || '' }}",
+    "type": "string"
+  },
+  {
+    "id": "7a30cf1b-9c2f-461a-b831-e9b523490afe",
+    "name": "locationLng",
+    "value": "={{ $json.body?.location?.longitude || (String($json.body?.message || $json.body?.text || '').match(/(?:q=|@)(-?\\d+\\.\\d+),\\s*(-?\\d+\\.\\d+)/)?.[2]) || '' }}",
+    "type": "string"
+  },
+  {
+    "id": "e4f5a6b7-c8d9-40e1-b2c3-d4e5f6a7b8c9",
+    "name": "locationName",
+    "value": "={{ $json.body?.location?.name || '' }}",
+    "type": "string"
+  },
+  {
+    "id": "f5a6b7c8-d9e0-41f2-c3d4-e5f6a7b8c9d0",
+    "name": "locationAddress",
+    "value": "={{ $json.body?.location?.address || '' }}",
+    "type": "string"
+  },
+  {
+    "id": "d60ad5a8-7c32-4977-ac6b-546f6a034649",
+    "name": "whatsappPhone",
+    "value": "={{ $json.body?.phoneVerified === true ? ($json.body?.whatsappPhone || $json.body?.phone || '') : '' }}",
+    "type": "string"
+  },
+  {
+    "id": "2d50904f-416f-42e8-b08b-1b135ee923ca",
+    "name": "phoneVerified",
+    "value": "={{ $json.body?.phoneVerified === true }}",
+    "type": "boolean"
+  },
+  {
+    "id": "9184d386-5e1a-4303-9909-df0b759d0822",
+    "name": "phoneSource",
+    "value": "={{ $json.body?.phoneSource || '' }}",
+    "type": "string"
+  },
+  {
+    "id": "6fcbbdf9-e10f-4021-ae35-d617c88465b9",
+    "name": "senderJid",
+    "value": "={{ $json.body?.senderJid || '' }}",
+    "type": "string"
+  },
+  {
+    "id": "80adb968-693b-4adf-854a-181decce2552",
+    "name": "senderLid",
+    "value": "={{ $json.body?.senderLid || '' }}",
+    "type": "string"
+  },
+  {
+    "id": "e7df6ebf-e344-4690-8a99-514800cc968f",
+    "name": "messageId",
+    "value": "={{ $json.body?.messageId || '' }}",
+    "type": "string"
+  },
+  {
+    "id": "f8e4b7a1-2d3c-4e5f-9a0b-1c2d3e4f5a6b",
+    "name": "pushName",
+    "value": "={{ $json.body?.pushName || '' }}",
+    "type": "string"
+  }
+];
+
+// 2. Intent Classification Code
+const classifyJsCode = `const raw = String($json.message || '').trim().toLowerCase();
+const clean = raw.replace(/[^\\w\\s\\u0600-\\u06FF]/g, ' ').replace(/\\s+/g, ' ').trim();
+const wordCount = clean ? clean.split(' ').length : 0;
+const has = (re) => re.test(clean);                       // English/Roman Urdu words
+const any = (arr) => arr.some(k => clean.includes(k));    // Urdu script
+
+let route = 'agent';
+let output = '';
+
+// 1. Human Handover / Reject Bot Intent Detection
+const rejectBot = /\\b(bot se|bot k sath|robot|bot nahi|bot se nahi|bot se bat nahi|bot se baat nahi)\\b/i.test(clean);
+const wantHuman = /\\b(agent se|human se|bande se|representative se|manager se)\\b/i.test(clean);
+const isHandoverExact = ['agent', 'human', 'representative', 'staff', 'manager', 'help', 'madad'].includes(clean);
+const isHandoverKeyword = has(/\\b(agent chahiye|human chahiye|representative chahiye|banda chahiye|insan chahiye|call agent|talk to human|talk to agent|agent se baat|human se baat|bande se baat|call me|rabta karo|rabta karwao|shikayat|complaint)\\b/);
+
+if (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword) {
+  route = 'handover';
+  output = 'Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!';
+} else {
+  // 2. Specific deal or item inquiry must go to agent (e.g. "burger wali deal main kya kya ha")
+  const isDealOrItemInquiry = has(/\\b(kya kya hai|kya hai|kia hai|kia kya|isme kya|is mein kya|detail|details|includes|shamil|konsi cheez|burger|pizza|pasta|pani|water|drink|coke|sprite|wings|fries|garlic bread)\\b/);
+
+  // Yeh sab seedha agent ke paas jayega (order flow, address, number, lambay messages, item inquiry)
+  const mustGoToAgent =
+    isDealOrItemInquiry ||
+    wordCount === 0 || wordCount > 7 || /\\d/.test(clean) ||
+    has(/\\b(order|chahiye|mangwana|mangwa|karna hai|kardo|kar do|banao|pack|confirm|haan|han|ji|yes|nahi|no|ok|cancel|cod|easypaisa|easy paisa|cash|gali|house|street|road|sector|phase|flavour|flavor|fajita|tikka|extreme|peri|tandoori|tandori|ranch|malai|creamy|bbq|zinger|jalapeno|fillet|nuggets|wings|fries|sauce|calzone|slice|garlic|small|medium|large|party|add|cart|remove|plus|minus|track|tracking|status|location|pin|maps)\\b/);
+
+  if (!mustGoToAgent) {
+    const greetings = ['hi','hello','salam','assalam o alaikum','assalam alaikum','aoa','hey','slam','slaam','kese ho','kaise ho','kia hal hai','kya haal hai','سلام','السلام علیکم'];
+
+    if (greetings.includes(clean)) {
+      route = 'quick_reply';
+      output = 'Walaikum Assalam! Cravey Crust mein khushamdeed! Main hoon Burger Raja. Aaj aap kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Value Deals dastiyab hain!';
+    } else if (has(/\\b(timing|timings|open|khulta|khula|auqat)\\b/) || clean.includes('band hota') || any(['ٹائمنگ','اوپن'])) {
+      route = 'quick_reply';
+      output = 'Cravey Crust rozana dopehar 12:00 PM se raat 2:00 AM tak open hota hai. Aap apna order kisi bhi waqt place kar sakte hain!';
+    } else if (has(/\\b(address|branch|kahan|kidhar)\\b/) || any(['پتہ'])) {
+      route = 'quick_reply';
+      output = 'Cravey Crust Main Lehtrar Road, Tarlai / Ghauri Town Islamabad ke qareeb waqay hai. Delivery hamare poore coverage area mein dastiyab hai!';
+    } else if (has(/\\bhalal\\b/) || any(['حلال'])) {
+      route = 'quick_reply';
+      output = 'Ji bilkul! Cravey Crust ka tamam chicken aur tamam ingredients 100% certified Halal, taaza aur ba-qaidah checked hain.';
+    } else if (has(/\\b(payment|payments)\\b/) || clean.includes('kese pay') || clean.includes('kaise pay') || clean.includes('online pay') || clean.includes('card chalta') || any(['پیمنٹ'])) {
+      route = 'quick_reply';
+      output = 'Cravey Crust par Cash on Delivery (COD) aur EasyPaisa dono payment tareeqay dastiyab hain. Order confirm karte waqt aap apna pasandeeda tareeqa chun sakte hain.';
+    } else if (clean.includes('delivery charges') || clean.includes('delivery fee') || clean.includes('free delivery') || clean.includes('delivery kitne') || any(['ڈلیوری چارجز'])) {
+      route = 'quick_reply';
+      output = 'Cravey Crust par standard delivery charges faslay (distance) ke mutabiq Rs. 100 se Rs. 250 tak hotay hain. Apne area ka naam batayein taake hum exact delivery fee bata sakein!';
+    } else if (has(/\\b(discount|promo|voucher|coupon|riayat|bachat)\\b/) || any(['ڈسکاؤنٹ','رعایت'])) {
+      route = 'quick_reply';
+      output = 'Filhal koi alag discount promo code active nahi hai, lekin hamari "Value Deals" pehle se hi bhari riayat (discount) par dastiyab hain (Starting from Rs. 599)! Aap Deals dekh kar order enjoy kar sakte hain.';
+    } else if (has(/\\b(thanks|thank you|thankyou|shukriya|shukria|jazakallah|jazak allah)\\b/)) {
+      route = 'quick_reply';
+      output = 'Aapka bohat shukriya! Koi aur madad chahiye to bata dein, hum hazir hain.';
+    } else if (has(/\\b(menu|list)\\b/) || clean.includes('rate list') || clean.includes('price list') || clean.includes('food list') || clean === 'kya hai' || any(['مینو','ریٹ لسٹ'])) {
+      route = 'live_categories';
+    } else if (has(/\\b(deal|deals|combo|package|offers)\\b/) || any(['ڈیل','ڈیلز'])) {
+      route = 'live_deals';
+    }
+  }
+}
+
+// ---- Order confirmation detector (agent ko hint dene ke liye) ----
+const confirmRe = /\\b(confirm|confirmed|haan|han|haa|ji|jee|yes|yeah|yep|ok|okay|theek|thik|done|kardo|kar do|kr do|krdo|kardu|kar du|kr du|krdu|place|bhej do|bhejdo|proceed)\\b/;
+const negRe = /\\b(nahi|nahin|nai|no|cancel|mat|dont|don t)\\b/;
+const confirmIntent = wordCount > 0 && wordCount <= 8 && !/\\d/.test(clean) && confirmRe.test(clean) && !negRe.test(clean);
+
+return { ...$json, route, output, confirmIntent };`;
+
+// 3. System message for AI Agent
+const systemMessage = `=Tum Cravey Crust ke WhatsApp ordering agent "Burger Raja" ho. Roman Urdu mein, chhote (2-4 line) aur polite jawab do. Asterisk (*) kabhi mat use karo. Ek waqt mein sirf ek sawal poochho.
+
+CUSTOMER: {{ $('Prepare Session').first().json.whatsappPhone ? 'Verified WhatsApp number: ' + $('Prepare Session').first().json.whatsappPhone + ' (agar customer kahe isi number par rabta karo to yehi use hoga, dobara mat poochho).' : 'WhatsApp number verify nahi hai, is liye order se pehle customer se contact number zaroor maango.' }}
+{{ $('Check Cache & Classify Intent').first().json.confirmIntent ? 'ABHI KA MESSAGE: customer ne shayad confirm kiya hai. Agar tumhara pichla message order summary tha, to ab FORAN Create Confirmed Order tool call karo, dobara mat poochho. Agar pichla message cancellation ka tha to Confirm Order Cancellation (true) call karo.' : '' }}
+
+DATA: Menu, prices, deals, timings, delivery, promos kabhi apni taraf se mat banao. Sirf tools se lo. Item/price ke liye Search Menu Item, categories ke liye Get Menu Categories, deals ke liye Get Current Deals, promo ke liye Get Active Promotions, store/FAQ/timing ke liye Search FAQs. Item ya deal na mile to kaho ke filhal available nahi. Promotions khali hon to kaho: "Filhal koi active discount code dastiyab nahi hai, lekin aap hamari mazedar deals enjoy kar sakte hain!"
+
+TOOLS (tez jawab ke liye): Sirf zaroori tool call karo. Jo data is chat mein pehle tool se mil chuka ho dobara mat mangwao. Jis tool response mein cart/total pehle se ho uske baad Get Cart dobara call mat karo. Kai items hon to har item ka Search Menu Item ek saath chalao. Tool error aaye to customer ko seedha batao, bina naye input ke wohi call dobara mat karo.
+
+CART RULES (ZAROORI):
+1. Add to Cart mein sirf exact menuItemId (+variantId) ya exact dealId bhejo, dono saath kabhi nahi. Quantity/notes ke liye Update Cart Item, hatane ke liye Remove Cart Item, reset ke liye Clear Cart. Subtotal/total Calculate Cart Totals se lo.
+2. HAR ITEM YA DEAL ADD HONE KE BAAD (Add to Cart call ke baad): Customer ko batayein ke item add ho gaya hai, aur HAMESHA yeh poochhein: "Kya aap kuch aur add karna chahenge, ya order checkout karein?"
+3. KABHI BHI item add hote hi direct delivery address ya payment details MAT maango. Customer ko mazeed items (burger, pizza, fries, drinks, paani) add karne ka poora moqa do.
+4. CHECKOUT DETAILS (naam, delivery address/location, payment method COD ya Easypaisa) sirf tab maango jab customer kahe ke "aur kuch nahi", "bas yahi", "nahi", "no", "checkout kar do", "bill kitna bana", ya khud apna pata/location bhej de.
+
+LOCATION AUR DELIVERY AREA CHECK (ZAROORI):
+Jab bhi customer apni location share kare (WhatsApp location pin, Google Maps link, ya area ka naam):
+1. Pehle FORAN 'Check Delivery Availability' tool call karo (latitude/longitude ya areaName ke sath).
+2. Agar location delivery area mein mojood ho (available: true):
+   Customer ko saaf saaf aur khush-dili se wazeh batao:
+   "Aapki location hamare delivery area mein aati hai ([Area Name]). Delivery fee: Rs. [deliveryFee] hai."
+   Aur phir is ke mutabiq agla step deal karo:
+   - Agar cart mein items pehle se hain (checkout step): Foran 'Calculate Cart Totals' call karke updated summary (Items, Subtotal, Delivery Fee, Total, Name, Address, Contact, Payment) dikhao aur poochho: "Order confirm karne ke liye haan likhein."
+   - Agar cart abhi khali hai: Batayein ke delivery is area mein dastiyab hai aur poochhein: "Aap aaj kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Deals dastiyab hain!"
+3. Agar location delivery area se bahar ho (available: false):
+   Customer ko politely batao: "Maazrat, yeh location filhal hamare delivery area se bahar hai. Hamari delivery sirf Cravey Crust ke coverage areas (Tarlai, Ghauri Town, Taramari, Al-Noor, Khanna Pul vaghera) mein dastiyab hai."
+
+ORDER CONFIRMATION (CRITICAL):
+Summary dikhane ke baad customer ka koi bhi positive jawab (haan, han, ji, yes, ok, confirm, confirm kar do, kar do, kr du, theek hai, done) CONFIRMATION hai.
+DOBARA MAT POOCHHO! FORAN 'Create Confirmed Order' tool call karo (customerName, deliveryAddress, deliveryAreaName, paymentMethod COD/EASYPAISA pichli chat se lo).
+BINA Create Confirmed Order TOOL CALL KIYE KABHI BHI TEXT MEIN MAT KAHO KE ORDER CONFIRM HO GAYA!
+Tool response mein jab asli order_number (CC-...) aaye, sirf tabhi customer ko kaho: "Aapka order confirm ho gaya hai! Order number: CC-... hai. Total: Rs. ... Payment: ..." (order number CC-... lazmi likhna hai).
+Tool error aye to reason dekh kar solve karo (jaise missing contact number ya name).
+
+STATUS/CANCEL: Order number par Get Order Status. Cancel ke liye pehle Request Order Cancellation, summary dikha kar poochho. Customer ke haan/nahi par Confirm Order Cancellation (true/false).
+
+HUMAN HANDOVER (AGENT SE BAAT):
+Agar customer kahe ke "mein ne bot se bat nahi krni agent se krni ha", "bot se baat nahi karni", "agent se baat karni hai", "kisi bande se baat karwao", "manager", "staff", "call me", ya insaan se baat ki request kare:
+FORAN 'Request Human Handover' tool call karo (durationMinutes: 120).
+Phir yeh kaho: "Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot agle 2 ghante ke liye mute ho gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!"`;
+
 const workflow = {
   "name": "Cravey Crust WhatsApp AI Ordering Agent",
   "nodes": [
@@ -22,80 +223,7 @@ const workflow = {
     {
       "parameters": {
         "assignments": {
-          "assignments": [
-            {
-              "id": "a558b7c3-1620-42cd-807d-427051420a36",
-              "name": "sessionKey",
-              "value": "={{ $json.body?.sessionKey || $json.body?.chatId || $json.body?.phone || '' }}",
-              "type": "string"
-            },
-            {
-              "id": "154c6509-205c-4ede-ac09-be1e96867e90",
-              "name": "chatId",
-              "value": "={{ $json.body?.chatId || '' }}",
-              "type": "string"
-            },
-            {
-              "id": "1129b8c1-2ed8-4334-9ea8-ac0cdb42182a",
-              "name": "message",
-              "value": "={{ ($json.body?.location?.latitude && $json.body?.location?.longitude) ? ('Customer ne location pin share ki: lat=' + $json.body.location.latitude + ', lng=' + $json.body.location.longitude + ($json.body?.location?.mapUrl ? ', url=' + $json.body.location.mapUrl : '')) : ($json.body?.message || $json.body?.text || $json.body?.chatInput || '') }}",
-              "type": "string"
-            },
-            {
-              "id": "3b29ef5a-8b1e-4509-a720-d8a412389fed",
-              "name": "locationLat",
-              "value": "={{ $json.body?.location?.latitude || (String($json.body?.message || $json.body?.text || '').match(/(?:q=|@)(-?\\d+\\.\\d+),\\s*(-?\\d+\\.\\d+)/)?.[1]) || '' }}",
-              "type": "string"
-            },
-            {
-              "id": "7a30cf1b-9c2f-461a-b831-e9b523490afe",
-              "name": "locationLng",
-              "value": "={{ $json.body?.location?.longitude || (String($json.body?.message || $json.body?.text || '').match(/(?:q=|@)(-?\\d+\\.\\d+),\\s*(-?\\d+\\.\\d+)/)?.[2]) || '' }}",
-              "type": "string"
-            },
-            {
-              "id": "d60ad5a8-7c32-4977-ac6b-546f6a034649",
-              "name": "whatsappPhone",
-              "value": "={{ $json.body?.phoneVerified === true ? ($json.body?.whatsappPhone || $json.body?.phone || '') : '' }}",
-              "type": "string"
-            },
-            {
-              "id": "2d50904f-416f-42e8-b08b-1b135ee923ca",
-              "name": "phoneVerified",
-              "value": "={{ $json.body?.phoneVerified === true }}",
-              "type": "boolean"
-            },
-            {
-              "id": "9184d386-5e1a-4303-9909-df0b759d0822",
-              "name": "phoneSource",
-              "value": "={{ $json.body?.phoneSource || '' }}",
-              "type": "string"
-            },
-            {
-              "id": "6fcbbdf9-e10f-4021-ae35-d617c88465b9",
-              "name": "senderJid",
-              "value": "={{ $json.body?.senderJid || '' }}",
-              "type": "string"
-            },
-            {
-              "id": "80adb968-693b-4adf-854a-181decce2552",
-              "name": "senderLid",
-              "value": "={{ $json.body?.senderLid || '' }}",
-              "type": "string"
-            },
-            {
-              "id": "e7df6ebf-e344-4690-8a99-514800cc968f",
-              "name": "messageId",
-              "value": "={{ $json.body?.messageId || '' }}",
-              "type": "string"
-            },
-            {
-              "id": "f8e4b7a1-2d3c-4e5f-9a0b-1c2d3e4f5a6b",
-              "name": "pushName",
-              "value": "={{ $json.body?.pushName || '' }}",
-              "type": "string"
-            }
-          ]
+          "assignments": prepareSessionAssignments
         },
         "includeOtherFields": true,
         "options": {}
@@ -146,7 +274,7 @@ const workflow = {
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const raw = String($json.message || '').trim().toLowerCase();\nconst clean = raw.replace(/[^\\w\\s\\u0600-\\u06FF]/g, ' ').replace(/\\s+/g, ' ').trim();\nconst wordCount = clean ? clean.split(' ').length : 0;\nconst has = (re) => re.test(clean);                       // English/Roman Urdu words\nconst any = (arr) => arr.some(k => clean.includes(k));    // Urdu script\n\nlet route = 'agent';\nlet output = '';\n\n// 1. Human Handover / Reject Bot Intent Detection\nconst rejectBot = /\\b(bot se|bot k sath|robot|bot nahi|bot se nahi|bot se bat nahi|bot se baat nahi)\\b/i.test(clean);\nconst wantHuman = /\\b(agent se|human se|bande se|representative se|manager se)\\b/i.test(clean);\nconst isHandoverExact = ['agent', 'human', 'representative', 'staff', 'manager', 'help', 'madad'].includes(clean);\nconst isHandoverKeyword = has(/\\b(agent chahiye|human chahiye|representative chahiye|banda chahiye|insan chahiye|call agent|talk to human|talk to agent|agent se baat|human se baat|bande se baat|call me|rabta karo|rabta karwao|shikayat|complaint)\\b/);\n\nif (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword) {\n  route = 'handover';\n  output = 'Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!';\n} else {\n  // 2. Specific deal or item inquiry must go to agent (e.g. \"burger wali deal main kya kya ha\")\n  const isDealOrItemInquiry = has(/\\b(kya kya hai|kya hai|kia hai|kia kya|isme kya|is mein kya|detail|details|includes|shamil|konsi cheez|burger|pizza|pasta|pani|water|drink|coke|sprite|wings|fries|garlic bread)\\b/);\n\n  // Yeh sab seedha agent ke paas jayega (order flow, address, number, lambay messages, item inquiry)\n  const mustGoToAgent =\n    isDealOrItemInquiry ||\n    wordCount === 0 || wordCount > 7 || /\\d/.test(clean) ||\n    has(/\\b(order|chahiye|mangwana|mangwa|karna hai|kardo|kar do|banao|pack|confirm|haan|han|ji|yes|nahi|no|ok|cancel|cod|easypaisa|easy paisa|cash|gali|house|street|road|sector|phase|flavour|flavor|fajita|tikka|extreme|peri|tandoori|tandori|ranch|malai|creamy|bbq|zinger|jalapeno|fillet|nuggets|wings|fries|sauce|calzone|slice|garlic|small|medium|large|party|add|cart|remove|plus|minus|track|tracking|status|location|pin|maps)\\b/);\n\n  if (!mustGoToAgent) {\n    const greetings = ['hi','hello','salam','assalam o alaikum','assalam alaikum','aoa','hey','slam','slaam','kese ho','kaise ho','kia hal hai','kya haal hai','سلام','السلام علیکم'];\n\n    if (greetings.includes(clean)) {\n      route = 'quick_reply';\n      output = 'Walaikum Assalam! Cravey Crust mein khushamdeed! Main hoon Burger Raja. Aaj aap kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Value Deals dastiyab hain!';\n    } else if (has(/\\b(timing|timings|open|khulta|khula|auqat)\\b/) || clean.includes('band hota') || any(['ٹائمنگ','اوپن'])) {\n      route = 'quick_reply';\n      output = 'Cravey Crust rozana dopehar 12:00 PM se raat 2:00 AM tak open hota hai. Aap apna order kisi bhi waqt place kar sakte hain!';\n    } else if (has(/\\b(address|branch|kahan|kidhar)\\b/) || any(['پتہ'])) {\n      route = 'quick_reply';\n      output = 'Cravey Crust Main Lehtrar Road, Tarlai / Ghauri Town Islamabad ke qareeb waqay hai. Delivery hamare poore coverage area mein dastiyab hai!';\n    } else if (has(/\\bhalal\\b/) || any(['حلال'])) {\n      route = 'quick_reply';\n      output = 'Ji bilkul! Cravey Crust ka tamam chicken aur tamam ingredients 100% certified Halal, taaza aur ba-qaidah checked hain.';\n    } else if (has(/\\b(payment|payments)\\b/) || clean.includes('kese pay') || clean.includes('kaise pay') || clean.includes('online pay') || clean.includes('card chalta') || any(['پیمنٹ'])) {\n      route = 'quick_reply';\n      output = 'Cravey Crust par Cash on Delivery (COD) aur EasyPaisa dono payment tareeqay dastiyab hain. Order confirm karte waqt aap apna pasandeeda tareeqa chun sakte hain.';\n    } else if (clean.includes('delivery charges') || clean.includes('delivery fee') || clean.includes('free delivery') || clean.includes('delivery kitne') || any(['ڈلیوری چارجز'])) {\n      route = 'quick_reply';\n      output = 'Cravey Crust par standard delivery charges faslay (distance) ke mutabiq Rs. 100 se Rs. 250 tak hotay hain. Apne area ka naam batayein taake hum exact delivery fee bata sakein!';\n    } else if (has(/\\b(discount|promo|voucher|coupon|riayat|bachat)\\b/) || any(['ڈسکاؤنٹ','رعایت'])) {\n      route = 'quick_reply';\n      output = 'Filhal koi alag discount promo code active nahi hai, lekin hamari \"Value Deals\" pehle se hi bhari riayat (discount) par dastiyab hain (Starting from Rs. 599)! Aap Deals dekh kar order enjoy kar sakte hain.';\n    } else if (has(/\\b(thanks|thank you|thankyou|shukriya|shukria|jazakallah|jazak allah)\\b/)) {\n      route = 'quick_reply';\n      output = 'Aapka bohat shukriya! Koi aur madad chahiye to bata dein, hum hazir hain.';\n    } else if (has(/\\b(menu|list)\\b/) || clean.includes('rate list') || clean.includes('price list') || clean.includes('food list') || clean === 'kya hai' || any(['مینو','ریٹ لسٹ'])) {\n      route = 'live_categories';\n    } else if (has(/\\b(deal|deals|combo|package|offers)\\b/) || any(['ڈیل','ڈیلز'])) {\n      route = 'live_deals';\n    }\n  }\n}\n\n// ---- Order confirmation detector (agent ko hint dene ke liye) ----\nconst confirmRe = /\\b(confirm|confirmed|haan|han|haa|ji|jee|yes|yeah|yep|ok|okay|theek|thik|done|kardo|kar do|kr do|krdo|kardu|kar du|kr du|krdu|place|bhej do|bhejdo|proceed)\\b/;\nconst negRe = /\\b(nahi|nahin|nai|no|cancel|mat|dont|don t)\\b/;\nconst confirmIntent = wordCount > 0 && wordCount <= 8 && !/\\d/.test(clean) && confirmRe.test(clean) && !negRe.test(clean);\n\nreturn { ...$json, route, output, confirmIntent };"
+        "jsCode": classifyJsCode
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -392,7 +520,7 @@ const workflow = {
         "text": "={{ $json.message || 'Customer ne apni location share ki hai.' }}",
         "needsFallback": true,
         "options": {
-          "systemMessage": "=Tum Cravey Crust ke WhatsApp ordering agent \"Burger Raja\" ho. Roman Urdu mein, chhote (2-4 line) aur polite jawab do. Asterisk (*) kabhi mat use karo. Ek waqt mein sirf ek sawal poochho.\n\nCUSTOMER: {{ $('Prepare Session').first().json.whatsappPhone ? 'Verified WhatsApp number: ' + $('Prepare Session').first().json.whatsappPhone + ' (agar customer kahe isi number par rabta karo to yehi use hoga, dobara mat poochho).' : 'WhatsApp number verify nahi hai, is liye order se pehle customer se contact number zaroor maango.' }}\n{{ $('Check Cache & Classify Intent').first().json.confirmIntent ? 'ABHI KA MESSAGE: customer ne shayad confirm kiya hai. Agar tumhara pichla message order summary tha, to ab FORAN Create Confirmed Order tool call karo, dobara mat poochho. Agar pichla message cancellation ka tha to Confirm Order Cancellation (true) call karo.' : '' }}\n\nDATA: Menu, prices, deals, timings, delivery, promos kabhi apni taraf se mat banao. Sirf tools se lo. Item/price ke liye Search Menu Item, categories ke liye Get Menu Categories, deals ke liye Get Current Deals, promo ke liye Get Active Promotions, store/FAQ/timing ke liye Search FAQs. Item ya deal na mile to kaho ke filhal available nahi. Promotions khali hon to kaho: \"Filhal koi active discount code dastiyab nahi hai, lekin aap hamari mazedar deals enjoy kar sakte hain!\"\n\nTOOLS (tez jawab ke liye): Sirf zaroori tool call karo. Jo data is chat mein pehle tool se mil chuka ho dobara mat mangwao. Jis tool response mein cart/total pehle se ho uske baad Get Cart dobara call mat karo. Kai items hon to har item ka Search Menu Item ek saath chalao. Tool error aaye to customer ko seedha batao, bina naye input ke wohi call dobara mat karo.\n\nCART RULES (ZAROORI):\n1. Add to Cart mein sirf exact menuItemId (+variantId) ya exact dealId bhejo, dono saath kabhi nahi. Quantity/notes ke liye Update Cart Item, hatane ke liye Remove Cart Item, reset ke liye Clear Cart. Subtotal/total Calculate Cart Totals se lo.\n2. HAR ITEM YA DEAL ADD HONE KE BAAD (Add to Cart call ke baad): Customer ko batayein ke item add ho gaya hai, aur HAMESHA yeh poochhein: \"Kya aap kuch aur add karna chahenge, ya order checkout karein?\"\n3. KABHI BHI item add hote hi direct delivery address ya payment details MAT maango. Customer ko mazeed items (burger, pizza, fries, drinks, paani) add karne ka poora moqa do.\n4. CHECKOUT DETAILS (naam, delivery address/location, payment method COD ya Easypaisa) sirf tab maango jab customer kahe ke \"aur kuch nahi\", \"bas yahi\", \"nahi\", \"no\", \"checkout kar do\", \"bill kitna bana\", ya khud apna pata/location bhej de.\n\nLOCATION AUR DELIVERY AREA CHECK (ZAROORI):\nJab bhi customer apni location share kare (WhatsApp location pin, Google Maps link, ya area ka naam):\n1. Pehle FORAN 'Check Delivery Availability' tool call karo (latitude/longitude ya areaName ke sath).\n2. Agar location delivery area mein mojood ho (available: true):\n   Customer ko saaf saaf aur khush-dili se wazeh batao:\n   \"Aapki location hamare delivery area mein aati hai ([Area Name]). Delivery fee: Rs. [deliveryFee] hai.\"\n   Aur phir is ke mutabiq agla step deal karo:\n   - Agar cart mein items pehle se hain (checkout step): Foran 'Calculate Cart Totals' call karke updated summary (Items, Subtotal, Delivery Fee, Total, Name, Address, Contact, Payment) dikhao aur poochho: \"Order confirm karne ke liye haan likhein.\"\n   - Agar cart abhi khali hai: Batayein ke delivery is area mein dastiyab hai aur poochhein: \"Aap aaj kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Deals dastiyab hain!\"\n3. Agar location delivery area se bahar ho (available: false):\n   Customer ko politely batao: \"Maazrat, yeh location filhal hamare delivery area se bahar hai. Hamari delivery sirf Cravey Crust ke coverage areas (Tarlai, Ghauri Town, Taramari, Al-Noor, Khanna Pul vaghera) mein dastiyab hai.\"\n\nORDER CONFIRMATION (CRITICAL):\nSummary dikhane ke baad customer ka koi bhi positive jawab (haan, han, ji, yes, ok, confirm, confirm kar do, kar do, kr du, theek hai, done) CONFIRMATION hai.\nDOBARA MAT POOCHHO! FORAN 'Create Confirmed Order' tool call karo (customerName, deliveryAddress, deliveryAreaName, paymentMethod COD/EASYPAISA pichli chat se lo).\nBINA Create Confirmed Order TOOL CALL KIYE KABHI BHI TEXT MEIN MAT KAHO KE ORDER CONFIRM HO GAYA!\nTool response mein jab asli order_number (CC-...) aaye, sirf tabhi customer ko kaho: \"Aapka order confirm ho gaya hai! Order number: CC-... hai. Total: Rs. ... Payment: ...\" (order number CC-... lazmi likhna hai).\nTool error aye to reason dekh kar solve karo (jaise missing contact number ya name).\n\nSTATUS/CANCEL: Order number par Get Order Status. Cancel ke liye pehle Request Order Cancellation, summary dikha kar poochho. Customer ke haan/nahi par Confirm Order Cancellation (true/false).\n\nHUMAN HANDOVER (AGENT SE BAAT):\nAgar customer kahe ke \"mein ne bot se bat nahi krni agent se krni ha\", \"bot se baat nahi karni\", \"agent se baat karni hai\", \"kisi bande se baat karwao\", \"manager\", \"staff\", \"call me\", ya insaan se baat ki request kare:\nFORAN 'Request Human Handover' tool call karo (durationMinutes: 120).\nPhir yeh kaho: \"Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot agle 2 ghante ke liye mute ho gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!\"",
+          "systemMessage": systemMessage,
           "maxIterations": 8
         }
       },
@@ -730,7 +858,7 @@ const workflow = {
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ areaName: $fromAI('areaName', 'Area name, empty if only location pin/coordinates', 'string', ''), latitude: Number($fromAI('latitude', 'Latitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
+        "jsonBody": "={{ JSON.stringify({ areaName: $fromAI('areaName', 'Area name e.g. Ghauri Town, Tarlai, Khanna, or empty', 'string', '') || $('Prepare Session').first().json.locationName || undefined, address: $('Prepare Session').first().json.locationAddress || undefined, latitude: Number($fromAI('latitude', 'Latitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
         "options": {
           "response": {
             "response": {
@@ -974,7 +1102,7 @@ const workflow = {
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ promoCode: $fromAI('promoCode', 'Only if customer gave a code', 'string', '') || undefined, deliveryAreaId: $fromAI('deliveryAreaId', 'Area ID from delivery check', 'string', '') || undefined, deliveryAreaName: $fromAI('deliveryAreaName', 'Delivery area name', 'string', ''), latitude: Number($fromAI('latitude', 'Latitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
+        "jsonBody": "={{ JSON.stringify({ promoCode: $fromAI('promoCode', 'Only if customer gave a code', 'string', '') || undefined, deliveryAreaId: $fromAI('deliveryAreaId', 'Area ID from delivery check', 'string', '') || undefined, deliveryAreaName: $fromAI('deliveryAreaName', 'Delivery area name', 'string', '') || $('Prepare Session').first().json.locationName || undefined, address: $('Prepare Session').first().json.locationAddress || undefined, latitude: Number($fromAI('latitude', 'Latitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
         "options": {
           "response": {
             "response": {
@@ -1009,7 +1137,7 @@ const workflow = {
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  sessionKey: $('Prepare Session').first().json.sessionKey,\n  customerName: $fromAI('customerName', 'Customer ka naam (pichli chat se)', 'string'),\n  phone: ($fromAI('phone', 'Sirf agar customer ne alag contact number diya ho, warna khali chhodo', 'string', '') || $('Prepare Session').first().json.whatsappPhone || undefined),\n  contactNumberMode: 'provided',\n  confirmationNumberMode: 'default',\n  confirmationPhone: $fromAI('confirmationPhone', 'Sirf agar customer ne kisi aur number par confirmation maangi, warna khali', 'string', '') || undefined,\n  delivery: {\n    address: $fromAI('deliveryAddress', 'Customer ka confirmed delivery address', 'string'),\n    areaName: $fromAI('deliveryAreaName', 'Delivery area ka naam', 'string', ''),\n    areaId: $fromAI('deliveryAreaId', 'Area ID agar delivery check se mili, warna khali', 'string', '') || undefined,\n    latitude: (Number($fromAI('latitude', 'Shared location ki latitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLat) || $('Webhook').first().json.body?.location?.latitude) || undefined,\n    longitude: (Number($fromAI('longitude', 'Shared location ki longitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLng) || $('Webhook').first().json.body?.location?.longitude) || undefined,\n    googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || ''\n  },\n  paymentMethod: String($fromAI('paymentMethod', 'COD ya EASYPAISA', 'string', 'COD') || 'COD').toUpperCase().replace(/\\s+/g, ''),\n  promoCode: $fromAI('promoCode', 'Promo code agar diya ho, warna khali', 'string', '') || undefined,\n  notes: $fromAI('notes', 'Order notes, warna khali', 'string', '') || undefined,\n  idempotencyKey: $('Prepare Session').first().json.messageId || undefined\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  sessionKey: $('Prepare Session').first().json.sessionKey,\n  customerName: $fromAI('customerName', 'Customer ka naam (pichli chat se)', 'string'),\n  phone: ($fromAI('phone', 'Sirf agar customer ne alag contact number diya ho, warna khali chhodo', 'string', '') || $('Prepare Session').first().json.whatsappPhone || undefined),\n  contactNumberMode: 'provided',\n  confirmationNumberMode: 'default',\n  confirmationPhone: $fromAI('confirmationPhone', 'Sirf agar customer ne kisi aur number par confirmation maangi, warna khali', 'string', '') || undefined,\n  delivery: {\n    address: ($fromAI('deliveryAddress', 'Customer ka confirmed delivery address', 'string') || $('Prepare Session').first().json.locationAddress || undefined),\n    areaName: ($fromAI('deliveryAreaName', 'Delivery area ka naam', 'string', '') || $('Prepare Session').first().json.locationName || ''),\n    areaId: $fromAI('deliveryAreaId', 'Area ID agar delivery check se mili, warna khali', 'string', '') || undefined,\n    latitude: (Number($fromAI('latitude', 'Shared location ki latitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLat) || $('Webhook').first().json.body?.location?.latitude) || undefined,\n    longitude: (Number($fromAI('longitude', 'Shared location ki longitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLng) || $('Webhook').first().json.body?.location?.longitude) || undefined,\n    googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || ''\n  },\n  paymentMethod: String($fromAI('paymentMethod', 'COD ya EASYPAISA', 'string', 'COD') || 'COD').toUpperCase().replace(/\\s+/g, ''),\n  promoCode: $fromAI('promoCode', 'Promo code agar diya ho, warna khali', 'string', '') || undefined,\n  notes: $fromAI('notes', 'Order notes, warna khali', 'string', '') || undefined,\n  idempotencyKey: $('Prepare Session').first().json.messageId || undefined\n}) }}",
         "options": {
           "response": {
             "response": {
@@ -1605,9 +1733,10 @@ const workflow = {
   }
 };
 
-const jsonContent = JSON.stringify(workflow, null, 2);
-fs.writeFileSync('cravey-crust-whatsapp-agent-workflow.json', jsonContent, 'utf8');
-fs.writeFileSync('n8n.json', jsonContent, 'utf8');
-fs.writeFileSync('updated_n8n_workflow.json', jsonContent, 'utf8');
+const jsonStr = JSON.stringify(workflow, null, 2);
+fs.writeFileSync('updated_n8n_workflow.json', jsonStr, 'utf8');
+fs.writeFileSync('cravey-crust-whatsapp-agent-workflow.json', jsonStr, 'utf8');
+fs.writeFileSync('n8n.json', jsonStr, 'utf8');
 
-console.log('Successfully updated workflows!');
+console.log('Successfully generated updated workflows!');
+console.log('Total nodes:', workflow.nodes.length);
