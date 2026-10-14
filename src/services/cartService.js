@@ -207,7 +207,7 @@ export async function validateCartItemInput({ restaurantId, menuItemId, variantI
 /**
  * Add an item or deal to cart with strict validation
  */
-export async function addItemToCart({ sessionKey, restaurantId, menuItemId, variantId, dealId, quantity = 1, notes }) {
+export async function addItemToCart({ sessionKey, restaurantId, menuItemId, variantId, dealId, quantity = 1, notes, chatId, verifiedPhone }) {
     const prisma = getDbClient();
     if (!prisma) throw new Error('Database client not available');
 
@@ -220,7 +220,7 @@ export async function addItemToCart({ sessionKey, restaurantId, menuItemId, vari
         quantity,
     });
 
-    const cart = await getActiveCart({ sessionKey, restaurantId: restId });
+    const cart = await getActiveCart({ sessionKey, restaurantId: restId, chatId, verifiedPhone });
 
     // Check if duplicate item already exists in cart -> increment quantity
     let existingItem = null;

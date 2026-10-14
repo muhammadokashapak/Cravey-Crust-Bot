@@ -107,10 +107,16 @@ export async function createOrder(params) {
         phoneStr === 'same_number' || 
         phoneStr === 'whatsapp' || 
         phoneStr === 'same_whatsapp' || 
+        phoneStr === 'yahi' ||
+        phoneStr === 'yehi' ||
+        phoneStr === 'wahi' ||
         phoneStr.includes('same') ||
         contactNumberMode === 'same_whatsapp';
 
-    if (isSameNumberRequest || !phone) {
+    const cleanDigits = phoneStr.replace(/\D/g, '');
+    const isDummy = /^(0?3001234567|0?3123456789|0?3000000000|0?3211234567|0?3009876543|0?3120000000|0?3451234567|0?3331234567|0?3001111111|0?3001234568|0?3000000001|0?3111111111)$/.test(cleanDigits);
+
+    if (isSameNumberRequest || isDummy || !phone) {
         if (session.verified_phone) {
             finalPhone = normalizePhone(session.verified_phone);
         }
@@ -119,6 +125,20 @@ export async function createOrder(params) {
         // Fallback to verified_phone if phone string couldn't be parsed but session has verified_phone
         if (!finalPhone && session.verified_phone) {
             finalPhone = normalizePhone(session.verified_phone);
+        }
+    }
+
+    // Fallback: extract clean digits from session_key, chat_id, or sessionKey if not raw @lid
+    if (!finalPhone) {
+        const candidates = [session.verified_phone, session.session_key, session.chat_id, sessionKey];
+        for (const c of candidates) {
+            if (c && !String(c).includes('@lid')) {
+                const digits = String(c).split('@')[0].replace(/\D/g, '');
+                if (digits.length >= 10) {
+                    finalPhone = normalizePhone(digits.startsWith('92') && digits.length === 12 ? '0' + digits.slice(2) : digits);
+                    break;
+                }
+            }
         }
     }
 

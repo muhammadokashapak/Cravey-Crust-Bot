@@ -10,11 +10,11 @@ if (prepNode && prepNode.parameters && prepNode.parameters.assignments) {
   const assigns = prepNode.parameters.assignments.assignments;
   const phoneAssign = assigns.find(a => a.name === 'whatsappPhone');
   if (phoneAssign) {
-    phoneAssign.value = "={{ (() => { const clean = (str) => { if (!str) return ''; const s = String(str); if (s.includes('@lid')) return ''; const digits = s.replace(/@.*$/, '').replace(/[^0-9]/g, ''); if (digits.startsWith('92') && digits.length === 12) return '0' + digits.slice(2); if (digits.startsWith('03') && digits.length === 11) return digits; if (digits.length === 10 && digits.startsWith('3')) return '0' + digits; if (digits.length >= 10) return digits; return ''; }; const candidates = [ $json.body?.whatsappPhone, $json.body?.phone, $json.body?.senderJid, $json.body?.senderPn, $json.body?.chatId, $json.body?.sessionKey ]; for (const c of candidates) { const parsed = clean(c); if (parsed) return parsed; } return ''; })() }}";
+    phoneAssign.value = "={{ (() => { const clean = (str) => { if (!str) return ''; const s = String(str); if (s.includes('@lid')) return ''; const digits = s.replace(/@.*$/, '').replace(/[^0-9]/g, ''); if (digits.startsWith('92') && digits.length === 12) return '0' + digits.slice(2); if (digits.startsWith('03') && digits.length === 11) return digits; if (digits.length === 10 && digits.startsWith('3')) return '0' + digits; if (digits.length >= 10) return digits; return ''; }; const candidates = [ $json.body?.whatsappPhone, $json.body?.phone, $json.body?.senderJid, $json.body?.senderPn, $json.body?.chatId, $json.body?.sessionKey, $json.whatsappPhone, $json.phone, $json.senderJid, $json.senderPn, $json.chatId, $json.sessionKey ]; for (const c of candidates) { const parsed = clean(c); if (parsed) return parsed; } return ''; })() }}";
   }
   const verifiedAssign = assigns.find(a => a.name === 'phoneVerified');
   if (verifiedAssign) {
-    verifiedAssign.value = "={{ Boolean($json.body?.phoneVerified === true || $('Prepare Session').first().json.whatsappPhone || $json.body?.whatsappPhone || $json.body?.phone || ($json.body?.senderJid && !String($json.body.senderJid).includes('@lid')) || ($json.body?.chatId && !String($json.body.chatId).includes('@lid'))) }}";
+    verifiedAssign.value = "={{ Boolean($json.body?.phoneVerified === true || ($json.body?.whatsappPhone && !String($json.body.whatsappPhone).includes('@lid')) || ($json.body?.phone && !String($json.body.phone).includes('@lid')) || ($json.body?.senderJid && !String($json.body.senderJid).includes('@lid')) || ($json.body?.chatId && !String($json.body.chatId).includes('@lid')) || ($json.whatsappPhone && !String($json.whatsappPhone).includes('@lid')) || ($json.phone && !String($json.phone).includes('@lid')) || ($json.senderJid && !String($json.senderJid).includes('@lid')) || ($json.chatId && !String($json.chatId).includes('@lid'))) }}";
   }
   let pushNameAssign = assigns.find(a => a.name === 'pushName');
   if (pushNameAssign) {
@@ -522,11 +522,12 @@ NO DISCOUNT CODES / PROMOTIONS POLICY:
 - KABHI BHI koi discount code invent mat karo aur na hi customer se promo code maango.
 
 CUSTOMER SENDER PHONE NUMBER & "SAME NUMBER" STRICT RULE:
-- Customer ka ASLI sender WhatsApp number yeh hai: {{ $('Prepare Session').first().json.whatsappPhone }}.
-- JAB BHI CUSTOMER KAHE "same number", "yahi number", "yehi number", "isi number pe", "whatsapp number pe", "apne number pe", ya customer apna phone number na bataye:
-  1. Final Summary mein Contact Number ki jagah EXACT customer ka sender number: {{ $('Prepare Session').first().json.whatsappPhone }} likho! KABHI BHI koi doosra ya farzi number mat likho!
-  2. 'Create Confirmed Order' tool call karte waqt 'phone' parameter ko KHALI CHHODO (""), taake system automatically sender ka asli WhatsApp number ({{ $('Prepare Session').first().json.whatsappPhone }}) save kare!
-- SIRF AUR SIRF tab 'phone' parameter mein number pass karo jab customer ne chat mein koi mukammal 11-digit ka naya number (maslan 03001234567) khud type karke bheja ho!
+- Customer ka ASLI verified WhatsApp sender number yeh hai: {{ $('Prepare Session').first().json.whatsappPhone }}.
+- JAB BHI CUSTOMER SE PHONE/CONTACT POOCHO AUR CUSTOMER KAHE:
+  "same", "same number", "yahi number", "yehi number", "isi number pe", "whatsapp number pe", "apne number pe", "wahi", "default", "isi pe", YA customer alag se koi naya number na de:
+  1. FINAL SUMMARY MEIN Contact Number HAMESHA customer ka yahi verified sender number: {{ $('Prepare Session').first().json.whatsappPhone }} likho!
+  2. KISI BHI SURAT MEIN koi fake / dummy number (maslan 03001234567, 03123456789, 03000000000, 03211234567) FINAL SUMMARY MEIN HARGIZ HARGIZ HARGIZ USE MAT KARO!
+  3. 'Create Confirmed Order' tool call karte waqt 'phone' parameter mein customer ka asli verified number: {{ $('Prepare Session').first().json.whatsappPhone }} pass karo (ya agar customer ne explicitly chat mein 11-digit ka naya number likha ho maslan 03001122334 to wo pass karo)!
 - Dobara phone number pooch kar customer ko tang mat karo agar WhatsApp number mojood hai!
 - "Aapka WhatsApp number privacy ki wajah se show nahi ho raha" WALA JHOOT HARGIZ MAT BOLO kyunki WhatsApp number system mein mojood hai!
 
@@ -584,10 +585,18 @@ CRITICAL RULES:
 
 CART & CHECKOUT RULES:
 1. Item/deal add karne ke baad: "Kya aap kuch aur add karna chahenge, ya order checkout karein?"
-2. Jab tak customer checkout na kahe, naam ya address mat maango.
+2. CUSTOMER "NAI SIRF YEHI" / "BAS YEHI" / CHECKOUT TRIGGER HANDLING:
+   - Jab bot poochhe: "Kya aap kuch aur add karna chahenge, ya order checkout karein?"
+     Aur customer kahe: "nai sirf yehi krna ha", "nahi bas yahi", "sirf yehi", "checkout", "nahi kuch aur nahi", "final kardo", "order kardo", "jee check out kro":
+     1. Iska matlab hai customer mazeed koi item add nahi karna chahta aur checkout proceed karna chahta hai!
+     2. FORAN checkout shuru karo! Pehle customer se Naam aur Delivery Address maango:
+        "Theek hai! Order complete karne ke liye baraye meherbani apna Naam aur mukammal Delivery Address (ya WhatsApp location pin) share kar dein?"
+     3. Contact number confirm karo:
+        "Contact number yahi WhatsApp number ({{ $('Prepare Session').first().json.whatsappPhone }}) rahega ya koi doosra number dena chahenge?"
+     - HARGIZ kisi technical maslay ka bahana mat banao!
 
 STRICT 4-STEP CHECKOUT PROTOCOL (MANDATORY GATE - NO SHORTCUTS):
-Jab customer order finalize / checkout / place karne ka kahe (maslan "final kar do", "checkout", "order kardo", "bill kitna hua", "pack kardo", "bhej do"):
+Jab customer order finalize / checkout / place karne ka kahe (maslan "final kar do", "checkout", "order kardo", "bill kitna hua", "pack kardo", "bhej do", "nai sirf yehi krna ha"):
 PEHLE Calculate Cart Totals call karo taake customer ko bill pata chale.
 LEKIN FINAL SUMMARY CARD TAB TAK HARGIZ MAT BHEJO JAB TAK YEH 4 CHEEZEIN CUSTOMER EXPLICITLY NA DE CHUKA HO:
 
@@ -640,23 +649,25 @@ HUMAN HANDOVER & COMPLAINT HANDLING (MANDATORY TOOL CALL):
   3. Tool call mein customer ka reason saaf pass karo (maslan: "Customer wants to speak with owner/manager").
   4. Tool call ke baad customer ko politely batao:
      "Ji bilkul, main aapki request aur complaint hamare human management team ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke maslay ko hal karega. Shukriya!\n\n(Agar aapko dobara bot shuru karna ho to kisi bhi waqt 'bot start' likh kar bhej dein)."`;
+  agentNode.parameters.options.maxIterations = 12;
 }
 
-// 5. Verify Order Reply node (FIX REGEX TO MATCH CC-000020, CC-000021)
+// 5. Verify Order Reply node (Safe verification without false failure overwrite)
 const verifyNode = workflow.nodes.find(n => n.name === 'Verify Order Reply');
 if (verifyNode && verifyNode.parameters) {
   verifyNode.parameters.jsCode = `const prep = $('Prepare Session').first().json;
 const cls = $('Check Cache & Classify Intent').first().json;
 let out = String($json.output || $json.text || '').trim();
-const agentFailed = !!$json.error || !out;
+
+if (!out) {
+  out = 'Maazrat, abhi kuch technical masla aa gaya. Meherbani karke apna message dobara bhej dein, ya "agent" likhein to hamara team member rabta karega.';
+}
 
 const hasOrderNo = /\\bCC-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*\\b/i.test(out);
-// customer ne confirm kaha, agent ne "order ho gaya" bola, lekin tool ka asli order number nahi -> jhoot rokna
-const claims = /\\b(order|aapka order)\\b[^.!\\n]{0,40}\\b(confirm|place|book|receive)\\w*\\b[^.!\\n]{0,25}\\b(ho gaya|ho gya|ho chuka|ho gayi|kar diya|kar di)\\b/i.test(out) && !/cancel/i.test(out);
+// Only catch false claims where bot claims order is already placed/confirmed in past tense without an actual CC-... order number
+const falseConfirmationClaim = /\\b(aapka order|order)\\b[^.!\\n]{0,30}\\b(kamyabi se confirm|confirm ho gaya|confirm ho gya|confirm ho chuka|place ho gaya|book ho gaya)\\b/i.test(out) && !hasOrderNo && !/cancel/i.test(out);
 
-if (agentFailed) {
-  out = 'Maazrat, abhi kuch technical masla aa gaya. Meherbani karke apna message dobara bhej dein, ya "agent" likhein to hamara team member rabta karega.';
-} else if (cls.confirmIntent && claims && !hasOrderNo) {
+if (cls.confirmIntent && falseConfirmationClaim) {
   out = 'Maazrat, system mein masla aane ki wajah se aapka order abhi confirm nahi ho saka. Meherbani karke dobara "confirm" likhein, ya "agent" likhein to hamara team member madad karega.';
 }
 
@@ -703,7 +714,7 @@ if (requestHandoverToolNode && requestHandoverToolNode.parameters) {
 const createOrderToolNode = workflow.nodes.find(n => n.name === 'Create Confirmed Order');
 if (createOrderToolNode && createOrderToolNode.parameters) {
   createOrderToolNode.parameters.toolDescription = 'Asli order place karta hai. SIRF AUR SIRF TAB CALL KARO jab customer se Name, Delivery Address, Phone aur Payment Method mil chuka ho aur customer ne Final Summary par haan/confirm kaha ho. Agar Name ya Delivery Address missing hai to ye tool call karna sakht mana hai. Result se CC-... order number milta hai.';
-  createOrderToolNode.parameters.jsonBody = "={{ JSON.stringify({\\n  sessionKey: $('Prepare Session').first().json.sessionKey,\\n  customerName: $fromAI('customerName', 'Customer ka asli naam jo usne chat mein bataya ho (kabhi bhi placeholder Customer mat likho)', 'string'),\\n  phone: (() => { const p = String($fromAI('phone', 'Sirf agar customer ne koi mukhtalif/doosra contact number likha ho (maslan 0300...), warna khali chhoro', 'string', '') || '').trim(); const wa = $('Prepare Session').first().json.whatsappPhone || ''; if (!p || /^(same|yahi|yehi|isi|wahi|same\\\\s*number|same\\\\s*whatsapp|whatsapp|whatsapp\\\\s*number|default)$/i.test(p)) return wa; const digits = p.replace(/[^0-9]/g, ''); if (digits.length >= 10) { if (digits.startsWith('92') && digits.length === 12) return '0' + digits.slice(2); return digits; } return wa || digits; })(),\\n  contactNumberMode: 'provided',\\n  confirmationNumberMode: 'default',\\n  confirmationPhone: $fromAI('confirmationPhone', 'Sirf agar customer ne kisi aur number par confirmation maangi, warna khali', 'string', '') || undefined,\\n  delivery: {\\n    address: ($fromAI('deliveryAddress', 'Customer ka confirmed delivery address ya location pin (khud se guess mat karo)', 'string') || $('Prepare Session').first().json.locationAddress || ($('Prepare Session').first().json.locationLat ? (($('Prepare Session').first().json.locationName ? $('Prepare Session').first().json.locationName + ', ' : '') + ($('Prepare Session').first().json.locationAddress || 'Shared Location') + ' (Location Pin: https://www.google.com/maps?q=' + $('Prepare Session').first().json.locationLat + ',' + $('Prepare Session').first().json.locationLng + ')') : undefined)),\\n    areaName: ($fromAI('deliveryAreaName', 'Delivery area ka naam', 'string', '') || $('Prepare Session').first().json.locationName || ''),\\n    areaId: $fromAI('deliveryAreaId', 'Area ID agar delivery check se mili, warna khali', 'string', '') || undefined,\\n    latitude: (Number($fromAI('latitude', 'Shared location ki latitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLat) || $('Webhook').first().json.body?.location?.latitude) || undefined,\\n    longitude: (Number($fromAI('longitude', 'Shared location ki longitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLng) || $('Webhook').first().json.body?.location?.longitude) || undefined,\\n    googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || ''\\n  },\\n  paymentMethod: String($fromAI('paymentMethod', 'COD ya EASYPAISA', 'string', 'COD') || 'COD').toUpperCase().replace(/\\\\s+/g, ''),\\n  notes: $fromAI('notes', 'Order notes, warna khali', 'string', '') || undefined,\\n  idempotencyKey: $('Prepare Session').first().json.messageId || undefined\\n}) }}";
+  createOrderToolNode.parameters.jsonBody = "={{ JSON.stringify({\\n  sessionKey: $('Prepare Session').first().json.sessionKey,\\n  customerName: $fromAI('customerName', 'Customer ka asli naam jo usne chat mein bataya ho (kabhi bhi placeholder Customer mat likho)', 'string'),\\n  phone: (() => { const wa = String($('Prepare Session').first().json.whatsappPhone || '').trim(); const rawP = String($fromAI('phone', 'Customer ka naya phone number agar customer ne chat mein koi mukhtalif/doosra number likha ho, warna khali chhoro', 'string', '') || '').trim(); if (!rawP) return wa; if (/^(same|yahi|yehi|isi|wahi|same\\\\s*number|same\\\\s*whatsapp|whatsapp|whatsapp\\\\s*number|default|my\\\\s*number|apna\\\\s*number)$/i.test(rawP)) return wa; const digits = rawP.replace(/[^0-9]/g, ''); const isDummy = /^(0?3001234567|0?3123456789|0?3000000000|0?3211234567|0?3009876543|0?3120000000|0?3451234567|0?3331234567|0?3001111111|0?3001234568|0?3000000001|0?3111111111)$/.test(digits); if (isDummy) return wa; if (digits.length >= 10) { if (digits.startsWith('92') && digits.length === 12) return '0' + digits.slice(2); if (digits.length === 10 && digits.startsWith('3')) return '0' + digits; return digits; } return wa || digits; })(),\\n  contactNumberMode: 'provided',\\n  confirmationNumberMode: 'default',\\n  confirmationPhone: $fromAI('confirmationPhone', 'Sirf agar customer ne kisi aur number par confirmation maangi, warna khali', 'string', '') || undefined,\\n  delivery: {\\n    address: ($fromAI('deliveryAddress', 'Customer ka confirmed delivery address ya location pin (khud se guess mat karo)', 'string') || $('Prepare Session').first().json.locationAddress || ($('Prepare Session').first().json.locationLat ? (($('Prepare Session').first().json.locationName ? $('Prepare Session').first().json.locationName + ', ' : '') + ($('Prepare Session').first().json.locationAddress || 'Shared Location') + ' (Location Pin: https://www.google.com/maps?q=' + $('Prepare Session').first().json.locationLat + ',' + $('Prepare Session').first().json.locationLng + ')') : undefined)),\\n    areaName: ($fromAI('deliveryAreaName', 'Delivery area ka naam', 'string', '') || $('Prepare Session').first().json.locationName || ''),\\n    areaId: $fromAI('deliveryAreaId', 'Area ID agar delivery check se mili, warna khali', 'string', '') || undefined,\\n    latitude: (Number($fromAI('latitude', 'Shared location ki latitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLat) || $('Webhook').first().json.body?.location?.latitude) || undefined,\\n    longitude: (Number($fromAI('longitude', 'Shared location ki longitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLng) || $('Webhook').first().json.body?.location?.longitude) || undefined,\\n    googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || ''\\n  },\\n  paymentMethod: String($fromAI('paymentMethod', 'COD ya EASYPAISA', 'string', 'COD') || 'COD').toUpperCase().replace(/\\\\s+/g, ''),\\n  notes: $fromAI('notes', 'Order notes, warna khali', 'string', '') || undefined,\\n  idempotencyKey: $('Prepare Session').first().json.messageId || undefined\\n}) }}";
 }
 
 // 11. Add to Cart (AI Agent Tool) node (Strict tool description)
@@ -716,6 +727,12 @@ if (addToCartToolNode && addToCartToolNode.parameters) {
 const calcToolNode = workflow.nodes.find(n => n.name === 'Calculate Cart Totals');
 if (calcToolNode && calcToolNode.parameters) {
   calcToolNode.parameters.jsonBody = "={{ JSON.stringify({\\n  deliveryAreaId: $fromAI('deliveryAreaId', 'Area ID from delivery check', 'string', '') || undefined,\\n  deliveryAreaName: $fromAI('deliveryAreaName', 'Delivery area name', 'string', '') || $('Prepare Session').first().json.locationName || undefined,\\n  address: $('Prepare Session').first().json.locationAddress || undefined,\\n  latitude: Number($fromAI('latitude', 'Latitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined,\\n  longitude: Number($fromAI('longitude', 'Longitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined\\n}) }}";
+}
+
+// 13. DeepSeek Chat Model (Use official deepseek-chat model name)
+const deepseekNode = workflow.nodes.find(n => n.name === 'DeepSeek Chat Model');
+if (deepseekNode && deepseekNode.parameters) {
+  deepseekNode.parameters.model = 'deepseek-chat';
 }
 
 // 13. Completely remove 'Get Active Promotions' node and connections from workflow

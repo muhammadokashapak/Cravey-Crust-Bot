@@ -106,6 +106,9 @@ router.post('/:sessionKey/items', async (req, res) => {
     try {
         const { sessionKey } = req.params;
         const restaurantId = await getDefaultRestaurantId();
+        const verifiedPhone = req.body?.verifiedPhone || req.query?.verifiedPhone || (!sessionKey.includes('@lid') ? sessionKey.split('@')[0].replace(/\D/g, '') : undefined);
+        const chatId = req.body?.chatId || req.query?.chatId || sessionKey;
+
         if (Array.isArray(req.body?.items) && req.body.items.length > 0) {
             let lastCart = null;
             for (const item of req.body.items) {
@@ -117,6 +120,8 @@ router.post('/:sessionKey/items', async (req, res) => {
                     dealId: item.dealId,
                     quantity: item.quantity ? parseInt(item.quantity, 10) : 1,
                     notes: item.notes,
+                    chatId,
+                    verifiedPhone,
                 });
             }
             return res.status(201).json({
@@ -136,6 +141,8 @@ router.post('/:sessionKey/items', async (req, res) => {
             dealId,
             quantity: quantity ? parseInt(quantity, 10) : 1,
             notes,
+            chatId,
+            verifiedPhone,
         });
 
         const addedItem = cart.items?.find(i => 
