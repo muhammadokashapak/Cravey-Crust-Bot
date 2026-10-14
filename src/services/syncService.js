@@ -320,24 +320,7 @@ export async function getIncrementalChanges({ restaurantId, since, entities = ['
     }
 
     // ── Notify n8n to refresh its cache immediately ────────────────────────
-    // Fire-and-forget: don't block the admin dashboard response
-    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
-    if (n8nWebhookUrl) {
-        fetch(n8nWebhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'sync',
-                sync: true,
-                isSync: true,
-                event: 'sync',
-                timestamp: Date.now(),
-                triggeredBy: 'admin_sync_panel',
-            }),
-        }).catch(err => {
-            console.warn('[SyncService] n8n cache-refresh notification failed (non-critical):', err.message);
-        });
-    }
+    notifyN8nSync('admin_sync_panel');
 
     return {
         success: true,
@@ -376,3 +359,27 @@ export async function processClientMutations({ restaurantId, mutations = [] }) {
         message: 'All client mutations successfully synchronized'
     };
 }
+
+/**
+ * Proactively notifies n8n to refresh its cache whenever catalog, categories, deals, or FAQs are modified
+ */
+export function notifyN8nSync(reason = 'admin_update') {
+    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
+    if (!n8nWebhookUrl) return;
+
+    fetch(n8nWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            type: 'sync',
+            sync: true,
+            isSync: true,
+            event: 'sync',
+            timestamp: Date.now(),
+            triggeredBy: reason,
+        }),
+    }).catch(err => {
+        console.warn(`[SyncService] n8n cache-refresh notification failed for (${reason}):`, err.message);
+    });
+}
+

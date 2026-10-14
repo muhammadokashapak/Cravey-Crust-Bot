@@ -2,6 +2,8 @@ import express from 'express';
 import { getDbClient } from '../../src/db/client.js';
 import { createCategorySchema, updateCategorySchema } from '../../src/validators/categorySchema.js';
 import { slugify } from '../../src/utils/slugify.js';
+import { notifyN8nSync } from '../../src/services/syncService.js';
+import { getDefaultRestaurantId } from '../../src/services/restaurantService.js';
 
 const router = express.Router();
 
@@ -19,9 +21,20 @@ router.get('/', async (req, res) => {
             });
         }
 
-        const restaurantId = req.user?.restaurantId;
+        let restaurantId = req.user?.restaurantId;
+        if (!restaurantId) {
+            try {
+                restaurantId = await getDefaultRestaurantId();
+            } catch (_) {}
+        }
+
         const categories = await prisma.category.findMany({
-            where: restaurantId ? { restaurant_id: restaurantId } : {},
+            where: restaurantId ? {
+                OR: [
+                    { restaurant_id: restaurantId },
+                    { restaurant_id: null },
+                ],
+            } : {},
             orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
             include: {
                 _count: {
@@ -58,12 +71,22 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const prisma = getDbClient();
-        const restaurantId = req.user?.restaurantId;
+        let restaurantId = req.user?.restaurantId;
+        if (!restaurantId) {
+            try {
+                restaurantId = await getDefaultRestaurantId();
+            } catch (_) {}
+        }
 
         const category = await prisma.category.findFirst({
             where: {
                 id: req.params.id,
-                ...(restaurantId ? { restaurant_id: restaurantId } : {}),
+                ...(restaurantId ? {
+                    OR: [
+                        { restaurant_id: restaurantId },
+                        { restaurant_id: null },
+                    ],
+                } : {}),
             },
             include: {
                 _count: { select: { menu_items: true } },
@@ -111,7 +134,12 @@ router.post('/', async (req, res) => {
         }
 
         const prisma = getDbClient();
-        const restaurantId = req.user?.restaurantId;
+        let restaurantId = req.user?.restaurantId;
+        if (!restaurantId) {
+            try {
+                restaurantId = await getDefaultRestaurantId();
+            } catch (_) {}
+        }
         const { name, description, sort_order, is_active } = parseResult.data;
 
         const baseSlug = slugify(name);
@@ -125,7 +153,12 @@ router.post('/', async (req, res) => {
         // Check duplicate name or slug within restaurant
         const existing = await prisma.category.findFirst({
             where: {
-                restaurant_id: restaurantId,
+                ...(restaurantId ? {
+                    OR: [
+                        { restaurant_id: restaurantId },
+                        { restaurant_id: null },
+                    ],
+                } : {}),
                 OR: [
                     { slug: baseSlug },
                     { name: { equals: name, mode: 'insensitive' } },
@@ -145,7 +178,7 @@ router.post('/', async (req, res) => {
 
         const category = await prisma.category.create({
             data: {
-                restaurant_id: restaurantId,
+                restaurant_id: restaurantId || null,
                 name,
                 slug: baseSlug,
                 description: description || null,
@@ -153,6 +186,8 @@ router.post('/', async (req, res) => {
                 is_active,
             },
         });
+
+        notifyN8nSync('category_created');
 
         return res.status(201).json({
             success: true,
@@ -237,6 +272,8 @@ router.put('/:id', async (req, res) => {
             data: updateData,
         });
 
+        notifyN8nSync('category_updated');
+
         return res.json({ success: true, data: updated });
     } catch (err) {
         console.error('[ADMIN] Update category error:', err);
@@ -279,6 +316,8 @@ router.patch('/:id/status', async (req, res) => {
             where: { id: categoryId },
             data: { is_active: newStatus },
         });
+
+        notifyN8nSync('category_status_changed');
 
         return res.json({ success: true, data: updated });
     } catch (err) {
@@ -329,6 +368,8 @@ router.delete('/:id', async (req, res) => {
         await prisma.category.delete({
             where: { id: categoryId },
         });
+
+        notifyN8nSync('category_deleted');
 
         return res.json({
             success: true,

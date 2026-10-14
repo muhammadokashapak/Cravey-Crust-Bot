@@ -24,7 +24,10 @@ router.get('/', async (req, res) => {
         // Query active categories containing active, available items
         const categories = await prisma.category.findMany({
             where: {
-                restaurant_id: restaurantId,
+                OR: [
+                    { restaurant_id: restaurantId },
+                    { restaurant_id: null },
+                ],
                 is_active: true,
             },
             orderBy: { sort_order: 'asc' },
@@ -101,7 +104,10 @@ router.get('/categories', async (req, res) => {
         const restaurantId = await getDefaultRestaurantId();
         const categories = await prisma.category.findMany({
             where: {
-                restaurant_id: restaurantId,
+                OR: [
+                    { restaurant_id: restaurantId },
+                    { restaurant_id: null },
+                ],
                 is_active: true,
             },
             orderBy: { sort_order: 'asc' },
@@ -151,7 +157,10 @@ router.get('/search', async (req, res) => {
             const restaurantId = await getDefaultRestaurantId();
             const allItems = await prisma.menuItem.findMany({
                 where: {
-                    restaurant_id: restaurantId,
+                    OR: [
+                        { restaurant_id: restaurantId },
+                        { restaurant_id: null },
+                    ],
                     is_active: true,
                     is_available: true,
                     category: { is_active: true },
@@ -255,11 +264,16 @@ router.get('/search', async (req, res) => {
         // Search active items across name, category, and description
         const items = await prisma.menuItem.findMany({
             where: {
-                restaurant_id: restaurantId,
+                OR: [
+                    { restaurant_id: restaurantId },
+                    { restaurant_id: null },
+                ],
                 is_active: true,
                 is_available: true,
                 category: { is_active: true },
-                OR: orConditions,
+                AND: [
+                    { OR: orConditions },
+                ],
             },
             include: {
                 category: { select: { id: true, name: true } },

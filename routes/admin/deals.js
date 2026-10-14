@@ -2,6 +2,8 @@ import express from 'express';
 import { getDbClient } from '../../src/db/client.js';
 import { createDealSchema, updateDealSchema, createDealItemSchema, updateDealItemSchema } from '../../src/validators/dealSchema.js';
 import { slugify } from '../../src/utils/slugify.js';
+import { notifyN8nSync } from '../../src/services/syncService.js';
+import { getDefaultRestaurantId } from '../../src/services/restaurantService.js';
 
 const router = express.Router();
 
@@ -19,9 +21,19 @@ router.get('/', async (req, res) => {
             });
         }
 
-        const restaurantId = req.user?.restaurantId;
+        let restaurantId = req.user?.restaurantId;
+        if (!restaurantId) {
+            try {
+                restaurantId = await getDefaultRestaurantId();
+            } catch (_) {}
+        }
         const deals = await prisma.deal.findMany({
-            where: restaurantId ? { restaurant_id: restaurantId } : {},
+            where: restaurantId ? {
+                OR: [
+                    { restaurant_id: restaurantId },
+                    { restaurant_id: null },
+                ],
+            } : {},
             orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
             include: {
                 deal_items: {
@@ -81,7 +93,12 @@ router.post('/', async (req, res) => {
             });
         }
 
-        const restaurantId = req.user?.restaurantId;
+        let restaurantId = req.user?.restaurantId;
+        if (!restaurantId) {
+            try {
+                restaurantId = await getDefaultRestaurantId();
+            } catch (_) {}
+        }
         const parsed = createDealSchema.safeParse(req.body);
         if (!parsed.success) {
             return res.status(400).json({
@@ -100,7 +117,17 @@ router.post('/', async (req, res) => {
         let baseSlug = slugify(name);
         let slug = baseSlug;
         let counter = 1;
-        while (await prisma.deal.findFirst({ where: { restaurant_id: restaurantId, slug } })) {
+        while (await prisma.deal.findFirst({
+            where: {
+                ...(restaurantId ? {
+                    OR: [
+                        { restaurant_id: restaurantId },
+                        { restaurant_id: null },
+                    ],
+                } : {}),
+                slug,
+            },
+        })) {
             slug = `${baseSlug}-${counter++}`;
         }
 
@@ -108,7 +135,15 @@ router.post('/', async (req, res) => {
         if (items && items.length > 0) {
             for (const it of items) {
                 const menuItem = await prisma.menuItem.findFirst({
-                    where: { id: it.menu_item_id, restaurant_id: restaurantId },
+                    where: {
+                        id: it.menu_item_id,
+                        ...(restaurantId ? {
+                            OR: [
+                                { restaurant_id: restaurantId },
+                                { restaurant_id: null },
+                            ],
+                        } : {}),
+                    },
                     include: { variants: true },
                 });
                 if (!menuItem) {
@@ -131,7 +166,7 @@ router.post('/', async (req, res) => {
 
         const newDeal = await prisma.deal.create({
             data: {
-                restaurant_id: restaurantId,
+                restaurant_id: restaurantId || null,
                 name: name.trim(),
                 slug,
                 description: description?.trim() || null,
@@ -160,6 +195,8 @@ router.post('/', async (req, res) => {
                 },
             },
         });
+
+        notifyN8nSync('deal_created');
 
         return res.status(201).json({
             success: true,
@@ -287,6 +324,8 @@ router.put('/:id', async (req, res) => {
             },
         });
 
+        notifyN8nSync('deal_updated');
+
         return res.json({
             success: true,
             data: {
@@ -334,6 +373,8 @@ router.patch('/:id/status', async (req, res) => {
             data: { is_active: newStatus },
         });
 
+        notifyN8nSync('deal_status_changed');
+
         return res.json({
             success: true,
             data: { id: updated.id, is_active: updated.is_active },
@@ -372,6 +413,8 @@ router.delete('/:id', async (req, res) => {
         }
 
         await prisma.deal.delete({ where: { id: req.params.id } });
+
+        notifyN8nSync('deal_deleted');
 
         return res.json({
             success: true,

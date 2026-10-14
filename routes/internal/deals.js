@@ -23,7 +23,10 @@ router.get('/', async (req, res) => {
 
         const deals = await prisma.deal.findMany({
             where: {
-                restaurant_id: restaurantId,
+                OR: [
+                    { restaurant_id: restaurantId },
+                    { restaurant_id: null },
+                ],
                 is_active: true,
                 AND: [
                     { OR: [{ start_at: null }, { start_at: { lte: now } }] },

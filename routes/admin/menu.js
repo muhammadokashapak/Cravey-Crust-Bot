@@ -2,6 +2,7 @@ import express from 'express';
 import { getDbClient } from '../../src/db/client.js';
 import { createMenuItemSchema, updateMenuItemSchema } from '../../src/validators/menuSchema.js';
 import { slugify } from '../../src/utils/slugify.js';
+import { notifyN8nSync } from '../../src/services/syncService.js';
 
 const router = express.Router();
 
@@ -251,6 +252,8 @@ router.post('/', async (req, res) => {
             },
         });
 
+        notifyN8nSync('menu_item_created');
+
         return res.status(201).json({
             success: true,
             data: {
@@ -367,6 +370,8 @@ router.put('/:id', async (req, res) => {
             },
         });
 
+        notifyN8nSync('menu_item_updated');
+
         return res.json({
             success: true,
             data: {
@@ -416,6 +421,8 @@ router.patch('/:id/availability', async (req, res) => {
             data: { is_available: newAvailability },
         });
 
+        notifyN8nSync('menu_item_availability_changed');
+
         return res.json({
             success: true,
             data: {
@@ -459,6 +466,8 @@ router.delete('/:id', async (req, res) => {
         await prisma.menuItem.delete({
             where: { id: itemId },
         });
+
+        notifyN8nSync('menu_item_deleted');
 
         return res.json({
             success: true,
