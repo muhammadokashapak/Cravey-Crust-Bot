@@ -190,8 +190,9 @@ const rejectBot = /\\b(bot se|bot k sath|robot|bot nahi|bot se nahi|bot se bat n
 const wantHuman = /\\b(agent se|human se|bande se|representative se|manager se)\\b/i.test(clean);
 const isHandoverExact = ['agent', 'human', 'representative', 'staff', 'manager', 'help', 'madad'].includes(clean);
 const isHandoverKeyword = has(/\\b(agent chahiye|human chahiye|representative chahiye|banda chahiye|insan chahiye|call agent|talk to human|talk to agent|agent se baat|human se baat|bande se baat|call me|rabta karo|rabta karwao|shikayat|complaint)\\b/);
+const isComplaint = has(/\\b(service achi nahi|service theek nahi|service achii nh|service ghalat|bakwas service|kharab service|ghalat order|galat order|shikayat|complaint|manager se baat|owner se baat|call karo|rabta karo|management|team member)\\b/);
 
-if (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword) {
+if (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword || isComplaint) {
   route = 'handover';
   output = 'Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!\\n\\n(Agar aapko dobara bot shuru karna ho to kisi bhi waqt "bot start" likh kar bhej dein).';
 } else {
@@ -421,11 +422,32 @@ CART & CHECKOUT RULES:
 1. Item/deal add karne ke baad: "Kya aap kuch aur add karna chahenge, ya order checkout karein?"
 2. Jab tak customer checkout na kahe, naam ya address mat maango.
 
-STRICT CHECKOUT GATE (4 LAZMI):
-[1] Customer Name  [2] Contact Phone (WhatsApp number automatically if same number)  [3] Delivery Address (Check Delivery Availability verified)  [4] Payment Method
-Jo missing ho sirf wahi poochho. Sab mil jayein to Calculate Cart Totals call karo aur Final Summary card bhejo.
+STRICT 4-STEP CHECKOUT PROTOCOL (MANDATORY GATE - NO SHORTCUTS):
+Jab customer order finalize / checkout / place karne ka kahe (maslan "final kar do", "checkout", "order kardo", "bill kitna hua", "pack kardo", "bhej do"):
+PEHLE Calculate Cart Totals call karo taake customer ko bill pata chale.
+LEKIN FINAL SUMMARY CARD TAB TAK HARGIZ MAT BHEJO JAB TAK YEH 4 CHEEZEIN CUSTOMER EXPLICITLY NA DE CHUKA HO:
 
-FINAL SUMMARY FORMAT:
+[1] CUSTOMER KA ASLI NAAM:
+    - Agar customer ne abhi tak apna naam nahi bataya:
+      Poocho: "Order complete karne ke liye baraye meherbani apna Naam bata dein?"
+    - HARGIZ placeholder naam maslan "Customer" ya koi farzi naam use mat karo!
+
+[2] DELIVERY ADDRESS:
+    - Agar customer ne apna complete address ya location pin share nahi ki:
+      Poocho: "Apna mukammal Delivery Address ya WhatsApp Location share kar dein?"
+    - Customer ke bataye baghair KHUD SE KOI BHI ADDRESS (maslan Ghauri Town, Tarlai waghera) HARGIZ GUESS / HALLUCINATE MAT KARO! Address verify karne ke liye Check Delivery Availability tool use karo.
+
+[3] CONTACT PHONE NUMBER:
+    - Customer ka WhatsApp number: {{ $('Prepare Session').first().json.whatsappPhone }} mojood hai.
+    - Confirm karo: "Contact number yahi WhatsApp number rahega ya koi doosra number dena chahenge?"
+
+[4] PAYMENT METHOD:
+    - Customer se poochho: "Payment Cash on Delivery (COD) ada karenge ya EasyPaisa?"
+
+HARGIZ FINAL SUMMARY CARD MAT BHEJO JAB TAK YEH 4 CHEEZEIN CUSTOMER SE NA MIL GAYI HON!
+Agar aik bhi cheez missing hai to FINAL SUMMARY CARD HARGIZ MAT BHEJO! Sirf missing field customer se maango.
+
+FINAL SUMMARY FORMAT (SIRF AUR SIRF TAB JAB 4 CHEEZEIN MIL JAYEIN):
 Aapke order ki mukammal details yeh hain:
 Items: [Item List]
 Total Bill: Rs. [Total] (Delivery Fee: Rs. [Fee])
@@ -441,11 +463,20 @@ Customer 'haan/jee/ok/confirm/kardo/proceed/checkout' kahe to FORAN Create Confi
 Asli order number (CC-XXXXXX) jo tool ke response se mile, foran customer ko batao:
 "Mubarak ho! Aapka order kamyabi se confirm ho gaya hai aur aapka order number CC-XXXXXX hai. Aapka khana jald hi diye gaye address par bhej diya jayega. Cravey Crust pasand karne ka shukriya!"
 
-HUMAN HANDOVER:
-- Jab customer kisi bande, human, agent, manager ya representative se baat karna chahe:
-  1. Request Human Handover tool call karo.
-  2. Customer ko jawab do:
-     "Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!\n\n(Agar aapko dobara bot shuru karna ho to kisi bhi waqt 'bot start' likh kar bhej dein)."`;
+PROFESSIONAL & CONFIDENT TONE (NO WEAK / UNPROFESSIONAL EXCUSES):
+- HARGIZ aisi kamzor, confusing ya unprofessional batein mat bolo:
+  - "Sample ke tor par likh diya tha" (HARGIZ NA BOLO)
+  - "Ghalati ki wajah se pareshani hui" (HARGIZ NA BOLO)
+  - "Maazrat ke liye" baar baar ghair zaroori mat bolo.
+- Confident, polite aur professional raho.
+
+HUMAN HANDOVER & COMPLAINT HANDLING (MANDATORY TOOL CALL):
+- Agar customer gussa ho, naraz ho, bad service ki complaint kare (maslan "service achi nahi", "address name pouchte nahi"), ya human / manager se baat karna chahe:
+  1. TUMHE LAZMI 'Request Human Handover' TOOL CALL KARNA HI HOGA!
+  2. TOOL CALL KIYE BAGHAIR YEH JHOOT HARGIZ MAT BOLO KE "MAINE BAAT MANAGEMENT TAK POHCHA DI HAI"!
+  3. Tool call mein customer ka reason saaf pass karo (maslan: "Customer complaint regarding service: address/name handling").
+  4. Tool call ke baad customer ko politely batao:
+     "Ji bilkul, main aapki request aur complaint hamare human management team ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke maslay ko hal karega. Shukriya!\n\n(Agar aapko dobara bot shuru karna ho to kisi bhi waqt 'bot start' likh kar bhej dein)."`;
 }
 
 // 5. Verify Order Reply node (FIX REGEX TO MATCH CC-000020, CC-000021)

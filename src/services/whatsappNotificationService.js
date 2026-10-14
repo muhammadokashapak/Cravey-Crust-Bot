@@ -65,6 +65,8 @@ function formatPhoneToJid(phone) {
         clean = '92' + clean.slice(1);
     }
     if (clean.length < 10) return null;
+    // Reject dummy placeholder numbers (e.g. 923000000000 or all zeroes)
+    if (/^920+$/.test(clean) || /^0+$/.test(clean) || /0000000/.test(clean)) return null;
     return `${clean}@s.whatsapp.net`;
 }
 
@@ -84,22 +86,35 @@ export async function sendAdminNewOrderNotification({ order, restaurantId, sock 
         const prisma = getDbClient();
         const restId = restaurantId || order.restaurant_id || await getDefaultRestaurantId();
 
-        let adminPhone = null;
+        const recipients = new Set();
+
+        // 1. Env candidates
+        const envCandidates = [
+            process.env.OWNER_NUMBER,
+            process.env.ADMIN_NOTIFICATION_PHONE,
+            process.env.ADMIN_PHONE,
+            process.env.OWNER_PHONE,
+        ];
+        for (const num of envCandidates) {
+            const jid = formatPhoneToJid(num);
+            if (jid) recipients.add(jid);
+        }
+
+        // 2. Database candidates
         if (prisma) {
-            const restaurant = await prisma.restaurant.findUnique({
-                where: { id: restId },
-                select: { admin_notification_phone: true, phone: true },
-            });
-            adminPhone = restaurant?.admin_notification_phone || restaurant?.phone;
+            try {
+                const restaurant = await prisma.restaurant.findUnique({
+                    where: { id: restId },
+                    select: { admin_notification_phone: true, phone: true },
+                });
+                const dbAdminJid = formatPhoneToJid(restaurant?.admin_notification_phone);
+                if (dbAdminJid) recipients.add(dbAdminJid);
+                const dbPhoneJid = formatPhoneToJid(restaurant?.phone);
+                if (dbPhoneJid) recipients.add(dbPhoneJid);
+            } catch (_) {}
         }
 
-        // Fall back to process.env.OWNER_NUMBER if not set in DB
-        if (!adminPhone && process.env.OWNER_NUMBER) {
-            adminPhone = process.env.OWNER_NUMBER;
-        }
-
-        const adminJid = formatPhoneToJid(adminPhone);
-        if (!adminJid) {
+        if (recipients.size === 0) {
             logger.warn({ orderNumber: order.order_number }, '[NOTIFY] Admin notification skipped: No valid admin phone configured');
             return { success: false, error: 'No valid admin phone configured' };
         }
@@ -219,34 +234,40 @@ export async function sendAdminHandoverAlert({ customerChatId, customerPhone, cu
 
         const recipients = new Set();
 
-        // 1. Automatically detect the phone number that scanned the QR code (this bot's logged-in account)
+        // 1. Check explicit admin/owner notification numbers from .env
+        const envCandidates = [
+            process.env.OWNER_NUMBER,
+            process.env.ADMIN_NOTIFICATION_PHONE,
+            process.env.ADMIN_PHONE,
+            process.env.OWNER_PHONE,
+        ];
+        for (const num of envCandidates) {
+            const jid = formatPhoneToJid(num);
+            if (jid) recipients.add(jid);
+        }
+
+        // 2. Also check if an explicit admin notification number is set in DB
+        try {
+            const prisma = getDbClient();
+            const restId = await getDefaultRestaurantId();
+            if (prisma && restId) {
+                const restaurant = await prisma.restaurant.findUnique({
+                    where: { id: restId },
+                    select: { admin_notification_phone: true, phone: true },
+                });
+                const dbAdminJid = formatPhoneToJid(restaurant?.admin_notification_phone);
+                if (dbAdminJid) recipients.add(dbAdminJid);
+                const dbPhoneJid = formatPhoneToJid(restaurant?.phone);
+                if (dbPhoneJid) recipients.add(dbPhoneJid);
+            }
+        } catch (_) {}
+
+        // 3. Automatically detect the phone number that scanned the QR code (this bot's logged-in account)
         const scannedRaw = activeSock.user?.id || activeSock.authState?.creds?.me?.id || '';
         const scannedDigits = scannedRaw.split('@')[0]?.split(':')[0]?.replace(/\D/g, '');
         const scannedJid = formatPhoneToJid(scannedDigits);
         if (scannedJid) {
             recipients.add(scannedJid);
-        }
-
-        // 2. Also check if an explicit admin notification number is set in DB or .env
-        const prisma = getDbClient();
-        const restId = await getDefaultRestaurantId();
-
-        let adminPhone = null;
-        if (prisma) {
-            const restaurant = await prisma.restaurant.findUnique({
-                where: { id: restId },
-                select: { admin_notification_phone: true, phone: true },
-            });
-            adminPhone = restaurant?.admin_notification_phone || restaurant?.phone;
-        }
-
-        if (!adminPhone && process.env.OWNER_NUMBER) {
-            adminPhone = process.env.OWNER_NUMBER;
-        }
-
-        const adminJid = formatPhoneToJid(adminPhone);
-        if (adminJid) {
-            recipients.add(adminJid);
         }
 
         if (recipients.size === 0) {
