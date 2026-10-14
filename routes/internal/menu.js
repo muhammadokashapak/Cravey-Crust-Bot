@@ -162,7 +162,39 @@ router.get('/search', async (req, res) => {
             .replace(/\s+/g, ' ')
             .trim();
 
+        // 2. Pakistani colloquial aliases (cold drink, bottle, botal, pepsi, etc.)
+        const ALIASES = {
+            'cold drink': 'Soft Drink',
+            'colddrink': 'Soft Drink',
+            'coldrink': 'Soft Drink',
+            'bottle': 'Soft Drink',
+            'botal': 'Soft Drink',
+            'bottles': 'Soft Drink',
+            'pepsi': 'Soft Drink',
+            'coke': 'Soft Drink',
+            'coca cola': 'Soft Drink',
+            '7up': 'Soft Drink',
+            'seven up': 'Soft Drink',
+            'sprite': 'Soft Drink',
+            'mirinda': 'Soft Drink',
+            'marinda': 'Soft Drink',
+            'dew': 'Soft Drink',
+            'mountain dew': 'Soft Drink',
+            'pani': 'Mineral Water',
+            'paani': 'Mineral Water',
+            'water': 'Mineral Water',
+            'chips': 'Fries',
+            'finger chips': 'Fries',
+        };
+
         const searchTerms = [cleanQuery, rawQuery.toLowerCase()].filter(Boolean);
+        for (const [alias, canonical] of Object.entries(ALIASES)) {
+            if (cleanQuery.includes(alias) || rawQuery.toLowerCase().includes(alias)) {
+                searchTerms.unshift(canonical);
+                break;
+            }
+        }
+
         const searchWords = cleanQuery.split(' ').filter(w => w.length > 2);
 
         // Build OR conditions: match by name, variant name, or description
