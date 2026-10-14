@@ -141,8 +141,48 @@ router.get('/search', async (req, res) => {
         }
 
         const rawQuery = (req.query.q || req.query.query || '').trim();
+        const rawLimit = parseInt(req.query.limit, 10);
+        const limitNum = (!isNaN(rawLimit) && rawLimit > 0) ? Math.min(rawLimit, 500) : 200;
+
+        // ── FULL CATALOG MODE ──────────────────────────────────────────────────
+        // When q is empty, return ALL active+available menu items so n8n cache
+        // can be fully populated in a single call (no item is ever skipped).
         if (!rawQuery) {
-            return res.json({ success: true, data: [] });
+            const restaurantId = await getDefaultRestaurantId();
+            const allItems = await prisma.menuItem.findMany({
+                where: {
+                    restaurant_id: restaurantId,
+                    is_active: true,
+                    is_available: true,
+                    category: { is_active: true },
+                },
+                include: {
+                    category: { select: { id: true, name: true } },
+                    variants: {
+                        where: { is_available: true },
+                        orderBy: { sort_order: 'asc' },
+                    },
+                },
+                orderBy: [{ category: { sort_order: 'asc' } }, { name: 'asc' }],
+                take: limitNum,
+            });
+
+            const formatted = allItems.map(item => ({
+                id: item.id,
+                name: item.name,
+                description: item.description || '',
+                category: item.category?.name || '',
+                categoryId: item.category?.id || '',
+                basePrice: Number(item.base_price),
+                isAvailable: item.is_available,
+                variants: (item.variants || []).map(v => ({
+                    id: v.id,
+                    name: v.name,
+                    price: Number(v.price),
+                })),
+            }));
+
+            return res.json({ success: true, data: { items: formatted } });
         }
 
         const restaurantId = await getDefaultRestaurantId();

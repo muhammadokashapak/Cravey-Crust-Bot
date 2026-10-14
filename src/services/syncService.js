@@ -319,6 +319,26 @@ export async function getIncrementalChanges({ restaurantId, since, entities = ['
         totalChanges += 1;
     }
 
+    // ── Notify n8n to refresh its cache immediately ────────────────────────
+    // Fire-and-forget: don't block the admin dashboard response
+    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
+    if (n8nWebhookUrl) {
+        fetch(n8nWebhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'sync',
+                sync: true,
+                isSync: true,
+                event: 'sync',
+                timestamp: Date.now(),
+                triggeredBy: 'admin_sync_panel',
+            }),
+        }).catch(err => {
+            console.warn('[SyncService] n8n cache-refresh notification failed (non-critical):', err.message);
+        });
+    }
+
     return {
         success: true,
         serverTime,
