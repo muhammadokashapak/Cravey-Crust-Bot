@@ -1,5 +1,4 @@
 {
-  "name": "Cravey Crust WhatsApp AI Ordering Agent",
   "nodes": [
     {
       "parameters": {
@@ -10,10 +9,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -5376,
-        3232
+        -1904,
+        16
       ],
-      "id": "d7bcdcde-7d46-4dc8-93dc-cc5bb37e10ec",
+      "id": "2e15a543-e67c-4844-adc0-c42a4d9aaa4e",
       "name": "Webhook",
       "webhookId": "5eac53b2-0d19-443a-9b0f-d5373e9a61dd"
     },
@@ -125,10 +124,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -5184,
-        3232
+        -1712,
+        16
       ],
-      "id": "753f4c2e-49f1-4a31-955a-029a9830634d",
+      "id": "ee85aea6-2824-41fe-9478-4093eb5844d1",
       "name": "Prepare Session"
     },
     {
@@ -159,24 +158,24 @@
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.2,
       "position": [
-        -4976,
-        3232
+        -1504,
+        16
       ],
-      "id": "44183ee5-3751-4c01-8eb6-2e3159a00ead",
+      "id": "d3ccde34-73b3-43c9-9855-0feb142cf39b",
       "name": "Skip Empty Message"
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const staticData = $getWorkflowStaticData('global');\nif (!staticData.cache) {\n  staticData.cache = {\n    deals: null, categories: null, menuItems: null,\n    faqsText: '', storeInfoText: '',\n    dealsText: '', categoriesText: '', menuCatalogText: '',\n    catalogHash: '', syncEpoch: 1, updatedAt: 0,\n    chitchatReply: \"Alhamdulillah main bilkul theek hoon! Main Cravey Crust ka ordering assistant Burger Raja hoon. Aaj aap kya khana pasand karenge? Hamara menu dekhne ke liye 'menu' ya 'deals' likhein!\",\n    nonOrderReply: \"Maazrat! Main Cravey Crust ka food ordering Burger Raja hoon aur sirf khane ke orders, menu aur deals mein aapki madad kar sakta hoon. Aaj aap kya order karna chahenge? 'Menu' ya 'Deals' likh kar hamari list check karein!\"\n  };\n}\nif (!staticData.sessions) staticData.sessions = {};\n\nconst secret = 'my-test-secret-123';\nconst baseUrl = 'https://bot.craveycrust.com/api/internal';\n\nconst body = $json.body || {};\nconst isSyncWebhook = Boolean($json.isSyncEvent || body.type === 'sync' || body.event === 'sync' || body.action === 'sync' || body.sync === true);\nconst raw = String($json.message || '').trim().toLowerCase();\nconst clean = raw.replace(/[^\\w\\s\\u0600-\\u06FF]/g, ' ').replace(/\\s+/g, ' ').trim();\nconst wordCount = clean ? clean.split(' ').length : 0;\nconst has = (re) => re.test(clean);\nconst any = (arr) => arr.some(k => clean.includes(k));\n\nconst fetchJson = async (url) => {\n  try {\n    return await this.helpers.httpRequest({ method: 'GET', url, headers: { 'X-Internal-API-Secret': secret }, json: true });\n  } catch (err) { return null; }\n};\n\n// Refresh cache every 5 seconds OR on explicit sync event so any admin panel change propagates immediately\nconst cacheAge = Date.now() - (staticData.cache.updatedAt || 0);\nif (isSyncWebhook || cacheAge > 5000 || !staticData.cache.menuCatalogText || !staticData.cache.dealsText) {\n  try {\n    const [dealsRes, catsRes, menuRes, restRes, faqsRes] = await Promise.all([\n      fetchJson(baseUrl + '/deals?limit=100'),\n      fetchJson(baseUrl + '/menu/categories?limit=100'),\n      fetchJson(baseUrl + '/menu/search?q=&limit=200'),\n      fetchJson(baseUrl + '/restaurant'),\n      fetchJson(baseUrl + '/faqs/search?q=a&limit=50')\n    ]);\n\n    // ── Deals with strict separate categorization (Burger vs Pizza vs Combos)\n    const dealsArr = dealsRes && (dealsRes.data && (dealsRes.data.deals || dealsRes.data.items) || dealsRes.deals || dealsRes.data) || [];\n    const dealsArrFinal = Array.isArray(dealsArr) ? dealsArr : [];\n    if (dealsArrFinal.length > 0) {\n      const activeDeals = dealsArrFinal.filter(d => d && d.isActive !== false && d.active !== false && d.is_active !== false);\n      staticData.cache.deals = activeDeals;\n\n      const classifyDeal = (d) => {\n        if (d.category === 'Burger Deals') return 'BURGER';\n        if (d.category === 'Pizza Deals') return 'PIZZA';\n        const itemsText = Array.isArray(d.items) ? d.items.map(it => (it.quantity || 1) + 'x ' + (it.itemName || it.name || '')).join(' ') : '';\n        const text = (String(d.name || '') + ' ' + String(d.description || '') + ' ' + itemsText).toLowerCase();\n        const isBurger = /\\b(burger|zinger|zeggy)\\b/i.test(text);\n        const isPizza = /\\b(pizza)\\b/i.test(text);\n        if (isBurger && !isPizza) return 'BURGER';\n        if (isPizza && !isBurger) return 'PIZZA';\n        return 'COMBO';\n      };\n\n      const formatAgentDeal = (d, i) => {\n        const items = Array.isArray(d.items) ? d.items.map(it => (it.quantity || 1) + 'x ' + (it.itemName || it.name || 'Item')).join(', ') : '';\n        return (i + 1) + '. ' + d.name + ' - Rs. ' + (d.dealPrice || d.price || '') + (items ? ' (' + items + ')' : '') + (d.description ? ' - ' + d.description : '') + ' [dealId:' + (d.id || '') + ']';\n      };\n\n      const bDeals = activeDeals.filter(d => classifyDeal(d) === 'BURGER');\n      const pDeals = activeDeals.filter(d => classifyDeal(d) === 'PIZZA');\n      const cDeals = activeDeals.filter(d => classifyDeal(d) === 'COMBO');\n\n      staticData.cache.agentDealsCatalog = [\n        '=== 🍔 BURGER DEALS ===',\n        bDeals.length > 0 ? bDeals.map((d, i) => formatAgentDeal(d, i)).join('\\n') : 'None',\n        '',\n        '=== 🍕 PIZZA DEALS ===',\n        pDeals.length > 0 ? pDeals.map((d, i) => formatAgentDeal(d, i)).join('\\n') : 'None',\n        '',\n        '=== 🎉 SPECIAL / COMBO DEALS ===',\n        cDeals.length > 0 ? cDeals.map((d, i) => formatAgentDeal(d, i)).join('\\n') : 'None'\n      ].join('\\n');\n\n      staticData.cache.dealsText = staticData.cache.agentDealsCatalog;\n    }\n\n    // ── Categories\n    const catsArr = catsRes && (catsRes.data && (catsRes.data.categories || catsRes.data) || catsRes.categories || catsRes.data) || [];\n    const catsArrFinal = Array.isArray(catsArr) ? catsArr : [];\n    if (catsArrFinal.length > 0) {\n      staticData.cache.categories = catsArrFinal.filter(c => c && c.isActive !== false && c.is_active !== false);\n      staticData.cache.categoriesText = staticData.cache.categories.map((c, i) => (i + 1) + '. ' + c.name).join('\\n');\n    }\n\n    // ── Menu Catalog (Full items list)\n    const menuArr = menuRes && (menuRes.data && (menuRes.data.items || menuRes.data.menu || menuRes.data) || menuRes.items || menuRes.data) || [];\n    const menuArrFinal = Array.isArray(menuArr) ? menuArr : [];\n    if (menuArrFinal.length > 0) {\n      const activeItems = menuArrFinal.filter(m => m && m.isAvailable !== false && m.isActive !== false && m.is_available !== false);\n      staticData.cache.menuItems = activeItems;\n      staticData.cache.menuCatalogText = activeItems.map(m => {\n        const cat = m.category && (m.category.name || m.category) ? (m.category.name || m.category) : (m.categoryName || 'General');\n        const basePrice = m.price != null ? m.price : (m.basePrice != null ? m.basePrice : (m.base_price != null ? m.base_price : ''));\n        const desc = m.description ? ' (' + String(m.description).trim() + ')' : '';\n        const activeVariants = Array.isArray(m.variants) ? m.variants.filter(v => v && v.isAvailable !== false && v.isActive !== false && v.is_available !== false) : [];\n        const variants = activeVariants.length > 0\n          ? ' | Variants: ' + activeVariants.map(v => v.name + ': Rs.' + v.price + ' [variantId:' + (v.id || '') + ']').join(', ')\n          : '';\n        return '- ' + m.name + desc + ' [Category: ' + cat + '] - Base Price: Rs.' + basePrice + variants + ' [menuItemId:' + (m.id || '') + ']';\n      }).join('\\n');\n    }\n\n    // ── Store Info & FAQs\n    const restData = restRes && ((restRes.data && (restRes.data.restaurant || restRes.data)) || restRes) || {};\n    if (restData && (restData.name || restData.address || restData.openingTime || restData.opening_time)) {\n      const openTime = restData.openingTime || restData.opening_time || '';\n      const closeTime = restData.closingTime || restData.closing_time || '';\n      const addr = restData.address || restData.addressLine1 || '';\n      staticData.cache.storeInfoText = [\n        restData.name ? 'Restaurant: ' + restData.name : '',\n        addr ? 'Address: ' + addr : '',\n        (openTime || closeTime) ? 'Timings: ' + openTime + ' - ' + closeTime : '',\n        restData.phone ? 'Phone: ' + restData.phone : '',\n        restData.minOrder ? 'Min Order: Rs.' + restData.minOrder : '',\n      ].filter(Boolean).join('\\n');\n    }\n    const faqsArr2 = faqsRes && (faqsRes.data && (faqsRes.data.faqs || faqsRes.data.items || faqsRes.data) || faqsRes.faqs || (Array.isArray(faqsRes) ? faqsRes : [])) || [];\n    if (Array.isArray(faqsArr2) && faqsArr2.length > 0) {\n      staticData.cache.faqsText = faqsArr2\n        .filter(f => f && f.is_active !== false && f.isActive !== false)\n        .map(f => 'Q: ' + f.question + '\\nA: ' + f.answer).join('\\n---\\n');\n    }\n\n    // ── Bump syncEpoch when catalog changes or on explicit Sync All\n    const newHash = staticData.cache.menuCatalogText.length + ':' + staticData.cache.dealsText.length + ':' + (staticData.cache.categories || []).length;\n    if (isSyncWebhook || (staticData.cache.catalogHash && staticData.cache.catalogHash !== newHash)) {\n      staticData.cache.syncEpoch = (staticData.cache.syncEpoch || 1) + 1;\n    }\n    staticData.cache.catalogHash = newHash;\n    staticData.cache.updatedAt = Date.now();\n  } catch (e) { /* non-critical */ }\n}\n\nif (isSyncWebhook) {\n  return Object.assign({}, $json, { route: 'sync_done', output: 'Cache synced and memory refreshed', confirmIntent: false });\n}\n\nconst sessionKey = String($json.sessionKey || $json.chatId || 'default');\nconst sessionState = staticData.sessions[sessionKey] || {};\nconst isAwaitingCheckout = Boolean(sessionState.awaitingCheckout && (Date.now() - (sessionState.updatedAt || 0) < 30 * 60 * 1000));\n\nlet route = 'agent';\nlet output = '';\n\n// ── Handover Detection\nconst rejectBot = /\\b(bot se|bot k sath|robot|bot nahi|bot se nahi|bot se bat nahi|bot se baat nahi)\\b/i.test(clean);\nconst wantHuman = /\\b(agent se|human se|bande se|representative se|manager se)\\b/i.test(clean);\nconst isHandoverExact = ['agent', 'human', 'representative', 'staff', 'manager', 'help', 'madad'].includes(clean);\nconst isHandoverKeyword = has(/\\b(agent chahiye|human chahiye|representative chahiye|banda chahiye|insan chahiye|call agent|talk to human|talk to agent|agent se baat|human se baat|bande se baat|call me|rabta karo|rabta karwao|shikayat|complaint)\\b/);\n\nif (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword) {\n  route = 'handover';\n  output = 'Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur 2 ghante ke liye automatic replies mute kar diye gaye hain. Hamara representative thodi hi der mein aap se rabta karega. Shukriya!';\n} else {\n  const hasDealWord = has(/\\b(deal|deals|deala|delas|dels|deels|dlz|combo|combos|package|packages|offer|offers)\\b/) || any(['\\u0688\\u06CC\\u0644','\\u0688\\u06CC\\u0644\\u0632']);\n  const hasSpecificDealNo = /\\b(deal|deala|delas|dels|package|combo|meal)\\s*\\d+\\b/.test(clean) || /\\d+/.test(clean);\n  const hasOrderAction = has(/\\b(order|add|cart|pack|kar|kardo|krdo|kr|chahiye|mangwa|mangwana|banao|confirm|lagao|laga)\\b/);\n  const isGeneralDealsAsk = hasDealWord && !hasSpecificDealNo && !hasOrderAction && wordCount <= 6;\n\n  const exactMenuPhrases = ['menu', 'menue', 'list', 'categories', 'catagories', 'rate list', 'price list', 'food list', 'menu dikhao', 'menu bhejo', 'menu batao', 'menu kya hai', 'menu mai kya hai', 'menu mein kya hai', 'menu mai kya kya hai', 'menu mein kya kya hai', 'kya hai', 'kya kya hai', '\\u0645\\u06CC\\u0646\\u0648', '\\u0631\\u06CC\\u0679 \\u0644\\u0633\\u0679'];\n  const isGeneralMenuAsk = exactMenuPhrases.includes(clean);\n\n  const isChitchat = has(/\\b(kese ho|kaise ho|kase ho|kesy ho|kaisy ho|kia hal|kya hal|kya haal|kia haal|how are you|how r u|kya ho raha|kya kr rahe|aur sunao|or sunao|sab theek|tabiyat)\\b/) && !hasDealWord && !hasOrderAction;\n\n  // Only block genuinely off-topic messages (not food/restaurant related)\n  const isExplicitOffTopic = has(/\\b(capital|president|prime minister|wazir|imran|nawaz|bhutto|army|cricket|match|score|babar|shaheen|ipl|psl|football|mausam|barish|garmi|sardi|joke|latifa|story|kahani|poem|shayari|shairi|song|gana|movie|film|drama|actor|politics|siyasat|math|science|history|geography|coding|python|javascript|homework|college|university|exam|result|nokri|vacancy|shadi|marriage|gf|bf|girlfriend|boyfriend)\\b/) && !has(/\\b(pizza|burger|deal|order|delivery|cravey|crust|menu|branch|tarlai|ghauri|aq khan|school stop|food|khana|peena|drink|pani|water)\\b/);\n\n  if (isGeneralDealsAsk) {\n    route = 'live_deals';\n  } else if (isGeneralMenuAsk) {\n    route = 'live_categories';\n  } else if (isChitchat) {\n    route = 'quick_reply';\n    output = staticData.cache.chitchatReply;\n  } else if (isExplicitOffTopic) {\n    route = 'quick_reply';\n    output = staticData.cache.nonOrderReply;\n  } else {\n    const isGreeting = /^(hi+|hello+|hellow+|helo+|hlo+|hey+|salam|assalam\\s*o?\\s*alaikum|aoa|slam|slaam|wsalam|walekum\\s*salam|listen|suno|sunno|bhai|excuse\\s*me|\\u0633\\u0644\\u0627\\u0645|\\u0627\\u0644\\u0633\\u0644\\u0627\\u0645 \\u0639\\u0644\\u06CC\\u06A9\\u0645)$/i.test(clean);\n    if (isGreeting) {\n      route = 'quick_reply';\n      output = 'Walaikum Assalam! Cravey Crust mein khushamdeed! Main hoon Burger Raja. Aaj aap kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Value Deals dastiyab hain!';\n    } else if (has(/\\b(thanks|thank you|thankyou|shukriya|shukria|jazakallah|jazak allah)\\b/)) {\n      route = 'quick_reply';\n      output = 'Aapka bohat shukriya! Koi aur madad chahiye to bata dein, hum hazir hain.';\n    }\n  }\n}\n\nconst confirmRe = /\\b(confirm|confim|confrim|confirmed|confirmation|haan|han|haa|ji|jee|yes|yeah|yep|ok|okay|theek|thik|done|kardo|kar do|kr do|krdo|kardu|kar du|kr du|krdu|place|bhej do|bhejdo|proceed)\\b/;\nconst negRe = /\\b(nahi|nahin|nai|no|cancel|mat|dont|don t)\\b/;\nconst confirmIntent = wordCount > 0 && wordCount <= 8 && !/\\d/.test(clean) && confirmRe.test(clean) && !negRe.test(clean);\n\nreturn Object.assign({}, $json, {\n  route,\n  output,\n  confirmIntent,\n  syncEpoch: staticData.cache.syncEpoch || 1,\n  cachedDealsSummary: (staticData.cache && staticData.cache.agentDealsCatalog) || (staticData.cache && staticData.cache.dealsText) || '',\n  cachedCategoriesSummary: (staticData.cache && staticData.cache.categories || []).map((c, i) => (i + 1) + '. ' + c.name).join('\\n'),\n  cachedMenuCatalog: (staticData.cache && staticData.cache.menuCatalogText) || '',\n  cachedFaqs: (staticData.cache && staticData.cache.faqsText) || '',\n  cachedStoreInfo: (staticData.cache && staticData.cache.storeInfoText) || '',\n  nonOrderReply: staticData.cache && staticData.cache.nonOrderReply\n});"
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nif (!staticData.cache) {\n  staticData.cache = {\n    deals: null, categories: null, menuItems: null,\n    faqsText: '', storeInfoText: '',\n    dealsText: '', categoriesText: '', menuCatalogText: '',\n    catalogHash: '', syncEpoch: 1, updatedAt: 0,\n    chitchatReply: \"Alhamdulillah main bilkul theek hoon! Main Cravey Crust ka ordering assistant Burger Raja hoon. Aaj aap kya khana pasand karenge? Hamara menu dekhne ke liye 'menu' ya 'deals' likhein!\",\n    nonOrderReply: \"Maazrat! Main Cravey Crust ka food ordering Burger Raja hoon aur sirf khane ke orders, menu aur deals mein aapki madad kar sakta hoon. Aaj aap kya order karna chahenge? 'Menu' ya 'Deals' likh kar hamari list check karein!\"\n  };\n}\nif (!staticData.sessions) staticData.sessions = {};\n\nconst secret = 'my-test-secret-123';\nconst baseUrl = 'https://bot.craveycrust.com/api/internal';\n\nconst body = $json.body || {};\nconst isSyncWebhook = Boolean($json.isSyncEvent || body.type === 'sync' || body.event === 'sync' || body.action === 'sync' || body.sync === true);\nconst raw = String($json.message || '').trim().toLowerCase();\nconst clean = raw.replace(/[^\\w\\s\\u0600-\\u06FF]/g, ' ').replace(/\\s+/g, ' ').trim();\nconst wordCount = clean ? clean.split(' ').length : 0;\nconst has = (re) => re.test(clean);\nconst any = (arr) => arr.some(k => clean.includes(k));\n\nconst fetchJson = async (url) => {\n  try {\n    return await this.helpers.httpRequest({ method: 'GET', url, headers: { 'X-Internal-API-Secret': secret }, json: true });\n  } catch (err) { return null; }\n};\n\n// Refresh cache every 5 seconds OR on explicit sync event so any admin panel change propagates immediately\nconst cacheAge = Date.now() - (staticData.cache.updatedAt || 0);\nif (isSyncWebhook || cacheAge > 5000 || !staticData.cache.menuCatalogText || !staticData.cache.dealsText) {\n  try {\n    const [dealsRes, catsRes, menuRes, restRes, faqsRes] = await Promise.all([\n      fetchJson(baseUrl + '/deals?limit=100'),\n      fetchJson(baseUrl + '/menu/categories?limit=100'),\n      fetchJson(baseUrl + '/menu/search?q=&limit=200'),\n      fetchJson(baseUrl + '/restaurant'),\n      fetchJson(baseUrl + '/faqs/search?q=a&limit=50')\n    ]);\n\n    // ── Deals with strict separate categorization (Burger vs Pizza vs Combos)\n    const dealsArr = dealsRes && (dealsRes.data && (dealsRes.data.deals || dealsRes.data.items) || dealsRes.deals || dealsRes.data) || [];\n    const dealsArrFinal = Array.isArray(dealsArr) ? dealsArr : [];\n    if (dealsArrFinal.length > 0) {\n      const activeDeals = dealsArrFinal.filter(d => d && d.isActive !== false && d.active !== false && d.is_active !== false);\n      staticData.cache.deals = activeDeals;\n\n      const classifyDeal = (d) => {\n        if (d.category === 'Burger Deals') return 'BURGER';\n        if (d.category === 'Pizza Deals') return 'PIZZA';\n        const itemsText = Array.isArray(d.items) ? d.items.map(it => (it.quantity || 1) + 'x ' + (it.itemName || it.name || '')).join(' ') : '';\n        const text = (String(d.name || '') + ' ' + String(d.description || '') + ' ' + itemsText).toLowerCase();\n        const isBurger = /\\b(burger|zinger|zeggy)\\b/i.test(text);\n        const isPizza = /\\b(pizza)\\b/i.test(text);\n        if (isBurger && !isPizza) return 'BURGER';\n        if (isPizza && !isBurger) return 'PIZZA';\n        return 'COMBO';\n      };\n\n      const formatAgentDeal = (d, i) => {\n        const items = Array.isArray(d.items) && d.items.length > 0 ? d.items.map(it => (it.quantity || 1) + 'x ' + (it.itemName || it.name || 'Item')).join(', ') : '';\n        const desc = d.description ? ' (' + d.description + ')' : (items ? ' (' + items + ')' : '');\n        return (i + 1) + '. ' + d.name + ' - Rs. ' + (d.dealPrice || d.price || '') + desc + ' [dealId:' + (d.id || '') + ']';\n      };\n\n      const bDeals = activeDeals.filter(d => classifyDeal(d) === 'BURGER');\n      const pDeals = activeDeals.filter(d => classifyDeal(d) === 'PIZZA');\n      const cDeals = activeDeals.filter(d => classifyDeal(d) === 'COMBO');\n\n      staticData.cache.agentDealsCatalog = [\n        '=== 🍔 BURGER DEALS ===',\n        bDeals.length > 0 ? bDeals.map((d, i) => formatAgentDeal(d, i)).join('\\n') : 'None',\n        '',\n        '=== 🍕 PIZZA DEALS ===',\n        pDeals.length > 0 ? pDeals.map((d, i) => formatAgentDeal(d, i)).join('\\n') : 'None',\n        '',\n        '=== 🎉 SPECIAL / COMBO DEALS ===',\n        cDeals.length > 0 ? cDeals.map((d, i) => formatAgentDeal(d, i)).join('\\n') : 'None'\n      ].join('\\n');\n\n      staticData.cache.dealsText = staticData.cache.agentDealsCatalog;\n    }\n\n    // ── Categories\n    const catsArr = catsRes && (catsRes.data && (catsRes.data.categories || catsRes.data) || catsRes.categories || catsRes.data) || [];\n    const catsArrFinal = Array.isArray(catsArr) ? catsArr : [];\n    if (catsArrFinal.length > 0) {\n      staticData.cache.categories = catsArrFinal.filter(c => c && c.isActive !== false && c.is_active !== false);\n      staticData.cache.categoriesText = staticData.cache.categories.map((c, i) => (i + 1) + '. ' + c.name).join('\\n');\n    }\n\n    // ── Menu Catalog (Full items list with descriptions & variants)\n    const menuArr = menuRes && (menuRes.data && (menuRes.data.items || menuRes.data.menu || menuRes.data) || menuRes.items || menuRes.data) || [];\n    const menuArrFinal = Array.isArray(menuArr) ? menuArr : [];\n    if (menuArrFinal.length > 0) {\n      const activeItems = menuArrFinal.filter(m => m && m.isAvailable !== false && m.isActive !== false && m.is_available !== false);\n      staticData.cache.menuItems = activeItems;\n      staticData.cache.menuCatalogText = activeItems.map(m => {\n        const cat = m.category && (m.category.name || m.category) ? (m.category.name || m.category) : (m.categoryName || 'General');\n        const basePrice = m.price != null ? m.price : (m.basePrice != null ? m.basePrice : (m.base_price != null ? m.base_price : ''));\n        const desc = m.description ? ' (' + String(m.description).trim() + ')' : '';\n        const activeVariants = Array.isArray(m.variants) ? m.variants.filter(v => v && v.isAvailable !== false && v.isActive !== false && v.is_available !== false) : [];\n        const variants = activeVariants.length > 0\n          ? ' | Variants: ' + activeVariants.map(v => v.name + ': Rs.' + v.price + ' [variantId:' + (v.id || '') + ']').join(', ')\n          : '';\n        return '- ' + m.name + desc + ' [Category: ' + cat + '] - Base Price: Rs.' + basePrice + variants + ' [menuItemId:' + (m.id || '') + ']';\n      }).join('\\n');\n    }\n\n    // ── Store Info & FAQs\n    const restData = restRes && ((restRes.data && (restRes.data.restaurant || restRes.data)) || restRes) || {};\n    if (restData && (restData.name || restData.address || restData.openingTime || restData.opening_time)) {\n      const openTime = restData.openingTime || restData.opening_time || '';\n      const closeTime = restData.closingTime || restData.closing_time || '';\n      const addr = restData.address || restData.addressLine1 || '';\n      staticData.cache.storeInfoText = [\n        restData.name ? 'Restaurant: ' + restData.name : '',\n        addr ? 'Address: ' + addr : '',\n        (openTime || closeTime) ? 'Timings: ' + openTime + ' - ' + closeTime : '',\n        restData.phone ? 'Phone: ' + restData.phone : '',\n        restData.minOrder ? 'Min Order: Rs.' + restData.minOrder : '',\n      ].filter(Boolean).join('\\n');\n    }\n    const faqsArr2 = faqsRes && (faqsRes.data && (faqsRes.data.faqs || faqsRes.data.items || faqsRes.data) || faqsRes.faqs || (Array.isArray(faqsRes) ? faqsRes : [])) || [];\n    if (Array.isArray(faqsArr2) && faqsArr2.length > 0) {\n      staticData.cache.faqsText = faqsArr2\n        .filter(f => f && f.is_active !== false && f.isActive !== false)\n        .map(f => 'Q: ' + f.question + '\\nA: ' + f.answer).join('\\n---\\n');\n    }\n\n    // ── Bump syncEpoch when catalog changes or on explicit Sync All\n    const newHash = staticData.cache.menuCatalogText.length + ':' + staticData.cache.dealsText.length + ':' + (staticData.cache.categories || []).length;\n    if (isSyncWebhook || (staticData.cache.catalogHash && staticData.cache.catalogHash !== newHash)) {\n      staticData.cache.syncEpoch = (staticData.cache.syncEpoch || 1) + 1;\n    }\n    staticData.cache.catalogHash = newHash;\n    staticData.cache.updatedAt = Date.now();\n  } catch (e) { /* non-critical */ }\n}\n\nif (isSyncWebhook) {\n  return Object.assign({}, $json, { route: 'sync_done', output: 'Cache synced and memory refreshed', confirmIntent: false });\n}\n\nconst sessionKey = String($json.sessionKey || $json.chatId || 'default');\nconst sessionState = staticData.sessions[sessionKey] || {};\nconst isAwaitingCheckout = Boolean(sessionState.awaitingCheckout && (Date.now() - (sessionState.updatedAt || 0) < 30 * 60 * 1000));\n\nlet route = 'agent';\nlet output = '';\n\n// ── Handover Detection\nconst rejectBot = /\\b(bot se|bot k sath|robot|bot nahi|bot se nahi|bot se bat nahi|bot se baat nahi)\\b/i.test(clean);\nconst wantHuman = /\\b(agent se|human se|bande se|representative se|manager se)\\b/i.test(clean);\nconst isHandoverExact = ['agent', 'human', 'representative', 'staff', 'manager', 'help', 'madad'].includes(clean);\nconst isHandoverKeyword = has(/\\b(agent chahiye|human chahiye|representative chahiye|banda chahiye|insan chahiye|call agent|talk to human|talk to agent|agent se baat|human se baat|bande se baat|call me|rabta karo|rabta karwao|shikayat|complaint)\\b/);\n\nif (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword) {\n  route = 'handover';\n  output = 'Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur 2 ghante ke liye automatic replies mute kar diye gaye hain. Hamara representative thodi hi der mein aap se rabta karega. Shukriya!';\n} else {\n  const hasDealWord = has(/\\b(deal|deals|deala|delas|dels|deels|dlz|combo|combos|package|packages|offer|offers)\\b/) || any(['\\u0688\\u06CC\\u0644','\\u0688\\u06CC\\u0644\\u0632']);\n  const hasSpecificDealNo = /\\b(deal|deala|delas|dels|package|combo|meal)\\s*\\d+\\b/.test(clean) || /\\d+/.test(clean);\n  const hasOrderAction = has(/\\b(order|add|cart|pack|kar|kardo|krdo|kr|chahiye|mangwa|mangwana|banao|confirm|lagao|laga)\\b/);\n  const isGeneralDealsAsk = hasDealWord && !hasSpecificDealNo && !hasOrderAction && wordCount <= 6;\n\n  const exactMenuPhrases = ['menu', 'menue', 'list', 'categories', 'catagories', 'rate list', 'price list', 'food list', 'menu dikhao', 'menu bhejo', 'menu batao', 'menu kya hai', 'menu mai kya hai', 'menu mein kya hai', 'menu mai kya kya hai', 'menu mein kya kya hai', 'kya hai', 'kya kya hai', '\\u0645\\u06CC\\u0646\\u0648', '\\u0631\\u06CC\\u0679 \\u0644\\u0633\\u0679'];\n  const isGeneralMenuAsk = exactMenuPhrases.includes(clean);\n\n  const isChitchat = has(/\\b(kese ho|kaise ho|kase ho|kesy ho|kaisy ho|kia hal|kya hal|kya haal|kia haal|how are you|how r u|kya ho raha|kya kr rahe|aur sunao|or sunao|sab theek|tabiyat)\\b/) && !hasDealWord && !hasOrderAction;\n\n  // Only block genuinely off-topic messages (not food/restaurant related)\n  const isExplicitOffTopic = has(/\\b(capital|president|prime minister|wazir|imran|nawaz|bhutto|army|cricket|match|score|babar|shaheen|ipl|psl|football|mausam|barish|garmi|sardi|joke|latifa|story|kahani|poem|shayari|shairi|song|gana|movie|film|drama|actor|politics|siyasat|math|science|history|geography|coding|python|javascript|homework|college|university|exam|result|nokri|vacancy|shadi|marriage|gf|bf|girlfriend|boyfriend)\\b/) && !has(/\\b(pizza|burger|deal|order|delivery|cravey|crust|menu|branch|tarlai|ghauri|aq khan|school stop|food|khana|peena|drink|pani|water)\\b/);\n\n  if (isGeneralDealsAsk) {\n    route = 'live_deals';\n  } else if (isGeneralMenuAsk) {\n    route = 'live_categories';\n  } else if (isChitchat) {\n    route = 'quick_reply';\n    output = staticData.cache.chitchatReply;\n  } else if (isExplicitOffTopic) {\n    route = 'quick_reply';\n    output = staticData.cache.nonOrderReply;\n  } else {\n    const isGreeting = /^(hi+|hello+|hellow+|helo+|hlo+|hey+|salam|assalam\\s*o?\\s*alaikum|aoa|slam|slaam|wsalam|walekum\\s*salam|listen|suno|sunno|bhai|excuse\\s*me|\\u0633\\u0644\\u0627\\u0645|\\u0627\\u0644\\u0633\\u0644\\u0627\\u0645 \\u0639\\u0644\\u06CC\\u06A9\\u0645)$/i.test(clean);\n    if (isGreeting) {\n      route = 'quick_reply';\n      output = 'Walaikum Assalam! Cravey Crust mein khushamdeed! Main hoon Burger Raja. Aaj aap kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Value Deals dastiyab hain!';\n    } else if (has(/\\b(thanks|thank you|thankyou|shukriya|shukria|jazakallah|jazak allah)\\b/)) {\n      route = 'quick_reply';\n      output = 'Aapka bohat shukriya! Koi aur madad chahiye to bata dein, hum hazir hain.';\n    }\n  }\n}\n\nconst confirmRe = /\\b(confirm|confim|confrim|confirmed|confirmation|haan|han|haa|ji|jee|yes|yeah|yep|ok|okay|theek|thik|done|kardo|kar do|kr do|krdo|kardu|kar du|kr du|krdu|place|bhej do|bhejdo|proceed)\\b/;\nconst negRe = /\\b(nahi|nahin|nai|no|cancel|mat|dont|don t)\\b/;\nconst confirmIntent = wordCount > 0 && wordCount <= 8 && !/\\d/.test(clean) && confirmRe.test(clean) && !negRe.test(clean);\n\nreturn Object.assign({}, $json, {\n  route,\n  output,\n  confirmIntent,\n  syncEpoch: staticData.cache.syncEpoch || 1,\n  cachedDealsSummary: (staticData.cache && staticData.cache.agentDealsCatalog) || (staticData.cache && staticData.cache.dealsText) || '',\n  cachedCategoriesSummary: (staticData.cache && staticData.cache.categories || []).map((c, i) => (i + 1) + '. ' + c.name).join('\\n'),\n  cachedMenuCatalog: (staticData.cache && staticData.cache.menuCatalogText) || '',\n  cachedFaqs: (staticData.cache && staticData.cache.faqsText) || '',\n  cachedStoreInfo: (staticData.cache && staticData.cache.storeInfoText) || '',\n  nonOrderReply: staticData.cache && staticData.cache.nonOrderReply\n});"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -4768,
-        3232
+        -1296,
+        16
       ],
-      "id": "1047f828-4901-4325-b8c0-34dde50c16ef",
+      "id": "7170debd-2cec-4604-8a2a-d1b80b446f21",
       "name": "Check Cache & Classify Intent"
     },
     {
@@ -276,10 +275,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        -4560,
-        3200
+        -1088,
+        -16
       ],
-      "id": "3785183c-a93a-47c5-a77f-b6665fa613ac",
+      "id": "af34bb40-3c4f-4af8-a6a0-94b92bae6d88",
       "name": "Route by Intent"
     },
     {
@@ -301,10 +300,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -4096,
-        3056
+        -656,
+        -320
       ],
-      "id": "5170238d-7667-4d52-8c51-3b30b57c45aa",
+      "id": "2c5c465d-2763-4200-b46e-281ca1a8c653",
       "name": "Fetch Live Categories"
     },
     {
@@ -315,10 +314,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -3856,
-        3056
+        -416,
+        -320
       ],
-      "id": "f632db63-3ca3-413b-989a-171db4a0979f",
+      "id": "a21ee85e-b773-4fe2-8859-6082e2cf9d2f",
       "name": "Format Live Categories"
     },
     {
@@ -340,24 +339,24 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -4096,
-        3216
+        -656,
+        -160
       ],
-      "id": "9d811271-fb77-468a-bb21-196dace66df1",
+      "id": "7f9b4cb4-907b-44f6-9fa9-80d2793a5440",
       "name": "Fetch Live Deals"
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "let userMsg = '';\ntry {\n  userMsg = String($('Check Cache & Classify Intent').first()?.json?.message || $('Prepare Session').first()?.json?.message || $('Webhook').first()?.json?.body?.message || '').toLowerCase();\n} catch (e) {\n  userMsg = '';\n}\n\nconst rawItems = $json.data || $json || [];\nconst items = Array.isArray(rawItems) ? rawItems : (Array.isArray(rawItems.deals) ? rawItems.deals : []);\nlet output = '';\n\nif (items.length > 0) {\n  const activeDeals = items.filter(d => d && d.isActive !== false && d.active !== false && d.is_active !== false);\n\n  const classify = (d) => {\n    if (d.category === 'Burger Deals') return 'BURGER';\n    if (d.category === 'Pizza Deals') return 'PIZZA';\n    const itemsText = Array.isArray(d.items) ? d.items.map(it => (it.quantity || 1) + 'x ' + (it.itemName || it.name || '')).join(' ') : '';\n    const text = (String(d.name || '') + ' ' + String(d.description || '') + ' ' + itemsText).toLowerCase();\n    const isBurger = /\\b(burger|zinger|zeggy)\\b/i.test(text);\n    const isPizza = /\\b(pizza)\\b/i.test(text);\n    if (isBurger && !isPizza) return 'BURGER';\n    if (isPizza && !isBurger) return 'PIZZA';\n    if (isBurger && isPizza) return 'COMBO';\n    return 'OTHER';\n  };\n\n  const formatDeal = (d, idx) => {\n    const price = d.dealPrice ?? d.price ?? d.deal_price ?? '';\n    const itemsSummary = Array.isArray(d.items) && d.items.length > 0\n      ? ' (' + d.items.map(it => (it.quantity || 1) + 'x ' + (it.itemName || it.name || '')).join(', ') + ')'\n      : (d.description ? ' (' + d.description + ')' : '');\n    return `${idx + 1}. *${d.name}* - Rs. ${price}${itemsSummary}`;\n  };\n\n  const burgerDeals = activeDeals.filter(d => classify(d) === 'BURGER');\n  const pizzaDeals = activeDeals.filter(d => classify(d) === 'PIZZA');\n  const otherDeals = activeDeals.filter(d => classify(d) !== 'BURGER' && classify(d) !== 'PIZZA');\n\n  const wantsBurger = /\\b(burger|zinger|zeggy)\\b/i.test(userMsg);\n  const wantsPizza = /\\b(pizza)\\b/i.test(userMsg);\n\n  if (wantsBurger && !wantsPizza) {\n    if (burgerDeals.length > 0) {\n      output = `🍔 *Cravey Crust Burger Deals:*\\n\\n` +\n        burgerDeals.map((d, i) => formatDeal(d, i)).join('\\n\\n') +\n        `\\n\\nAap in mein se konsi burger deal order karna chahenge?`;\n    } else {\n      output = 'Maazrat! Filhal burger deals dastiyab nahi hain.';\n    }\n  } else if (wantsPizza && !wantsBurger) {\n    if (pizzaDeals.length > 0) {\n      output = `🍕 *Cravey Crust Pizza Deals:*\\n\\n` +\n        pizzaDeals.map((d, i) => formatDeal(d, i)).join('\\n\\n') +\n        `\\n\\nAap in mein se konsi pizza deal order karna chahenge?`;\n    } else {\n      output = 'Maazrat! Filhal pizza deals dastiyab nahi hain.';\n    }\n  } else {\n    // Show ALL deals categorized separately, NEVER merged!\n    const sections = [];\n    if (burgerDeals.length > 0) {\n      sections.push(`🍔 *BURGER DEALS:*\\n` + burgerDeals.map((d, i) => formatDeal(d, i)).join('\\n'));\n    }\n    if (pizzaDeals.length > 0) {\n      sections.push(`🍕 *PIZZA DEALS:*\\n` + pizzaDeals.map((d, i) => formatDeal(d, i)).join('\\n'));\n    }\n    if (otherDeals.length > 0) {\n      sections.push(`🎉 *SPECIAL COMBOS:*\\n` + otherDeals.map((d, i) => formatDeal(d, i)).join('\\n'));\n    }\n\n    output = `Cravey Crust ki active deals alag alag categories mein yeh hain:\\n\\n` +\n      sections.join('\\n\\n') +\n      `\\n\\nAap in mein se konsi deal order karna chahenge?`;\n  }\n} else {\n  output = 'Cravey Crust par value deals Rs. 599 se shuru hoti hain. Aap Burger Deals ya Pizza Deals check kar sakte hain!';\n}\n\nreturn {\n  sessionId: $('Prepare Session').first().json.sessionId || 'primary',\n  chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid,\n  output\n};"
+        "jsCode": "let userMsg = '';\ntry {\n  userMsg = String($('Check Cache & Classify Intent').first()?.json?.message || $('Prepare Session').first()?.json?.message || $('Webhook').first()?.json?.body?.message || '').toLowerCase();\n} catch (e) {\n  userMsg = '';\n}\n\nconst rawItems = $json.data || $json || [];\nconst items = Array.isArray(rawItems) ? rawItems : (Array.isArray(rawItems.deals) ? rawItems.deals : []);\nlet output = '';\n\nif (items.length > 0) {\n  const activeDeals = items.filter(d => d && d.isActive !== false && d.active !== false && d.is_active !== false);\n\n  const classify = (d) => {\n    if (d.category === 'Burger Deals') return 'BURGER';\n    if (d.category === 'Pizza Deals') return 'PIZZA';\n    const itemsText = Array.isArray(d.items) ? d.items.map(it => (it.quantity || 1) + 'x ' + (it.itemName || it.name || '')).join(' ') : '';\n    const text = (String(d.name || '') + ' ' + String(d.description || '') + ' ' + itemsText).toLowerCase();\n    const isBurger = /\\b(burger|zinger|zeggy)\\b/i.test(text);\n    const isPizza = /\\b(pizza)\\b/i.test(text);\n    if (isBurger && !isPizza) return 'BURGER';\n    if (isPizza && !isBurger) return 'PIZZA';\n    if (isBurger && isPizza) return 'COMBO';\n    return 'OTHER';\n  };\n\n  const formatDeal = (d, idx) => {\n    const price = d.dealPrice ?? d.price ?? d.deal_price ?? '';\n    const itemsSummary = Array.isArray(d.items) && d.items.length > 0\n      ? ' (' + d.items.map(it => (it.quantity || 1) + 'x ' + (it.itemName || it.name || '')).join(', ') + ')'\n      : (d.description ? ' (' + d.description + ')' : '');\n    return `${idx + 1}. *${d.name}* - Rs. ${price}${itemsSummary}`;\n  };\n\n  const burgerDeals = activeDeals.filter(d => classify(d) === 'BURGER');\n  const pizzaDeals = activeDeals.filter(d => classify(d) === 'PIZZA');\n  const otherDeals = activeDeals.filter(d => classify(d) !== 'BURGER' && classify(d) !== 'PIZZA');\n\n  const wantsBurger = /\\b(burger|zinger|zeggy)\\b/i.test(userMsg);\n  const wantsPizza = /\\b(pizza)\\b/i.test(userMsg);\n\n  if (wantsBurger && !wantsPizza) {\n    // Sirf Burger Deals\n    if (burgerDeals.length > 0) {\n      output = `🍔 *Cravey Crust Burger Deals:*\\n\\n` +\n        burgerDeals.map((d, i) => formatDeal(d, i)).join('\\n\\n') +\n        `\\n\\nAap in mein se konsi burger deal order karna chahenge?`;\n    } else {\n      output = 'Maazrat! Filhal burger deals dastiyab nahi hain.';\n    }\n  } else if (wantsPizza && !wantsBurger) {\n    // Sirf Pizza Deals\n    if (pizzaDeals.length > 0) {\n      output = `🍕 *Cravey Crust Pizza Deals:*\\n\\n` +\n        pizzaDeals.map((d, i) => formatDeal(d, i)).join('\\n\\n') +\n        `\\n\\nAap in mein se konsi pizza deal order karna chahenge?`;\n    } else {\n      output = 'Maazrat! Filhal pizza deals dastiyab nahi hain.';\n    }\n  } else {\n    // Tamam deals alag alag headings mein (No merge, No slice truncation)\n    const sections = [];\n    if (burgerDeals.length > 0) {\n      sections.push(`🍔 *BURGER DEALS:*\\n` + burgerDeals.map((d, i) => formatDeal(d, i)).join('\\n'));\n    }\n    if (pizzaDeals.length > 0) {\n      sections.push(`🍕 *PIZZA DEALS:*\\n` + pizzaDeals.map((d, i) => formatDeal(d, i)).join('\\n'));\n    }\n    if (otherDeals.length > 0) {\n      sections.push(`🎉 *SPECIAL COMBOS:*\\n` + otherDeals.map((d, i) => formatDeal(d, i)).join('\\n'));\n    }\n\n    output = `Cravey Crust ki active deals yeh hain:\\n\\n` +\n      sections.join('\\n\\n') +\n      `\\n\\nAap in mein se konsi deal order karna chahenge?`;\n  }\n} else {\n  output = 'Cravey Crust par value deals Rs. 599 se shuru hoti hain. Aap Burger Deals ya Pizza Deals check kar sakte hain!';\n}\n\nreturn {\n  sessionId: $('Prepare Session').first().json.sessionId || 'primary',\n  chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid,\n  output\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -3856,
-        3216
+        -416,
+        -160
       ],
-      "id": "b99371c8-48b5-4a8a-81ec-70c78e779fb5",
+      "id": "4c42bec0-ebb5-4e7c-b45d-60e444efcd4b",
       "name": "Format Live Deals"
     },
     {
@@ -388,10 +387,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -4096,
-        3376
+        -656,
+        0
       ],
-      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "id": "ba5927a5-c9ce-4f79-a9fc-5b734a805abe",
       "name": "Execute Handover Mute"
     },
     {
@@ -402,10 +401,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -3856,
-        3376
+        -416,
+        0
       ],
-      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "id": "535c9855-2939-48d4-9b6c-cf4bd699057f",
       "name": "Format Handover Reply"
     },
     {
@@ -414,17 +413,17 @@
         "text": "={{ $json.message || 'Customer ne apni location share ki hai.' }}",
         "needsFallback": true,
         "options": {
-          "systemMessage": "Role: You are Burger Raja, official AI ordering agent for Cravey Crust (fast-food restaurant in Tarlai / Ghauri Town / Lehtrar Road, Islamabad). Speak polite, conversational Roman Urdu with English item names.\n\nLIVE STORE INFO & TIMINGS:\n{{ $json.cachedStoreInfo }}\n\nLIVE KNOWLEDGE BASE & FAQS:\n{{ $json.cachedFaqs }}\n\nACTIVE DEALS & COMBOS (Categorized strictly):\n{{ $json.cachedDealsSummary }}\n\nACTIVE MENU CATEGORIES:\n{{ $json.cachedCategoriesSummary }}\n\nFULL MENU CATALOG (Items with Prices & Variants):\n{{ $json.cachedMenuCatalog }}\n\nCRITICAL DEAL SEPARATION & DISPLAY RULES:\n1. JAB CUSTOMER BURGER KI DEALS MAANGE (maslan \"burger ki deals dikhao\", \"burger deals\", \"zinger deals\"):\n   - SIRF aur SIRF \"=== 🍔 BURGER DEALS ===\" section ki deals dikhao!\n   - Pizza deals ko burger deals ke sath HARGIZ MERGE MAT KARO!\n   - Tamam burger deals (Burger Meal 1, 2, 3, Deal 4, Deal 5) unki price aur included items ke sath dikhao. Koi bhi burger deal skip mat karo!\n2. JAB CUSTOMER PIZZA KI DEALS MAANGE (maslan \"pizza ki deals dikhao\", \"pizza deals\"):\n   - SIRF aur SIRF \"=== 🍕 PIZZA DEALS ===\" section ki deals dikhao!\n   - Burger deals ko pizza deals ke sath HARGIZ MERGE MAT KARO!\n   - Tamam pizza deals (Pizza Meal 1, 2, 3, 4, Deal 1, 2, 3) unki price aur included items ke sath dikhao. Koi bhi pizza deal skip mat karo!\n3. JAB CUSTOMER AAM \"DEALS\" MAANGE (maslan \"deals dikhao\", \"deals\"):\n   - Dono categories ko ALAG ALAG headings mein saaf saaf dikhao:\n     🍔 *Burger Deals:*\n     (Tamam burger deals prices aur items ke sath)\n     🍕 *Pizza Deals:*\n     (Tamam pizza deals prices aur items ke sath)\n   - Kisi deal ko doosri category mein merge mat karo.\n\nDEAL DETAILS & INGREDIENTS INQUIRY:\nJab customer kisi deal ya meal ke baare mein poochhe ke \"isme kya kya hai\" (maslan \"burger meal for 1 mai kya h\"):\n- Deal ya Menu Catalog mein diye gaye tamam items (maslan \"Zinger Burger, Regular Fries, aur Regular Drink\") saaf saaf batao!\n- \"Maazrat, mazeed tafseel darj nahi hai\" HARGIZ MAT BOLO kyunki har deal ki tafseel (items included) catalog mein mojood hai!\n\nBEHAVIOR RULES:\n1. Jab customer specific item ka poochhe (maslan \"lal sharbat\" ya \"small pizza\"), pehle upar diye gaye FULL MENU CATALOG mein check karo.\n2. Jab customer kisi Category ke items maange (maslan Drinks, Pizzas), to us [Category: ...] ke SARE items price aur variants ke sath batao. Koi bhi item skip mat karo!\n3. Spelling mein thoda farq ho (maslan \"lal sharbat\" vs \"lal sahrbat\") to phir bhi match karo.\n4. Agar item menu mein nahi hai to polite batao aur milte julte items suggest karo.\n5. Timings, address, delivery charges ke liye LIVE FAQs / Get Store Info / Check Delivery Availability tool use karo. Hardcoded jawab mat do!\n6. OFF-TOPIC (cricket, politics, jokes etc.) par: \"Maazrat! Main Cravey Crust ka food ordering Burger Raja hoon aur sirf khane ke orders, menu aur deals mein aapki madad kar sakta hoon.\"\n\nCART & CHECKOUT RULES:\n1. Item/deal add karne ke baad: \"Kya aap kuch aur add karna chahenge, ya order checkout karein?\"\n2. Jab tak customer checkout na kahe, naam ya address mat maango.\n\nSTRICT CHECKOUT GATE (4 LAZMI):\n[1] Customer Name  [2] Contact Phone  [3] Delivery Address (Check Delivery Availability verified)  [4] Payment Method\nJo missing ho sirf wahi poochho. Sab mil jayein to Calculate Cart Totals call karo aur Final Summary card bhejo.\n\nFINAL SUMMARY FORMAT:\nAapke order ki mukammal details yeh hain:\nItems: [Item List]\nTotal Bill: Rs. [Total] (Delivery Fee: Rs. [Fee])\nDelivery Details:\n- Naam: [Customer Name]\n- Contact Number: [Customer Phone]\n- Address: [Confirmed Address]\n- Payment Method: [COD ya EasyPaisa]\nKya aapki yeh details theek hain? Order confirm karne ke liye haan likhein.\n\nCustomer \"haan/jee/ok/confirm\" kahe to FORAN Create Confirmed Order tool call karo. Asli order number (CC-XXXXXX) customer ko batao!",
+          "systemMessage": "Tum Cravey Crust ke WhatsApp ordering assistant \"Burger Raja\" ho. Roman Urdu mein polite jawab do. Asterisk (*) ya lafz \"bot\" kabhi mat use karo. Ek waqt mein sirf ek sawal poochho.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nLIVE CATEGORIES (Admin Panel se Live):\n{{ $('Check Cache & Classify Intent').first().json.cachedCategoriesSummary || 'Search Menu Item tool use karein.' }}\n\nLIVE MENU CATALOG (Tamam Active Products, Categories, Variants & IDs):\n{{ $('Check Cache & Classify Intent').first().json.cachedMenuCatalog || 'Search Menu Item tool use karein.' }}\n\nLIVE DEALS CACHE (Tamam Active Deals & IDs - Alag Alag Categories):\n{{ $('Check Cache & Classify Intent').first().json.cachedDealsSummary || 'Get Current Deals tool use karein.' }}\n\nLIVE STORE INFO & FAQs (Timings, Address, Delivery Policies - Admin Panel se Live):\n{{ $('Check Cache & Classify Intent').first().json.cachedStoreInfo }}\n{{ $('Check Cache & Classify Intent').first().json.cachedFaqs }}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n{{ $('Check Cache & Classify Intent').first().json.confirmIntent ? 'ABHI KA MESSAGE: Customer ne confirm bola hai. Agar pichla message FINAL SUMMARY tha (Naam, Phone, Address, Payment sab theek likhe the), to FORAN Create Confirmed Order tool call karo.' : '' }}\n\nCUSTOMER PHONE INFO: {{ $('Prepare Session').first().json.whatsappPhone ? 'Customer ka WhatsApp number ' + $('Prepare Session').first().json.whatsappPhone + ' hai. Agar customer \"same number\" ya \"yahi number\" kahe to yahi number (' + $('Prepare Session').first().json.whatsappPhone + ') use karo.' : 'Customer ka WhatsApp number privacy ki wajah se show nahi ho raha. Agar customer \"same number\" kahe to usay batao: \"Aapka WhatsApp number privacy ki wajah se show nahi ho raha, meherbani karke apna 03... wala mobile number likh dein.\"' }}\n\nCRITICAL DEAL SEPARATION & DISPLAY RULES:\n1. JAB CUSTOMER BURGER KI DEALS MAANGE (maslan \"burger ki deals dikhao\", \"burger deals\", \"zinger deals\"):\n   - SIRF aur SIRF \"=== 🍔 BURGER DEALS ===\" section ki deals dikhao!\n   - Pizza deals ko burger deals ke sath HARGIZ MERGE MAT KARO!\n   - Tamam burger deals (Burger Meal 1, 2, 3, Deal 4, Deal 5) unki price aur included items ke sath dikhao. Koi bhi burger deal skip mat karo!\n2. JAB CUSTOMER PIZZA KI DEALS MAANGE (maslan \"pizza ki deals dikhao\", \"pizza deals\"):\n   - SIRF aur SIRF \"=== 🍕 PIZZA DEALS ===\" section ki deals dikhao!\n   - Burger deals ko pizza deals ke sath HARGIZ MERGE MAT KARO!\n   - Tamam pizza deals (Pizza Meal 1, 2, 3, 4, Deal 1, 2, 3) unki price aur included items ke sath dikhao. Koi bhi pizza deal skip mat karo!\n3. JAB CUSTOMER AAM \"DEALS\" MAANGE (maslan \"deals dikhao\", \"deals\"):\n   - Dono categories ko ALAG ALAG headings mein saaf saaf dikhao:\n     🍔 *Burger Deals:*\n     (Tamam burger deals prices aur items ke sath)\n     🍕 *Pizza Deals:*\n     (Tamam pizza deals prices aur items ke sath)\n   - Kisi deal ko doosri category mein merge mat karo.\n\nDEAL DETAILS & INGREDIENTS INQUIRY:\nJab customer kisi deal ya meal ke baare mein poochhe ke \"isme kya kya hai\" (maslan \"burger meal for 1 mai kya h\"):\n- Deal ya Menu Catalog ke description mein diye gaye tamam items (maslan \"Zinger Burger, Regular Fries, aur Regular Drink\") saaf saaf batao!\n- \"Maazrat, mazeed tafseel darj nahi hai\" HARGIZ MAT BOLO kyunki har deal ki tafseel (items included) catalog mein mojood hai!\n\nCRITICAL RULES:\n1. LIVE MENU CATALOG aur LIVE FAQs ko HAMESHA sab se pehle parho. Memory mein koi purani price/list ho to ignore karo aur live catalog se jawab do.\n2. Jab customer kisi Category ke items maange (maslan Drinks, Pizzas), to us [Category: ...] ke SARE items price aur variants ke sath batao. Koi bhi item skip mat karo!\n3. Spelling mein thoda farq ho (maslan 'lal sharbat' vs 'lal sahrbat') to phir bhi match karo.\n4. Agar item menu mein nahi hai to polite batao aur milte julte items suggest karo.\n5. Timings, address, delivery charges ke liye LIVE FAQs / Get Store Info / Check Delivery Availability tool use karo. Hardcoded jawab mat do!\n6. OFF-TOPIC (cricket, politics, jokes etc.) par: \"Maazrat! Main Cravey Crust ka food ordering Burger Raja hoon aur sirf khane ke orders, menu aur deals mein aapki madad kar sakta hoon.\"\n\nCART & CHECKOUT RULES:\n1. Item/deal add karne ke baad: \"Kya aap kuch aur add karna chahenge, ya order checkout karein?\"\n2. Jab tak customer checkout na kahe, naam ya address mat maango.\n\nSTRICT CHECKOUT GATE (4 LAZMI):\n[1] Customer Name  [2] Contact Phone  [3] Delivery Address (Check Delivery Availability verified)  [4] Payment Method\nJo missing ho sirf wahi poochho. Sab mil jayein to Calculate Cart Totals call karo aur Final Summary card bhejo.\n\nFINAL SUMMARY FORMAT:\nAapke order ki mukammal details yeh hain:\nItems: [Item List]\nTotal Bill: Rs. [Total] (Delivery Fee: Rs. [Fee])\nDelivery Details:\n- Naam: [Customer Name]\n- Contact Number: [Customer Phone]\n- Address: [Confirmed Address]\n- Payment Method: [COD ya EasyPaisa]\nKya aapki yeh details theek hain? Order confirm karne ke liye haan likhein.\n\nCustomer 'haan/jee/ok/confirm' kahe to FORAN Create Confirmed Order tool call karo. Asli order number (CC-XXXXXX) customer ko batao!",
           "maxIterations": 8
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        -4400,
-        3536
+        -912,
+        256
       ],
-      "id": "5fc1eba0-7ec5-4ff4-99b3-33a6472a286c",
+      "id": "6ad85465-57db-4f71-a4cf-67a09f7cd8f6",
       "name": "AI Agent",
       "onError": "continueRegularOutput"
     },
@@ -439,10 +438,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
       "position": [
-        -4736,
-        3840
+        -1264,
+        624
       ],
-      "id": "770d21cc-74fd-4f91-8cca-103a7355ea82",
+      "id": "b9ad2942-208c-4e33-a8e4-d8212ac16ee5",
       "name": "Google Gemini Chat Model",
       "credentials": {
         "googlePalmApi": {
@@ -462,10 +461,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
       "typeVersion": 1,
       "position": [
-        -4608,
-        3904
+        -1136,
+        688
       ],
-      "id": "df06fc44-7d1c-4753-9f48-8d9a86f279b8",
+      "id": "6102e53a-53b8-411c-90f9-96eb3560a2af",
       "name": "DeepSeek Chat Model",
       "credentials": {
         "deepSeekApi": {
@@ -483,10 +482,10 @@
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
       "position": [
-        -4416,
-        4032
+        -944,
+        816
       ],
-      "id": "bbe559a7-3254-4435-a7f5-531c31ed87e8",
+      "id": "8ca71383-52f4-4f48-ad52-12ae1d2f3be8",
       "name": "Simple Memory"
     },
     {
@@ -526,10 +525,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -3584,
-        3216
+        -144,
+        -160
       ],
-      "id": "0ee4cdf1-cdb1-4542-88e9-6c4deca19298",
+      "id": "d1db685e-f8d8-4644-9083-00e47715c390",
       "name": "Send WhatsApp Reply"
     },
     {
@@ -557,10 +556,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -4016,
-        3616
+        -544,
+        400
       ],
-      "id": "2fee4fe1-e930-4483-9680-323b530b03e5",
+      "id": "5e8a04b3-b982-4d42-9d46-2d292c29bdd8",
       "name": "Get Store Info"
     },
     {
@@ -597,15 +596,15 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3776,
-        3616
+        -304,
+        400
       ],
-      "id": "ff769f93-d8bb-40d3-8986-5e7b480febd0",
+      "id": "ab6bb752-45e7-4858-b331-f1f5f1d39eda",
       "name": "Search FAQs"
     },
     {
       "parameters": {
-        "toolDescription": "Search menu by name. Returns IDs, prices, variants.",
+        "toolDescription": "Search menu by name. Returns IDs, prices, variants, and descriptions.",
         "url": "https://bot.craveycrust.com/api/internal/menu/search",
         "sendQuery": true,
         "queryParameters": {
@@ -637,10 +636,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3536,
-        3616
+        -64,
+        400
       ],
-      "id": "cb0358d1-1681-4072-8545-ce33bc4e20bc",
+      "id": "cdf0e8a4-e054-49b7-9fad-35482284a090",
       "name": "Search Menu Item"
     },
     {
@@ -668,10 +667,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3296,
-        3616
+        176,
+        400
       ],
-      "id": "4a6b742e-7372-4e4a-928b-544894d7aca2",
+      "id": "1eb680c2-7a88-42c4-8fa1-1d8119a2b87b",
       "name": "Get Menu Categories"
     },
     {
@@ -699,10 +698,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3056,
-        3616
+        416,
+        400
       ],
-      "id": "5936453c-7f63-4883-8a65-68bbb675000c",
+      "id": "b4222d20-40fb-457d-97e1-8d7bb3d94c94",
       "name": "Get Current Deals"
     },
     {
@@ -730,10 +729,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -2816,
-        3616
+        656,
+        400
       ],
-      "id": "5bf6d975-342e-4b8c-bed6-ce2b88f0aa31",
+      "id": "cd0cc3dd-1c76-4d3d-b598-9cca50339e5f",
       "name": "Get Active Promotions"
     },
     {
@@ -765,10 +764,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -2576,
-        3616
+        896,
+        400
       ],
-      "id": "75966a16-dfe5-4838-b56b-fc11e201b79b",
+      "id": "7ae845a3-7589-4db7-9a9d-31ee45b7b4c9",
       "name": "Check Delivery Availability"
     },
     {
@@ -796,10 +795,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -2336,
-        3616
+        1136,
+        400
       ],
-      "id": "0baf944b-47f5-4dee-b7c8-83d5f14b03d6",
+      "id": "6e42578c-bfdb-4a91-baae-04c5e8140b87",
       "name": "Get Order Status"
     },
     {
@@ -840,10 +839,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -4160,
-        3904
+        -848,
+        688
       ],
-      "id": "2a70d428-a0df-4de2-b334-f15ceef80937",
+      "id": "c23c1059-d36b-4dfe-88f6-cefd04c44bba",
       "name": "Get Cart"
     },
     {
@@ -875,10 +874,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3920,
-        3904
+        -608,
+        688
       ],
-      "id": "e8bf469d-9943-4939-8de4-fedcc4c55422",
+      "id": "abc65a12-2d25-401f-a7f6-e8370153bc31",
       "name": "Add to Cart"
     },
     {
@@ -910,10 +909,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3680,
-        3904
+        -368,
+        688
       ],
-      "id": "2b8542b3-b808-46b6-99ce-7b0c0684d540",
+      "id": "21c8361e-b837-43c7-8df4-fc3fd67efdc1",
       "name": "Update Cart Item"
     },
     {
@@ -942,10 +941,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3440,
-        3904
+        -128,
+        688
       ],
-      "id": "82090906-e683-4c9c-81dc-45eb7f5c2128",
+      "id": "8c2f338f-bfee-443d-b014-ac4217b4fd6b",
       "name": "Remove Cart Item"
     },
     {
@@ -974,10 +973,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3200,
-        3904
+        112,
+        688
       ],
-      "id": "c96167c5-fc52-4e91-9e51-ce2540af6065",
+      "id": "24f9b7c4-3dbd-4b59-b0b9-01aa8857d9f5",
       "name": "Clear Cart"
     },
     {
@@ -1009,10 +1008,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -2960,
-        3904
+        352,
+        688
       ],
-      "id": "653dcd73-f16e-47f2-a339-89ae219e78b6",
+      "id": "b785c46b-791f-4c99-97fa-6715b814a445",
       "name": "Calculate Cart Totals"
     },
     {
@@ -1044,10 +1043,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -2896,
-        4064
+        416,
+        848
       ],
-      "id": "7593fd58-f9b6-4087-854b-cb780497eaff",
+      "id": "5ef895bc-9c72-4d1a-aaf2-782ac5a422dd",
       "name": "Create Confirmed Order"
     },
     {
@@ -1079,10 +1078,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -2656,
-        4064
+        656,
+        848
       ],
-      "id": "fcaccee0-d0fd-4a92-bb07-f9725c0b7e13",
+      "id": "7a180952-cf0a-4673-a298-b4808ce41ac0",
       "name": "Request Order Cancellation"
     },
     {
@@ -1114,10 +1113,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3568,
-        4112
+        -256,
+        896
       ],
-      "id": "8ae8a7b8-0f4a-4aa4-9aed-554d54a0c568",
+      "id": "088e96fe-c8b1-4eef-9ff2-4989b0faad88",
       "name": "Confirm Order Cancellation"
     },
     {
@@ -1149,10 +1148,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3328,
-        4112
+        -16,
+        896
       ],
-      "id": "9f355179-df22-4d25-90ca-a6e2436739f7",
+      "id": "20e2152c-2bb1-41ee-af57-70f0dc162297",
       "name": "Send Alternate Confirmation"
     },
     {
@@ -1184,10 +1183,10 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.5,
       "position": [
-        -3088,
-        4112
+        224,
+        896
       ],
-      "id": "5917e2ad-4a25-443f-94c8-06ff6fd1c925",
+      "id": "5df3ab34-7abc-4227-98ae-e3651d9f9563",
       "name": "Request Human Handover"
     },
     {
@@ -1198,10 +1197,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -4112,
-        3536
+        -592,
+        208
       ],
-      "id": "1fbb48e1-f1ce-483e-96e3-fc74c1258e82",
+      "id": "00c96d79-1c30-4630-a173-4c21f3f89eac",
       "name": "Verify Order Reply"
     }
   ],
@@ -1289,28 +1288,6 @@
         ]
       ]
     },
-    "Execute Handover Mute": {
-      "main": [
-        [
-          {
-            "node": "Format Handover Reply",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Format Handover Reply": {
-      "main": [
-        [
-          {
-            "node": "Send WhatsApp Reply",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Fetch Live Categories": {
       "main": [
         [
@@ -1345,6 +1322,28 @@
       ]
     },
     "Format Live Deals": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Handover Mute": {
+      "main": [
+        [
+          {
+            "node": "Format Handover Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Handover Reply": {
       "main": [
         [
           {
