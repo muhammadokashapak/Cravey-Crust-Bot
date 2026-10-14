@@ -138,10 +138,28 @@ router.post('/:sessionKey/items', async (req, res) => {
             notes,
         });
 
+        const addedItem = cart.items?.find(i => 
+            (variantId && i.menu_variant_id === variantId) ||
+            (menuItemId && i.menu_item_id === menuItemId) ||
+            (dealId && i.deal_id === dealId)
+        ) || cart.items?.[cart.items.length - 1];
+
+        const itemName = addedItem?.menu_item?.name || addedItem?.deal?.name || 'Item';
+        const variantName = addedItem?.menu_variant?.name;
+        const totalItems = (cart.items || []).reduce((acc, i) => acc + i.quantity, 0);
+        let subtotal = 0;
+        for (const it of cart.items || []) {
+            const price = Number(it.menu_variant?.price || it.menu_item?.base_price || it.deal?.deal_price || it.deal?.price || 0);
+            subtotal += price * it.quantity;
+        }
+
         return res.status(201).json({
             success: true,
-            message: 'Item added to cart',
-            data: formatSlimCart(cart),
+            message: `Added ${quantity || 1}x ${itemName}${variantName ? ' (' + variantName + ')' : ''}`,
+            data: {
+                totalItems,
+                subtotal,
+            },
         });
     } catch (err) {
         return res.status(err.code ? 400 : 500).json({
@@ -170,10 +188,17 @@ router.patch('/:sessionKey/items/:cartItemId', async (req, res) => {
             notes,
         });
 
+        const totalItems = (cart.items || []).reduce((acc, i) => acc + i.quantity, 0);
+        let subtotal = 0;
+        for (const it of cart.items || []) {
+            const price = Number(it.menu_variant?.price || it.menu_item?.base_price || it.deal?.deal_price || it.deal?.price || 0);
+            subtotal += price * it.quantity;
+        }
+
         return res.json({
             success: true,
             message: 'Cart item updated',
-            data: formatSlimCart(cart),
+            data: { totalItems, subtotal },
         });
     } catch (err) {
         return res.status(err.code ? 400 : 500).json({
@@ -195,10 +220,17 @@ router.delete('/:sessionKey/items/:cartItemId', async (req, res) => {
         const { sessionKey, cartItemId } = req.params;
         const cart = await removeCartItem({ sessionKey, cartItemId });
 
+        const totalItems = (cart.items || []).reduce((acc, i) => acc + i.quantity, 0);
+        let subtotal = 0;
+        for (const it of cart.items || []) {
+            const price = Number(it.menu_variant?.price || it.menu_item?.base_price || it.deal?.deal_price || it.deal?.price || 0);
+            subtotal += price * it.quantity;
+        }
+
         return res.json({
             success: true,
             message: 'Cart item removed',
-            data: formatSlimCart(cart),
+            data: { totalItems, subtotal },
         });
     } catch (err) {
         return res.status(err.code ? 400 : 500).json({

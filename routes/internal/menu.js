@@ -210,23 +210,49 @@ router.get('/search', async (req, res) => {
             orConditions.push({ description: { contains: cleanQuery, mode: 'insensitive' } });
         }
 
-        const items = await prisma.menuItem.findMany({
-            where: {
-                restaurant_id: restaurantId,
-                is_active: true,
-                is_available: true,
-                category: { is_active: true },
-                OR: orConditions,
-            },
-            include: {
-                category: { select: { id: true, name: true } },
-                variants: {
-                    where: { is_available: true },
-                    orderBy: { sort_order: 'asc' },
+        // First attempt: Direct name match for high precision and ultra-low tokens
+        let items = [];
+        const primaryTerm = searchTerms[0] || cleanQuery;
+        if (primaryTerm && primaryTerm.length >= 3) {
+            items = await prisma.menuItem.findMany({
+                where: {
+                    restaurant_id: restaurantId,
+                    is_active: true,
+                    is_available: true,
+                    category: { is_active: true },
+                    name: { contains: primaryTerm, mode: 'insensitive' },
                 },
-            },
-            take: 4, // Max 4 results to prevent token blowup
-        });
+                include: {
+                    category: { select: { id: true, name: true } },
+                    variants: {
+                        where: { is_available: true },
+                        orderBy: { sort_order: 'asc' },
+                    },
+                },
+                take: 2,
+            });
+        }
+
+        // Fallback: Broad search only if direct match found nothing
+        if (!items || items.length === 0) {
+            items = await prisma.menuItem.findMany({
+                where: {
+                    restaurant_id: restaurantId,
+                    is_active: true,
+                    is_available: true,
+                    category: { is_active: true },
+                    OR: orConditions,
+                },
+                include: {
+                    category: { select: { id: true, name: true } },
+                    variants: {
+                        where: { is_available: true },
+                        orderBy: { sort_order: 'asc' },
+                    },
+                },
+                take: 3,
+            });
+        }
 
         const formatted = items.map(item => ({
             id: item.id,
