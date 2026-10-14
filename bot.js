@@ -76,7 +76,7 @@ import internalFaqsRouter from './routes/internal/faqs.js';
 import internalFaqCategoriesRouter from './routes/internal/faqCategories.js';
 import internalRestaurantRouter from './routes/internal/restaurant.js';
 import internalHandoverRouter from './routes/internal/handover.js';
-import { isChatMuted } from './src/services/handoverService.js';
+import { isChatMuted, unmuteChat } from './src/services/handoverService.js';
 
 // ─── Phase 5: WhatsApp Ordering Orchestrator ──────────────
 import { flags } from './src/config/flags.js';
@@ -1094,6 +1094,25 @@ async function handleMessage(sock, msg, session) {
     const sender = msg.key.participant || msg.key.remoteJid;
     const isGroup = jid.endsWith('@g.us');
 
+    // ── Check Human Handover Unmute Triggers (Restart/resume bot on human agent or customer command) ──
+    const cleanText = (typeof text === 'string' ? text.trim().toLowerCase() : '');
+    const isUnmuteCmd = !isGroup && (
+        /^((\.)?unmute|(\.)?bot\s*(on|start|activate|resume|active|unmute|shuru|chalao)|start\s*bot|resume\s*bot|bot\s*shuru(\s*karo)?|bot\s*chalao|bot\s*active(\s*karo)?|unmute\s*karo)$/i.test(cleanText) ||
+        cleanText === 'bot' || cleanText === '.bot'
+    );
+
+    if (isUnmuteCmd) {
+        const senderNum = sender.split(':')[0].replace('@s.whatsapp.net', '');
+        unmuteChat(jid);
+        unmuteChat(sender);
+        if (senderNum) unmuteChat(senderNum);
+        console.log(`[HANDOVER] Chat ${jid} (${senderNum}) unmuted by command "${cleanText}" (isFromMe=${isFromMe}). Resuming bot.`);
+        await sock.sendMessage(jid, {
+            text: 'Walaikum Assalam! Cravey Crust mein khushamdeed! Main hoon Burger Raja. Bot ko dobara shuru kar diya gaya hai! Aaj aap kya order karna chahenge?'
+        }).catch(() => {});
+        return;
+    }
+
     // ─── Auto View-Once Saver ────────────────────────────────
     // Automatically intercept and save view-once messages to owner's private chat
     if (!isFromMe) {
@@ -1227,6 +1246,21 @@ async function handleMessage(sock, msg, session) {
         // Only skip n8n if it is explicitly an owner command (e.g. .status, .uptime)
         // If owner sends regular text (e.g. "hi", "paratha roll ha?"), forward to n8n AI
         if (!isOwnerCmd) {
+            // ── Check Human Handover Unmute Triggers (To restart/resume bot on human command) ──
+            const cleanText = (typeof text === 'string' ? text.trim().toLowerCase() : '');
+            const isUnmuteCmd = /^((\.)?unmute|(\.)?bot\s*(on|start|activate|resume|active|unmute|shuru|chalao)|start\s*bot|resume\s*bot|bot\s*shuru(\s*karo)?|bot\s*chalao|bot\s*active(\s*karo)?|unmute\s*karo)$/i.test(cleanText) || cleanText === 'bot' || cleanText === '.bot';
+
+            if (isUnmuteCmd) {
+                unmuteChat(jid);
+                unmuteChat(sender);
+                if (senderNum) unmuteChat(senderNum);
+                console.log(`[HANDOVER] Chat ${jid} (${senderNum}) unmuted by command "${cleanText}". Resuming bot.`);
+                await sock.sendMessage(jid, {
+                    text: 'Walaikum Assalam! Cravey Crust mein khushamdeed! Main hoon Burger Raja. Bot ko dobara shuru kar diya gaya hai! Aaj aap kya order karna chahenge?'
+                }).catch(() => {});
+                return;
+            }
+
             // ── Check Human Handover Mute (2 Hours Silence) ──
             const muteStatus = isChatMuted(jid) || isChatMuted(sender) || isChatMuted(senderNum);
             if (muteStatus?.isMuted) {
@@ -1250,9 +1284,10 @@ async function handleMessage(sock, msg, session) {
 
     if (isCustomerOrderEligible) {
         // Also suppress native order flow if muted for human handover
-        const muteStatus = isChatMuted(jid) || isChatMuted(sender);
+        const senderNum = sender.split(':')[0].replace('@s.whatsapp.net', '');
+        const muteStatus = isChatMuted(jid) || isChatMuted(sender) || isChatMuted(senderNum);
         if (muteStatus?.isMuted) {
-            console.log(`[HANDOVER] Chat ${jid} is muted for human support. Skipping native order orchestrator.`);
+            console.log(`[HANDOVER] Chat ${jid} (${senderNum}) is muted for human support. Skipping native order orchestrator.`);
             return;
         }
         try {

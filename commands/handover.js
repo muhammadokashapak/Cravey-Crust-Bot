@@ -24,15 +24,12 @@ export default {
         }
 
         if (firstWord === 'unmute') {
-            const target = args[0];
-            if (!target) {
-                return sock.sendMessage(msg.key.remoteJid, { text: 'Usage: .unmute <customer phone/jid>' });
-            }
+            const target = args[0] || msg.key.remoteJid;
             const res = unmuteChat(target);
             return sock.sendMessage(msg.key.remoteJid, {
                 text: res.removed 
                     ? `Customer ${target} ko unmute kar diya gaya hai. Ab AI bot normal respond karega.`
-                    : `Customer ${target} mute list mein nahi mila.`
+                    : `Customer ${target} mute list mein nahi mila ya pehle se unmuted hai.`
             });
         }
 

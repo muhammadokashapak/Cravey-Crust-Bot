@@ -191,6 +191,7 @@ export function buildN8nPayload(sock, msg, session, text) {
         // NEVER contains raw @lid digits.
         phone,
         name,
+        pushName:        name,
         messageId:       msg.key.id,
         messageType,
         message:         effectiveText,

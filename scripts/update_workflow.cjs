@@ -10,11 +10,22 @@ if (prepNode && prepNode.parameters && prepNode.parameters.assignments) {
   const assigns = prepNode.parameters.assignments.assignments;
   const phoneAssign = assigns.find(a => a.name === 'whatsappPhone');
   if (phoneAssign) {
-    phoneAssign.value = "={{ (() => { const p = $json.body?.whatsappPhone || $json.body?.phone || ''; if (p && String(p).trim().length >= 10) return String(p).trim(); const raw = String($json.body?.senderJid || $json.body?.chatId || '').replace(/@.*$/, '').replace(/[^0-9]/g, ''); if (raw.startsWith('92') && raw.length === 12) return '0' + raw.slice(2); if (raw.length >= 10) return raw; return ''; })() }}";
+    phoneAssign.value = "={{ (() => { const p = $json.body?.whatsappPhone || $json.body?.phone || ''; if (p && String(p).trim().length >= 10 && !String(p).includes('@lid')) return String(p).trim(); const sJid = String($json.body?.senderJid || ''); if (sJid && !sJid.includes('@lid')) { const raw = sJid.replace(/@.*$/, '').replace(/[^0-9]/g, ''); if (raw.startsWith('92') && raw.length === 12) return '0' + raw.slice(2); if (raw.length >= 10) return raw; } const cId = String($json.body?.chatId || ''); if (cId && !cId.includes('@lid')) { const raw = cId.replace(/@.*$/, '').replace(/[^0-9]/g, ''); if (raw.startsWith('92') && raw.length === 12) return '0' + raw.slice(2); if (raw.length >= 10) return raw; } return ''; })() }}";
   }
   const verifiedAssign = assigns.find(a => a.name === 'phoneVerified');
   if (verifiedAssign) {
-    verifiedAssign.value = "={{ Boolean($json.body?.phoneVerified === true || $json.body?.whatsappPhone || $json.body?.phone || $json.body?.senderJid || $json.body?.chatId) }}";
+    verifiedAssign.value = "={{ Boolean($json.body?.phoneVerified === true || $json.body?.whatsappPhone || $json.body?.phone || ($json.body?.senderJid && !String($json.body.senderJid).includes('@lid')) || ($json.body?.chatId && !String($json.body.chatId).includes('@lid'))) }}";
+  }
+  let pushNameAssign = assigns.find(a => a.name === 'pushName');
+  if (pushNameAssign) {
+    pushNameAssign.value = "={{ $json.body?.pushName || $json.body?.name || '' }}";
+  } else {
+    assigns.push({
+      id: 'f8e4b7a1-2d3c-4e5f-9a0b-1c2d3e4f5a6b',
+      name: 'pushName',
+      value: "={{ $json.body?.pushName || $json.body?.name || '' }}",
+      type: 'string'
+    });
   }
 }
 
@@ -182,7 +193,7 @@ const isHandoverKeyword = has(/\\b(agent chahiye|human chahiye|representative ch
 
 if (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword) {
   route = 'handover';
-  output = 'Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur 2 ghante ke liye automatic replies mute kar diye gaye hain. Hamara representative thodi hi der mein aap se rabta karega. Shukriya!';
+  output = 'Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!\\n\\n(Agar aapko dobara bot shuru karna ho to kisi bhi waqt "bot start" likh kar bhej dein).';
 } else {
   const hasDealWord = has(/\\b(deal|deals|deala|delas|dels|deels|dlz|combo|combos|package|packages|offer|offers)\\b/) || any(['\\u0688\\u06CC\\u0644','\\u0688\\u06CC\\u0644\\u0632']);
   const hasSpecificDealNo = /\\b(deal|deala|delas|dels|package|combo|meal)\\s*\\d+\\b/.test(clean) || /\\d+/.test(clean);
@@ -428,7 +439,13 @@ Kya aapki yeh details theek hain? Order confirm karne ke liye haan likhein.
 ORDER CONFIRMATION:
 Customer 'haan/jee/ok/confirm/kardo/proceed/checkout' kahe to FORAN Create Confirmed Order tool call karo!
 Asli order number (CC-XXXXXX) jo tool ke response se mile, foran customer ko batao:
-"Mubarak ho! Aapka order kamyabi se confirm ho gaya hai aur aapka order number CC-XXXXXX hai. Aapka khana jald hi diye gaye address par bhej diya jayega. Cravey Crust pasand karne ka shukriya!"`;
+"Mubarak ho! Aapka order kamyabi se confirm ho gaya hai aur aapka order number CC-XXXXXX hai. Aapka khana jald hi diye gaye address par bhej diya jayega. Cravey Crust pasand karne ka shukriya!"
+
+HUMAN HANDOVER:
+- Jab customer kisi bande, human, agent, manager ya representative se baat karna chahe:
+  1. Request Human Handover tool call karo.
+  2. Customer ko jawab do:
+     "Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!\n\n(Agar aapko dobara bot shuru karna ho to kisi bhi waqt 'bot start' likh kar bhej dein)."`;
 }
 
 // 5. Verify Order Reply node (FIX REGEX TO MATCH CC-000020, CC-000021)
@@ -464,6 +481,28 @@ if (sendNode && sendNode.parameters && sendNode.parameters.bodyParameters) {
   if (msgParam) {
     msgParam.value = "={{ ($json.output || $json.text || '').replace(/\\*/g, '').replace(/[\\u{1F600}-\\u{1F64F}\\u{1F300}-\\u{1F5FF}\\u{1F680}-\\u{1F6FF}\\u{1F1E0}-\\u{1F1FF}\\u{2600}-\\u{26FF}\\u{2700}-\\u{27BF}\\u{1F900}-\\u{1F9FF}\\u{1F018}-\\u{1F270}\\u{2388}-\\u{2B55}\\u{200D}\\u{FE0F}]/gu, '').replace(/[ ]{2,}/g, ' ').trim() }}";
   }
+}
+
+// 7. Execute Handover Mute node (Forward correct verified phone and pushName)
+const muteNode = workflow.nodes.find(n => n.name === 'Execute Handover Mute');
+if (muteNode && muteNode.parameters) {
+  muteNode.parameters.jsonBody = "={{ JSON.stringify({\\n  chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId,\\n  sessionKey: $('Prepare Session').first().json.sessionKey,\\n  durationMinutes: 120,\\n  reason: $('Prepare Session').first().json.message || 'Customer requested human support representative',\\n  customerName: $('Prepare Session').first().json.pushName || $('Webhook').first().json.body?.pushName || $('Webhook').first().json.body?.name || undefined,\\n  customerPhone: $('Prepare Session').first().json.whatsappPhone || $('Webhook').first().json.body?.whatsappPhone || $('Webhook').first().json.body?.phone || $('Webhook').first().json.body?.senderPn || undefined\\n}) }}";
+}
+
+// 8. Format Handover Reply node (Include bot resume instructions)
+const formatHandoverNode = workflow.nodes.find(n => n.name === 'Format Handover Reply');
+if (formatHandoverNode && formatHandoverNode.parameters) {
+  formatHandoverNode.parameters.jsCode = `return {
+  sessionId: 'primary',
+  chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || '',
+  output: 'Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!\\n\\n(Agar aapko dobara bot shuru karna ho to kisi bhi waqt "bot start" likh kar bhej dein).'
+};`;
+}
+
+// 9. Request Human Handover (AI Agent Tool) node (Forward customer phone & name)
+const requestHandoverToolNode = workflow.nodes.find(n => n.name === 'Request Human Handover');
+if (requestHandoverToolNode && requestHandoverToolNode.parameters) {
+  requestHandoverToolNode.parameters.jsonBody = "={{ JSON.stringify({\\n  chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId,\\n  sessionKey: $('Prepare Session').first().json.sessionKey,\\n  durationMinutes: 120,\\n  reason: $fromAI('reason', 'Customer reason', 'string', 'Customer requested human support'),\\n  customerName: $('Prepare Session').first().json.pushName || $('Webhook').first().json.body?.pushName || $('Webhook').first().json.body?.name || undefined,\\n  customerPhone: $('Prepare Session').first().json.whatsappPhone || $('Webhook').first().json.body?.whatsappPhone || $('Webhook').first().json.body?.phone || $('Webhook').first().json.body?.senderPn || undefined\\n}) }}";
 }
 
 // Write to all 4 workflow files

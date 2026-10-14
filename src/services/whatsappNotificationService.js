@@ -256,17 +256,48 @@ export async function sendAdminHandoverAlert({ customerChatId, customerPhone, cu
 
         // Format customer phone & direct chat link
         let cleanCustomerDigits = (customerPhone || '').replace(/\D/g, '');
-        if (!cleanCustomerDigits && customerChatId) {
+        // NEVER extract phone digits from a LID identifier
+        if (!cleanCustomerDigits && customerChatId && !customerChatId.includes('@lid')) {
             cleanCustomerDigits = customerChatId.split('@')[0]?.split(':')[0]?.replace(/\D/g, '');
         }
         if (cleanCustomerDigits.startsWith('03')) {
             cleanCustomerDigits = '92' + cleanCustomerDigits.slice(1);
         }
 
-        const waLink = cleanCustomerDigits.length >= 10 ? `https://wa.me/${cleanCustomerDigits}` : null;
-        const displayPhone = cleanCustomerDigits
+        // If phone is missing or looks like LID digits, check DB session for real verified phone
+        if (!cleanCustomerDigits || cleanCustomerDigits.length < 10 || cleanCustomerDigits.length > 13) {
+            try {
+                if (prisma && customerChatId) {
+                    const session = await prisma.conversationSession.findFirst({
+                        where: {
+                            OR: [
+                                { chat_id: customerChatId },
+                                { session_key: customerChatId },
+                            ],
+                        },
+                        select: {
+                            verified_phone: true,
+                            customer: { select: { phone: true, name: true } },
+                        },
+                    });
+                    const foundPhone = session?.customer?.phone || session?.verified_phone;
+                    if (foundPhone) {
+                        let digits = String(foundPhone).replace(/\D/g, '');
+                        if (digits.startsWith('03')) digits = '92' + digits.slice(1);
+                        if (digits.length >= 10 && digits.length <= 13) {
+                            cleanCustomerDigits = digits;
+                        }
+                    }
+                }
+            } catch (_) {}
+        }
+
+        // Verify if it's a real phone number (Pakistani or international, never LID)
+        const isRealPhone = cleanCustomerDigits.length >= 10 && cleanCustomerDigits.length <= 13;
+        const waLink = isRealPhone ? `https://wa.me/${cleanCustomerDigits}` : null;
+        const displayPhone = isRealPhone
             ? (cleanCustomerDigits.startsWith('92') ? '0' + cleanCustomerDigits.slice(2) : cleanCustomerDigits)
-            : (customerChatId || 'Unknown');
+            : `Number private / hidden hai (${customerChatId})`;
         const displayName = customerName && String(customerName).trim() ? String(customerName).trim() : 'Customer';
 
         const alertText = 
@@ -279,7 +310,8 @@ Aap ke WhatsApp bot par aik customer ne baat karne ki request ki hai:
 ${waLink ? `💬 *Direct Chat Link:* ${waLink}\n` : ''}❓ *Wajah / Reason:* ${reason}
 ⏱️ *Bot Status:* Muted (Agley ${durationMinutes} minutes tak bot is customer ko auto-reply nahi karega)
 
-👉 *Action:* Aap direct customer ke number par ya diye gaye chat link par rabta kar saktay hain.`;
+👉 *Action:* Aap direct customer ke number par ya diye gaye chat link par rabta kar saktay hain.
+💡 *Bot Resume:* Baat mukammal honay ke baad chat mein \`bot start\` ya \`.unmute\` likh kar bot dobara on kar saktay hain.`;
 
         let sentCount = 0;
         for (const recipientJid of recipients) {

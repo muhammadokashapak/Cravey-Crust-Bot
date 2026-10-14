@@ -14,6 +14,8 @@ const mutedChats = new Map();
 export function normalizePhoneOrJid(identifier) {
     if (!identifier || typeof identifier !== 'string') return '';
     const clean = identifier.trim().toLowerCase();
+    // NEVER convert @lid JID to phone digits!
+    if (clean.includes('@lid')) return '';
     // Extract digits before @
     const userPart = clean.includes('@') ? clean.split('@')[0] : clean;
     // Strip device suffix (e.g. 923001234567:1 -> 923001234567)
@@ -32,7 +34,7 @@ export function normalizePhoneOrJid(identifier) {
 export async function muteChatForHandover({ chatId, sessionKey, durationMinutes = 120, reason = 'Customer requested human support', customerName, customerPhone, sock }) {
     const rawChatId = (chatId || '').trim();
     const rawSessionKey = (sessionKey || '').trim();
-    const phoneDigits = normalizePhoneOrJid(rawChatId) || normalizePhoneOrJid(rawSessionKey);
+    const phoneDigits = normalizePhoneOrJid(customerPhone) || normalizePhoneOrJid(rawChatId) || normalizePhoneOrJid(rawSessionKey);
 
     const now = new Date();
     const durationMs = (Number(durationMinutes) || 120) * 60 * 1000;
@@ -58,7 +60,10 @@ export async function muteChatForHandover({ chatId, sessionKey, durationMinutes 
     logger.info({ rawChatId, phoneDigits, mutedUntil, durationMinutes }, '[HANDOVER] Chat muted for human support');
 
     let resolvedCustomerName = customerName || null;
-    let resolvedCustomerPhone = customerPhone || phoneDigits || null;
+    let resolvedCustomerPhone = (customerPhone && !String(customerPhone).includes('@lid') ? normalizePhoneOrJid(customerPhone) : null) || phoneDigits || null;
+    if (resolvedCustomerPhone && (resolvedCustomerPhone.includes('@lid') || resolvedCustomerPhone.length > 13 || resolvedCustomerPhone.length < 10)) {
+        resolvedCustomerPhone = null;
+    }
 
     // ── 1. Clear Active Cart & Memory in Database ──
     try {
@@ -76,6 +81,7 @@ export async function muteChatForHandover({ chatId, sessionKey, durationMinutes 
                     select: {
                         id: true,
                         session_key: true,
+                        verified_phone: true,
                         customer: { select: { name: true, phone: true } },
                     },
                 });
@@ -84,7 +90,8 @@ export async function muteChatForHandover({ chatId, sessionKey, durationMinutes 
                     resolvedCustomerName = sessions.find(s => s.customer?.name)?.customer?.name || null;
                 }
                 if (!resolvedCustomerPhone && sessions.length > 0) {
-                    resolvedCustomerPhone = sessions.find(s => s.customer?.phone)?.customer?.phone || null;
+                    resolvedCustomerPhone = sessions.find(s => s.customer?.phone)?.customer?.phone ||
+                                            sessions.find(s => s.verified_phone)?.verified_phone || null;
                 }
 
                 for (const s of sessions) {
