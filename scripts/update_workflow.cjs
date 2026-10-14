@@ -119,11 +119,11 @@ if (isSyncWebhook || cacheAge > 5000 || !staticData.cache.menuCatalogText || !st
       staticData.cache.dealsText = staticData.cache.agentDealsCatalog;
     }
 
-    // ── Categories
+    // ── Categories (Filter out test/fake categories like aleem)
     const catsArr = catsRes && (catsRes.data && (catsRes.data.categories || catsRes.data) || catsRes.categories || catsRes.data) || [];
     const catsArrFinal = Array.isArray(catsArr) ? catsArr : [];
     if (catsArrFinal.length > 0) {
-      staticData.cache.categories = catsArrFinal.filter(c => c && c.isActive !== false && c.is_active !== false);
+      staticData.cache.categories = catsArrFinal.filter(c => c && c.isActive !== false && c.is_active !== false && !['aleem', 'test', 'demo'].includes(String(c.name || '').toLowerCase().trim()));
       staticData.cache.categoriesText = staticData.cache.categories.map((c, i) => (i + 1) + '. ' + c.name).join('\\n');
     }
 
@@ -204,8 +204,10 @@ if (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword || isComplain
   const hasOrderAction = has(/\\b(order|add|cart|pack|kar|kardo|krdo|kr|chahiye|mangwa|mangwana|banao|confirm|lagao|laga)\\b/);
   const isGeneralDealsAsk = hasDealWord && !hasSpecificDealNo && !hasOrderAction && wordCount <= 6;
 
-  const exactMenuPhrases = ['menu', 'menue', 'list', 'categories', 'catagories', 'rate list', 'price list', 'food list', 'menu dikhao', 'menu bhejo', 'menu batao', 'menu kya hai', 'menu mai kya hai', 'menu mein kya hai', 'menu mai kya kya hai', 'menu mein kya kya hai', 'kya hai', 'kya kya hai', '\\u0645\\u06CC\\u0646\\u0648', '\\u0631\\u06CC\\u0679 \\u0644\\u0633\\u0679'];
-  const isGeneralMenuAsk = exactMenuPhrases.includes(clean);
+  // Broad menu ask detection (e.g. "menu", "menu dikhao", "ap ke pass kia milta ha", "kya kya milta hai")
+  const hasMenuWord = has(/\\b(menu|menue|categories|catagories|rate list|price list|food list)\\b/) || any(['\\u0645\\u06CC\\u0646\\u0648','\\u0631\\u06CC\\u0679 \\u0644\\u0633\\u0679']);
+  const isWhatDoYouHave = has(/\\b(kia milta ha|kya milta hai|kia milta|kya milta|kya kya milta|kia kia milta|kia ha ap k pas|kya hai aap ke paas|kya kya hai|kia kia hai|apke pas kya hai|ap k pas kia ha|ap ke pass kia|ap k pass kia|menu dikhao|menu bhejo|menu batao|menu card|rate list dikhao)\\b/);
+  const isGeneralMenuAsk = (hasMenuWord || isWhatDoYouHave) && !hasDealWord && !hasOrderAction && wordCount <= 7;
 
   const isChitchat = has(/\\b(kese ho|kaise ho|kase ho|kesy ho|kaisy ho|kia hal|kya hal|kya haal|kia haal|how are you|how r u|kya ho raha|kya kr rahe|aur sunao|or sunao|sab theek|tabiyat)\\b/) && !hasDealWord && !hasOrderAction;
 
@@ -250,6 +252,42 @@ return Object.assign({}, $json, {
   cachedStoreInfo: (staticData.cache && staticData.cache.storeInfoText) || '',
   nonOrderReply: staticData.cache && staticData.cache.nonOrderReply
 });`;
+}
+
+// 2b. Format Live Categories node (Full accurate Cravey Crust menu with prices, no test categories, no emojis)
+const catsNode = workflow.nodes.find(n => n.name === 'Format Live Categories');
+if (catsNode && catsNode.parameters) {
+  catsNode.parameters.jsCode = `const output = \`Cravey Crust ka Main Menu:
+
+CLASSIC PIZZAS (Small Rs. 599 | Medium Rs. 1299 | Large Rs. 1499 | Party Rs. 2599):
+- Cheese Lover
+- Chicken Tikka
+- Chicken Fajita
+- Chicken Supreme
+- Chicken Tandori
+
+PREMIUM PIZZAS (Small Rs. 699 | Medium Rs. 1399 | Large Rs. 1799 | Party Rs. 2799):
+- Behari Kebab Pizza
+- Chicken Extreme
+- Crown Crust
+- Peri Peri Pizza
+- Stuffed Crust (Medium Rs. 1499 | Large Rs. 1999 | Party Rs. 2999)
+
+DRINKS:
+- Soft Drink (Regular Rs. 120 | 1 Litre Rs. 220)
+- Mineral Water (Small Rs. 60 | Large Rs. 110)
+
+VALUE DEALS:
+- Burger Deals (Rs. 599 se shuru)
+- Pizza Deals (Rs. 599 se shuru)
+
+Aap in mein se kya order karna chahenge? Kisi bhi pizza, drink ya deal ka naam bata dein!\`;
+
+return {
+  sessionId: $('Prepare Session').first().json.sessionId || 'primary',
+  chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid,
+  output
+};`;
 }
 
 // 3. Format Live Deals node (REMOVE ALL EMOJIS, CLEAR MEAL VS VALUE DEAL HEADINGS)
@@ -393,6 +431,42 @@ LIVE STORE INFO & FAQs (Timings, Address, Delivery Policies - Admin Panel se Liv
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 {{ $('Check Cache & Classify Intent').first().json.confirmIntent ? 'ABHI KA MESSAGE: Customer ne confirm bola hai (haan, ji, yes, confirm, ok, checkout, kardo). Agar pichla message FINAL SUMMARY tha, to FORAN Create Confirmed Order tool call karo aur asli order number customer ko batao.' : '' }}
+
+CRAVEY CRUST STRICT MENU SCOPE (ZERO HALLUCINATION - SIRF YEH ITEMS DASTIYAB HAIN):
+Cravey Crust par SIRF aur SIRF yeh items dastiyab hain:
+1. CLASSIC PIZZAS (Small Rs. 599, Medium Rs. 1299, Large Rs. 1499, Party Size Rs. 2599):
+   - Cheese Lover, Chicken Tikka, Chicken Fajita, Chicken Supreme, Chicken Tandori
+2. PREMIUM PIZZAS (Small Rs. 699, Medium Rs. 1399, Large Rs. 1799, Party Size Rs. 2799):
+   - Behari Kebab Pizza, Chicken Extreme, Crown Crust, Peri Peri Pizza
+   - Stuffed Crust (Medium Rs. 1499, Large Rs. 1999, Party Size Rs. 2999)
+3. BURGER DEALS:
+   - Burger Meal 1 (Rs. 599): 1 Zinger Burger + Regular Fries + Regular Drink
+   - Burger Meal 2 (Rs. 999): 2 Zinger Burgers + Regular Fries + 2 Regular Drinks
+   - Burger Meal 3 (Rs. 1599): 3 Zinger Burgers + 3 Chicken Pieces + 1 Litre Drink
+   - Deal 4 (Rs. 999): 4 Zeggy Burgers
+   - Deal 5 (Rs. 1099): 3 Zinger Burgers + 1 Litre Drink
+4. PIZZA DEALS:
+   - Pizza Meal 1 (Rs. 599): 1 Small Pizza + Regular Drink
+   - Pizza Meal 2 (Rs. 1299): 1 Regular Pizza + 2 Regular Drinks
+   - Pizza Meal 3 (Rs. 1599): 1 Large Pizza + 1 Litre Drink
+   - Pizza Meal 4 (Rs. 2499): 1 Party Size Pizza + 1.5 Litre Drink
+   - Deal 1 (Rs. 1099): 2 Small Pizzas + 2 Regular Drinks
+   - Deal 2 (Rs. 2099): 2 Medium Pizzas + 1 Litre Drink
+   - Deal 3 (Rs. 2999): 2 Large Pizzas + 1 Litre Drink
+5. DRINKS:
+   - Soft Drink: Regular (Rs. 120), 1 Litre (Rs. 220)
+   - Mineral Water: Small (Rs. 60), Large (Rs. 110)
+
+HARGIZ YEH GHAIR-MOJOOD CHEEZEIN CUSTOMER KO NA BOLO (CRAVEY CRUST PAR DASTIYAB NAHI HAIN):
+- NO DESSERTS (Brownies, ice creams, cakes Cravey Crust par BILKUL NAHI HAIN). Agar customer maange to polite bolo: "Maazrat! Cravey Crust par desserts dastiyab nahi hain. Hamare paas Mazedar Pizzas, Burger Deals aur Chilled Drinks hain."
+- NO BEVERAGES / SHAKES / TEA / COFFEE (Sirf Soft Drink aur Mineral Water hai).
+- NO PASTAS (Pasta Cravey Crust par BILKUL NAHI milta).
+- NO ALAG FRIED CHICKEN (Chicken piece sirf Burger Meal 3 ke andar aata hai).
+- NO SIDES / SALADS (Fries sirf Burger Meals ke andar aati hain).
+- "aleem" koi item ya category nahi hai (test category hai, kabhi mat bolo).
+
+JAB BHI CUSTOMER MENU YA ITEMS POOCHE ("menu dikhao", "kya milta hai", "apke paas kya hai"):
+Hamesha Cravey Crust ke ASLI menu items (Classic Pizzas, Premium Pizzas, Burger Deals, Pizza Deals, Drinks) batao!
 
 CRITICAL GROUNDING & ZERO HALLUCINATION (IMMUTABLE CATALOG & DEALS):
 1. LIVE DEALS CACHE aur LIVE MENU CATALOG mein mojood prices, deals aur items 100% PATTHAR KI LAKEER (IMMUTABLE FACTS) HAIN.
