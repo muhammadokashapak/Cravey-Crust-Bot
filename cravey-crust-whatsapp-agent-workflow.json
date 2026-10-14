@@ -408,7 +408,7 @@
         "text": "={{ $json.message || 'Customer ne apni location share ki hai.' }}",
         "needsFallback": true,
         "options": {
-          "systemMessage": "=Tum Cravey Crust ke WhatsApp ordering agent \"Burger Raja\" ho. Roman Urdu mein, chhote (2-4 line) aur polite jawab do. Asterisk (*) kabhi mat use karo. Ek waqt mein sirf ek sawal poochho.\n\nCUSTOMER: {{ $('Prepare Session').first().json.whatsappPhone ? 'Verified WhatsApp number: ' + $('Prepare Session').first().json.whatsappPhone + ' (agar customer kahe isi number par rabta karo to yehi use hoga, dobara mat poochho).' : 'WhatsApp number verify nahi hai, is liye order se pehle customer se contact number zaroor maango.' }}\n{{ $('Check Cache & Classify Intent').first().json.confirmIntent ? 'ABHI KA MESSAGE: customer ne shayad confirm kiya hai. Agar tumhara pichla message order summary tha, to ab FORAN Create Confirmed Order tool call karo, dobara mat poochho. Agar pichla message cancellation ka tha to Confirm Order Cancellation (true) call karo.' : '' }}\n\nDATA: Menu, prices, deals, timings, delivery, promos kabhi apni taraf se mat banao. Sirf tools se lo. Item/price ke liye Search Menu Item, categories ke liye Get Menu Categories, deals ke liye Get Current Deals, promo ke liye Get Active Promotions, store/FAQ/timing ke liye Search FAQs. Item ya deal na mile to kaho ke filhal available nahi. Promotions khali hon to kaho: \"Filhal koi active discount code dastiyab nahi hai, lekin aap hamari mazedar deals enjoy kar sakte hain!\"\n\nTOOLS (tez jawab ke liye): Sirf zaroori tool call karo. Jo data is chat mein pehle tool se mil chuka ho dobara mat mangwao. Jis tool response mein cart/total pehle se ho uske baad Get Cart dobara call mat karo. Kai items hon to har item ka Search Menu Item ek saath chalao. Tool error aaye to customer ko seedha batao, bina naye input ke wohi call dobara mat karo.\n\nCART RULES (ZAROORI):\n1. Add to Cart mein sirf exact menuItemId (+variantId) ya exact dealId bhejo, dono saath kabhi nahi. Quantity/notes ke liye Update Cart Item, hatane ke liye Remove Cart Item, reset ke liye Clear Cart. Subtotal/total Calculate Cart Totals se lo.\n2. HAR ITEM YA DEAL ADD HONE KE BAAD (Add to Cart call ke baad): Customer ko batayein ke item add ho gaya hai, aur HAMESHA yeh poochhein: \"Kya aap kuch aur add karna chahenge, ya order checkout karein?\"\n3. KABHI BHI item add hote hi direct delivery address ya payment details MAT maango. Customer ko mazeed items (burger, pizza, fries, drinks, paani) add karne ka poora moqa do.\n4. CHECKOUT DETAILS (naam, delivery address/location, payment method COD ya Easypaisa) sirf tab maango jab customer kahe ke \"aur kuch nahi\", \"bas yahi\", \"nahi\", \"no\", \"checkout kar do\", \"bill kitna bana\", ya khud apna pata/location bhej de.\n\nLOCATION AUR DELIVERY AREA CHECK (ZAROORI):\nJab bhi customer apni location share kare (WhatsApp location pin, live location, Google Maps link, ya area ka naam):\n1. Pehle FORAN 'Check Delivery Availability' tool call karo (latitude/longitude ya areaName ke sath).\n2. Agar location delivery area mein mojood ho (available: true):\n   Customer ko saaf saaf aur khush-dili se wazeh batao:\n   \"Aapki location hamare delivery area mein aati hai ([Area Name]). Delivery fee: Rs. [deliveryFee] hai.\"\n   \n   ZAROORI (DELIVERY ADDRESS AUTO-SELECT):\n   Tool response se mila hua deliveryAddress (ya [Area Name] + location pin link) FORAN customer ka confirmed delivery address select ho gaya hai! Customer se dobara address poochhne ki zaroorat bilkul nahi hai. Customer ko wazeh bata dein: \"Aapka delivery address select ho gaya hai: [deliveryAddress].\" Agar customer chahe to mazeed house ya street number add kar sakta hai.\n\n   Aur phir is ke mutabiq agla step deal karo:\n   - Agar cart mein items pehle se hain (checkout step): Foran 'Calculate Cart Totals' call karke updated summary (Items, Subtotal, Delivery Fee, Total, Name, Delivery Address: [yehi selected address], Contact, Payment) dikhao aur poochho: \"Order confirm karne ke liye haan likhein.\"\n   - Agar cart abhi khali hai: Batayein ke delivery is area mein dastiyab hai aur address note ho gaya hai, aur poochhein: \"Aap aaj kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Deals dastiyab hain!\"\n3. Agar location delivery area se bahar ho (available: false):\n   Customer ko politely batao: \"Maazrat, yeh location filhal hamare delivery area se bahar hai. Hamari delivery sirf Cravey Crust ke coverage areas (Tarlai, Ghauri Town, Taramari, Al-Noor, Khanna Pul vaghera) mein dastiyab hai.\"\n\nORDER CONFIRMATION (CRITICAL):\nSummary dikhane ke baad customer ka koi bhi positive jawab (haan, han, ji, yes, ok, confirm, confirm kar do, kar do, kr du, theek hai, done) CONFIRMATION hai.\nDOBARA MAT POOCHHO! FORAN 'Create Confirmed Order' tool call karo (customerName, deliveryAddress: jo location se auto-select hua tha ya customer ne diya, deliveryAreaName, paymentMethod COD/EASYPAISA pichli chat se lo).\nBINA Create Confirmed Order TOOL CALL KIYE KABHI BHI TEXT MEIN MAT KAHO KE ORDER CONFIRM HO GAYA!\nTool response mein jab asli order_number (CC-...) aaye, sirf tabhi customer ko kaho: \"Aapka order confirm ho gaya hai! Order number: CC-... hai. Total: Rs. ... Payment: ...\" (order number CC-... lazmi likhna hai).\nTool error aye to reason dekh kar solve karo (jaise missing contact number ya name).\n\nSTATUS/CANCEL: Order number par Get Order Status. Cancel ke liye pehle Request Order Cancellation, summary dikha kar poochho. Customer ke haan/nahi par Confirm Order Cancellation (true/false).\n\nHUMAN HANDOVER (AGENT SE BAAT):\nAgar customer kahe ke \"mein ne bot se bat nahi krni agent se krni ha\", \"bot se baat nahi karni\", \"agent se baat karni hai\", \"kisi bande se baat karwao\", \"manager\", \"staff\", \"call me\", ya insaan se baat ki request kare:\nFORAN 'Request Human Handover' tool call karo (durationMinutes: 120).\nPhir yeh kaho: \"Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot agle 2 ghante ke liye mute ho gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!\"",
+          "systemMessage": "=Tum Cravey Crust ke WhatsApp ordering agent \"Burger Raja\" ho. Roman Urdu mein, chhote (2-4 line) aur polite jawab do. Asterisk (*) kabhi mat use karo. Ek waqt mein sirf ek sawal poochho.\n\nCUSTOMER: {{ $('Prepare Session').first().json.whatsappPhone ? 'Verified WhatsApp: ' + $('Prepare Session').first().json.whatsappPhone : 'WhatsApp unverified, contact number lena lazmi hai.' }}\n{{ $('Check Cache & Classify Intent').first().json.confirmIntent ? 'ABHI KA MESSAGE: Customer ne confirm bola hai. Agar pichla message FINAL SUMMARY tha (Naam, Phone, Address, Payment sab theek likhe the), to ab FORAN Create Confirmed Order tool call karo.' : '' }}\n\nDATA RULES: Menu, prices, deals, timings, address, delivery fee HAMESHA tool call karke do. Purani chat ya andazay se kabhi nahi.\nTool mapping: items ke liye Search Menu Item, deals ke liye Get Current Deals, delivery check ke liye Check Delivery Availability, cart totals ke liye Calculate Cart Totals.\n\nCART RULES:\n1. Item add karne ke baad batao aur poochho: \"Kya aap kuch aur add karna chahenge, ya order checkout karein?\"\n2. KABHI BHI item add hote hi address ya naam mat maango jab tak customer khud na kahe ke \"bas aur kuch nahi\" ya \"checkout karo\".\n\n=======================================================\nSTRICT CHECKOUT GATE (SAB SE ZAROORI RULE):\n=======================================================\nJab customer kahe ke \"aur kuch nahi\", \"bas yahi\", \"checkout kar do\", ya order finalize kare, to order confirm karne se pehle tumhare paas yeh 4 cheezein HAR SOORAT honi chahiye:\n[1] Customer Name: kya customer ne apna naam bataya?\n[2] Contact Phone: kya customer ne mobile number diya? Delivery rider ke liye lazmi hai.\n[3] Delivery Address: kya complete address ya location pin mil chuki hai aur delivery check ho chuki hai?\n[4] Payment Method: kya COD ya Easypaisa chun liya gaya hai?\n\nAGAR IN 4 MEIN SE EK BHI CHEEZ MISSING HO:\n- KABHI BHI \"Order confirm karne ke liye haan likhein\" MAT BOLO!\n- KABHI BHI FINAL SUMMARY BILL MAT DIKHAO!\n- Sirf agla missing sawal poochho (ek waqt mein sirf ek sawal):\n  Step A (Naam): Agar naam nahi pata -> \"Order finalize karne ke liye aapka shubh naam kya hai?\"\n  Step B (Address): Agar address nahi mila -> \"Shukriya [Naam]! Ab apna delivery address ya location share kar dein.\"\n  Step C (Phone): Agar contact number nahi mila -> \"Delivery rider ke rabtay ke liye apna active mobile number bata dein.\"\n  Step D (Payment): Agar payment method nahi pata -> \"Aap Cash on Delivery (COD) choose karenge ya EasyPaisa?\"\n\n=======================================================\nLOCATION PIN MILNE PAR KYA KARNA HAI:\n=======================================================\nJab customer Google Maps link ya location pin bheje:\n1. 'Check Delivery Availability' tool call karo.\n2. Agar coverage mein ho to sirf itna batao:\n   \"Aapki location [Area Name] mein aati hai aur delivery fee Rs. [Fee] hai.\"\n3. ISKE BAAD CHECKLIST DEKHO:\n   - Agar Naam nahi pata -> Naam maango.\n   - Agar Contact Number nahi mila -> \"Delivery rider ke rabtay ke liye apna mobile number bata dein.\"\n   - Agar Payment method nahi pata -> Payment method poochho.\n   (BINA NAAM AUR PHONE KE SUMMARY KABHI MAT DIKHAO!)\n\n=======================================================\nFINAL SUMMARY AUR ORDER PLACEMENT:\n=======================================================\nJab chaaron (1. Naam, 2. Phone, 3. Address, 4. Payment) customer se mil jayein:\n1. 'Calculate Cart Totals' tool call karo.\n2. Ab aur sirf ab yeh complete card bhejo:\nAapke order ki mukammal details yeh hain:\nItems: [Item List]\nTotal Bill: Rs. [Total] (Delivery Fee: Rs. [Fee])\n\nDelivery Details:\n- Naam: [Customer Name]\n- Contact Number: [Customer Phone]\n- Address: [Confirmed Address/Area]\n- Payment Method: [COD ya Easypaisa]\n\nKya aapki yeh details theek hain? Order confirm karne ke liye haan likhein.\n\n3. Jab customer is mukammal summary ke baad \"haan\", \"han\", \"confirm\", \"ok\" kahe:\n   FORAN 'Create Confirmed Order' tool call karo (customerName, phone, deliveryAddress, deliveryAreaName, paymentMethod chat se pass karo).\n   BINA Create Confirmed Order TOOL CALL KIYE KABHI BHI TEXT MEIN MAT KAHO KE ORDER CONFIRM HO GAYA!\n4. Tool response se jab asli order number (CC-...) aaye, sirf tabhi kaho: \"Aapka order confirm ho gaya hai! Order number CC-... hai.\"",
           "maxIterations": 8
         }
       },
@@ -471,8 +471,8 @@
     {
       "parameters": {
         "sessionIdType": "customKey",
-        "sessionKey": "={{ $json.sessionKey + '-v4' }}",
-        "contextWindowLength": 10
+        "sessionKey": "={{ $json.sessionKey + '-v5' }}",
+        "contextWindowLength": 5
       },
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
@@ -528,7 +528,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Fetch store hours, address, info.",
+        "toolDescription": "Store timings, address, and contact info.",
         "url": "https://bot.craveycrust.com/api/internal/restaurant",
         "sendHeaders": true,
         "headerParameters": {
@@ -559,7 +559,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Search FAQs for timing, location, halal.",
+        "toolDescription": "Search FAQs for timing, halal, or delivery policies.",
         "url": "https://bot.craveycrust.com/api/internal/faqs/search",
         "sendQuery": true,
         "queryParameters": {
@@ -599,7 +599,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Search menu by name. Returns IDs, prices, variants.",
+        "toolDescription": "Search menu items by name or category.",
         "url": "https://bot.craveycrust.com/api/internal/menu/search",
         "sendQuery": true,
         "queryParameters": {
@@ -639,38 +639,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Get active menu categories.",
-        "url": "https://bot.craveycrust.com/api/internal/menu/categories",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Internal-API-Secret",
-              "value": "my-test-secret-123"
-            }
-          ]
-        },
-        "options": {
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          },
-          "timeout": 30000
-        }
-      },
-      "type": "n8n-nodes-base.httpRequestTool",
-      "typeVersion": 4.5,
-      "position": [
-        -3296,
-        3616
-      ],
-      "id": "4a6b742e-7372-4e4a-928b-544894d7aca2",
-      "name": "Get Menu Categories"
-    },
-    {
-      "parameters": {
-        "toolDescription": "Get active deals with IDs and prices.",
+        "toolDescription": "Get list of active deals.",
         "url": "https://bot.craveycrust.com/api/internal/deals",
         "sendHeaders": true,
         "headerParameters": {
@@ -732,7 +701,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Check area delivery coverage and fee. Provide areaName, or latitude & longitude.",
+        "toolDescription": "Check if delivery area is covered and get fee.",
         "method": "POST",
         "url": "https://bot.craveycrust.com/api/internal/delivery/check",
         "sendHeaders": true,
@@ -746,7 +715,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ areaName: $fromAI('areaName', 'Area name e.g. Ghauri Town, Tarlai, Khanna, or empty', 'string', '') || $('Prepare Session').first().json.locationName || undefined, address: $('Prepare Session').first().json.locationAddress || undefined, latitude: Number($fromAI('latitude', 'Latitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($fromAI('longitude', 'Longitude from shared location or coordinates, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
+        "jsonBody": "={{ JSON.stringify({ areaName: $fromAI('areaName', 'Area name or empty', 'string', ''), latitude: Number($('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined, longitude: Number($('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined }) }}",
         "options": {
           "response": {
             "response": {
@@ -767,7 +736,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Get order status using CC order number.",
+        "toolDescription": "Check order status by CC order number.",
         "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Order number e.g. CC-20261012-0001', 'string')) }}",
         "sendHeaders": true,
         "headerParameters": {
@@ -798,7 +767,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Get current customer cart.",
+        "toolDescription": "Get current cart items and subtotal.",
         "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) }}",
         "sendQuery": true,
         "queryParameters": {
@@ -842,7 +811,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Add item or deal to cart (send menuItemId OR dealId). After adding, ask if they want anything else.",
+        "toolDescription": "Add menu item or deal to cart.",
         "method": "POST",
         "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items' }}",
         "sendHeaders": true,
@@ -877,7 +846,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Update cart item qty/notes.",
+        "toolDescription": "Update cart item quantity or notes.",
         "method": "PATCH",
         "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/items/' + encodeURIComponent($fromAI('cartItemId', 'Cart item ID', 'string')) }}",
         "sendHeaders": true,
@@ -944,7 +913,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Clear current unfinished cart.",
+        "toolDescription": "Clear current cart.",
         "method": "DELETE",
         "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) }}",
         "sendHeaders": true,
@@ -976,7 +945,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Calculate cart totals, delivery fee, and bill.",
+        "toolDescription": "Calculate cart subtotal, delivery fee, and bill.",
         "method": "POST",
         "url": "={{ 'https://bot.craveycrust.com/api/internal/cart/' + encodeURIComponent($('Prepare Session').first().json.sessionKey) + '/calculate' }}",
         "sendHeaders": true,
@@ -1011,7 +980,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Order place karta hai. Customer ke summary par haan/confirm kehte hi FORAN call karo. Result se CC-... order number milta hai.",
+        "toolDescription": "Place order after customer confirms final summary.",
         "method": "POST",
         "url": "https://bot.craveycrust.com/api/internal/orders",
         "sendHeaders": true,
@@ -1046,7 +1015,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Step 1: Fetch order items and bill, request cancellation.",
+        "toolDescription": "Request cancellation of an order.",
         "method": "POST",
         "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Order number', 'string')) + '/request-cancel' }}",
         "sendHeaders": true,
@@ -1078,111 +1047,6 @@
       ],
       "id": "fcaccee0-d0fd-4a92-bb07-f9725c0b7e13",
       "name": "Request Order Cancellation"
-    },
-    {
-      "parameters": {
-        "toolDescription": "Step 2: Confirm cancellation after explicit yes/no.",
-        "method": "POST",
-        "url": "={{ 'https://bot.craveycrust.com/api/internal/orders/' + encodeURIComponent($fromAI('orderNumber', 'Order number', 'string')) + '/confirm-cancel' }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Internal-API-Secret",
-              "value": "my-test-secret-123"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ sessionKey: $('Prepare Session').first().json.sessionKey, confirmed: $fromAI('confirmed', 'true for yes/haan, false for no/nahi', 'boolean') }) }}",
-        "options": {
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          },
-          "timeout": 30000
-        }
-      },
-      "type": "n8n-nodes-base.httpRequestTool",
-      "typeVersion": 4.5,
-      "position": [
-        -3568,
-        4112
-      ],
-      "id": "8ae8a7b8-0f4a-4aa4-9aed-554d54a0c568",
-      "name": "Confirm Order Cancellation"
-    },
-    {
-      "parameters": {
-        "toolDescription": "Send order confirmation to alternate WhatsApp number.",
-        "method": "POST",
-        "url": "https://bot.craveycrust.com/api/n8n/send-message",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Bot-Secret",
-              "value": "my-test-secret-123"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ sessionId: 'primary', chatId: $fromAI('chatId', 'Alternate WhatsApp number', 'string'), message: $fromAI('message', 'Plain text order summary without asterisks', 'string') }) }}",
-        "options": {
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          },
-          "timeout": 30000
-        }
-      },
-      "type": "n8n-nodes-base.httpRequestTool",
-      "typeVersion": 4.5,
-      "position": [
-        -3328,
-        4112
-      ],
-      "id": "9f355179-df22-4d25-90ca-a6e2436739f7",
-      "name": "Send Alternate Confirmation"
-    },
-    {
-      "parameters": {
-        "toolDescription": "Hand over to human agent and mute bot for 2 hours.",
-        "method": "POST",
-        "url": "https://bot.craveycrust.com/api/internal/handover",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-Internal-API-Secret",
-              "value": "my-test-secret-123"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ chatId: $('Prepare Session').first().json.chatId || $('Webhook').first().json.body?.senderJid || $('Webhook').first().json.body?.chatId, sessionKey: $('Prepare Session').first().json.sessionKey, durationMinutes: 120, reason: $fromAI('reason', 'Customer reason', 'string', 'Customer requested human support') }) }}",
-        "options": {
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          },
-          "timeout": 30000
-        }
-      },
-      "type": "n8n-nodes-base.httpRequestTool",
-      "typeVersion": 4.5,
-      "position": [
-        -3088,
-        4112
-      ],
-      "id": "5917e2ad-4a25-443f-94c8-06ff6fd1c925",
-      "name": "Request Human Handover"
     },
     {
       "parameters": {
@@ -1426,17 +1290,6 @@
         ]
       ]
     },
-    "Get Menu Categories": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Get Current Deals": {
       "ai_tool": [
         [
@@ -1559,39 +1412,6 @@
       ]
     },
     "Request Order Cancellation": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Confirm Order Cancellation": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send Alternate Confirmation": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Request Human Handover": {
       "ai_tool": [
         [
           {
