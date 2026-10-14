@@ -1168,7 +1168,7 @@ function switchView(viewName) {
     orders:     { el: document.getElementById('viewOrders'),     title: 'Live Orders Management', sub: 'Real-time orders feed, customer details, and status updates' },
     menu:       { el: document.getElementById('viewMenu'),       title: 'Menu Management',    sub: 'Manage items, prices, variants and availability' },
     categories: { el: document.getElementById('viewCategories'), title: 'Categories',         sub: 'Organize menu sections and ordering' },
-    deals:      { el: document.getElementById('viewDeals'),      title: 'Deals & Discounts',  sub: 'Meal bundles, coupon codes and discounts' },
+    deals:      { el: document.getElementById('viewDeals'),      title: 'Meal Deals',         sub: 'Meal bundles and special value combos' },
     delivery:   { el: document.getElementById('viewDelivery'),   title: 'Delivery Areas',     sub: 'Delivery zones, fees and minimum order amounts' },
     customers:      { el: document.getElementById('viewCustomers'),      title: 'Customers Directory', sub: 'Verified WhatsApp customers and lifetime order history' },
     customerDetail: { el: document.getElementById('viewCustomerDetail'), title: 'Customer Profile',   sub: 'Complete customer order history, metrics & data management' },
@@ -1217,7 +1217,6 @@ function switchView(viewName) {
   if (viewName === 'categories') loadCategories();
   if (viewName === 'deals') {
     loadDeals();
-    loadPromotions();
     loadMenuItemsForDeals();
   }
   if (viewName === 'delivery') loadDeliveryAreas();
@@ -2203,24 +2202,7 @@ async function loadMenuItemsForDeals() {
 }
 
 function switchDealsSubTab(tab) {
-  const tabDealsBtn = document.getElementById('tabDealsBtn');
-  const tabPromotionsBtn = document.getElementById('tabPromotionsBtn');
-  const subpanelDeals = document.getElementById('subpanelDeals');
-  const subpanelPromotions = document.getElementById('subpanelPromotions');
-
-  if (tab === 'deals') {
-    if (tabDealsBtn) tabDealsBtn.classList.add('active');
-    if (tabPromotionsBtn) tabPromotionsBtn.classList.remove('active');
-    if (subpanelDeals) subpanelDeals.classList.remove('hidden');
-    if (subpanelPromotions) subpanelPromotions.classList.add('hidden');
-    loadDeals();
-  } else {
-    if (tabPromotionsBtn) tabPromotionsBtn.classList.add('active');
-    if (tabDealsBtn) tabDealsBtn.classList.remove('active');
-    if (subpanelPromotions) subpanelPromotions.classList.remove('hidden');
-    if (subpanelDeals) subpanelDeals.classList.add('hidden');
-    loadPromotions();
-  }
+  loadDeals();
 }
 window.switchDealsSubTab = switchDealsSubTab;
 
@@ -2657,259 +2639,13 @@ async function deleteDeal(dealId) {
 }
 window.deleteDeal = deleteDeal;
 
-// ─── Promotions CRUD ───────────────────────────────────────────────────
-let cachedPromosList = [];
-let promosPageState = { page: 1, pageSize: 50, search: '' };
-
-function renderPromotionsTable() {
-  const tbody = document.getElementById('promotionsTableBody');
-  if (!tbody) return;
-
-  let filtered = cachedPromosList || [];
-  if (promosPageState.search) {
-    const q = promosPageState.search.toLowerCase();
-    filtered = filtered.filter(p =>
-      (p.name && p.name.toLowerCase().includes(q)) ||
-      (p.code && p.code.toLowerCase().includes(q)) ||
-      (p.description && p.description.toLowerCase().includes(q))
-    );
-  }
-
-  if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="table-empty">No promotions found. Click "Add Promotion" to create one.</td></tr>';
-    renderPaginationControl({
-      containerId: 'promotionsPagination',
-      totalItems: 0,
-      currentPage: 1,
-      pageSize: promosPageState.pageSize,
-      onPageSizeChange: (s) => {
-        promosPageState.pageSize = s;
-        promosPageState.page = 1;
-        renderPromotionsTable();
-      }
-    });
-    return;
-  }
-
-  const totalPages = Math.ceil(filtered.length / promosPageState.pageSize);
-  if (promosPageState.page > totalPages) promosPageState.page = totalPages;
-  const startIndex = (promosPageState.page - 1) * promosPageState.pageSize;
-  const pageItems = filtered.slice(startIndex, startIndex + promosPageState.pageSize);
-
-  tbody.innerHTML = pageItems.map(p => {
-    const codeBadge = p.code ? `<span class="badge badge-primary">${p.code}</span>` : '<span class="term-dim">Automatic</span>';
-    const discountStr = p.discount_type === 'PERCENTAGE' ? `${p.discount_value}% OFF` : `Rs. ${p.discount_value} OFF`;
-    const minOrderStr = p.minimum_order ? `Rs. ${p.minimum_order}` : 'No min';
-    const maxCapStr = p.maximum_discount ? `Rs. ${p.maximum_discount}` : 'No cap';
-    const statusBadge = p.is_active ? `<span class="badge badge-success">Active</span>` : `<span class="badge badge-secondary">Disabled</span>`;
-
-    return `
-      <tr>
-        <td><strong>${escapeHtml(p.name)}</strong><br><small class="term-dim">${escapeHtml(p.description || '')}</small></td>
-        <td>${codeBadge}</td>
-        <td><strong>${discountStr}</strong></td>
-        <td>${minOrderStr}</td>
-        <td>${maxCapStr}</td>
-        <td>${statusBadge}</td>
-        <td style="text-align: right; white-space: nowrap;">
-          <button class="btn btn-secondary btn-xs" onclick="window.openEditPromoModal('${p.id}')">Edit</button>
-          <button class="btn btn-secondary btn-xs" onclick="window.togglePromoStatus('${p.id}', ${p.is_active})">${p.is_active ? 'Disable' : 'Enable'}</button>
-          <button class="btn btn-danger btn-xs" onclick="window.deletePromotion('${p.id}')">Delete</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-
-  renderPaginationControl({
-    containerId: 'promotionsPagination',
-    totalItems: filtered.length,
-    currentPage: promosPageState.page,
-    pageSize: promosPageState.pageSize,
-    onPageChange: (p) => {
-      promosPageState.page = p;
-      renderPromotionsTable();
-    },
-    onPageSizeChange: (s) => {
-      promosPageState.pageSize = s;
-      promosPageState.page = 1;
-      renderPromotionsTable();
-    }
-  });
-}
-window.renderPromotionsTable = renderPromotionsTable;
-
-async function loadPromotions() {
-  const tbody = document.getElementById('promotionsTableBody');
-  if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="7" class="table-empty">Loading promotions...</td></tr>';
-
-  try {
-    const res = await fetch('/api/admin/promotions');
-    const data = await res.json();
-    if (!data.success) {
-      tbody.innerHTML = `<tr><td colspan="7" class="table-empty" style="color: #ff6b6b;">Error: ${data.error?.message}</td></tr>`;
-      return;
-    }
-
-    const promos = data.data || [];
-    cachedPromosList = promos;
-    renderPromotionsTable();
-  } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="7" class="table-empty" style="color: #ff6b6b;">Failed: ${err.message}</td></tr>`;
-  }
-}
-window.loadPromotions = loadPromotions;
-
-function openAddPromoModal() {
-  const modal = document.getElementById('promoModal');
-  const title = document.getElementById('promoModalTitle');
-  const form = document.getElementById('promoForm');
-  const editId = document.getElementById('promoEditId');
-
-  if (form) form.reset();
-  if (editId) editId.value = '';
-  if (title) title.textContent = 'Add Promotion';
-  document.getElementById('promoIsActive').checked = true;
-
-  if (modal) modal.classList.remove('hidden');
-}
-window.openAddPromoModal = openAddPromoModal;
-
-function closePromoModal() {
-  const modal = document.getElementById('promoModal');
-  if (modal) modal.classList.add('hidden');
-}
-window.closePromoModal = closePromoModal;
-
-async function openEditPromoModal(promoId) {
-  try {
-    const res = await fetch(`/api/admin/promotions/${promoId}`);
-    const data = await res.json();
-    if (!data.success) {
-      showToast(data.error?.message || 'Failed to fetch promo', 'error');
-      return;
-    }
-
-    const p = data.data;
-    document.getElementById('promoEditId').value = p.id;
-    document.getElementById('promoModalTitle').textContent = 'Edit Promotion';
-    document.getElementById('promoName').value = p.name || '';
-    document.getElementById('promoCode').value = p.code || '';
-    document.getElementById('promoDescription').value = p.description || '';
-    document.getElementById('promoDiscountType').value = p.discount_type || 'PERCENTAGE';
-    document.getElementById('promoDiscountValue').value = p.discount_value ?? '';
-    document.getElementById('promoMinOrder').value = p.minimum_order ?? '';
-    document.getElementById('promoMaxDiscount').value = p.maximum_discount ?? '';
-    document.getElementById('promoIsActive').checked = p.is_active ?? true;
-
-    if (p.start_at) {
-      document.getElementById('promoStartAt').value = new Date(p.start_at).toISOString().slice(0, 16);
-    } else {
-      document.getElementById('promoStartAt').value = '';
-    }
-
-    if (p.end_at) {
-      document.getElementById('promoEndAt').value = new Date(p.end_at).toISOString().slice(0, 16);
-    } else {
-      document.getElementById('promoEndAt').value = '';
-    }
-
-    document.getElementById('promoModal').classList.remove('hidden');
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-}
-window.openEditPromoModal = openEditPromoModal;
-
-// Save Promotion form
-const promoForm = document.getElementById('promoForm');
-if (promoForm) {
-  promoForm.addEventListener('submit', async () => {
-    const editId = document.getElementById('promoEditId').value;
-    const name = document.getElementById('promoName').value.trim();
-    const code = document.getElementById('promoCode').value.trim() || null;
-    const description = document.getElementById('promoDescription').value.trim() || null;
-    const discount_type = document.getElementById('promoDiscountType').value;
-    const discount_value = parseFloat(document.getElementById('promoDiscountValue').value);
-    const minimum_order = document.getElementById('promoMinOrder').value ? parseFloat(document.getElementById('promoMinOrder').value) : null;
-    const maximum_discount = document.getElementById('promoMaxDiscount').value ? parseFloat(document.getElementById('promoMaxDiscount').value) : null;
-    const start_at = document.getElementById('promoStartAt').value || null;
-    const end_at = document.getElementById('promoEndAt').value || null;
-    const is_active = document.getElementById('promoIsActive').checked;
-
-    const payload = {
-      name,
-      code,
-      description,
-      discount_type,
-      discount_value,
-      minimum_order,
-      maximum_discount,
-      start_at: start_at ? new Date(start_at).toISOString() : null,
-      end_at: end_at ? new Date(end_at).toISOString() : null,
-      is_active,
-    };
-
-    try {
-      const url = editId ? `/api/admin/promotions/${editId}` : '/api/admin/promotions';
-      const method = editId ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        showToast(editId ? 'Promotion updated successfully' : 'Promotion created successfully', 'success');
-        closePromoModal();
-        loadPromotions();
-      } else {
-        showToast(data.error?.message || 'Failed to save promotion', 'error');
-      }
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  });
-}
-
-async function togglePromoStatus(promoId, currentActive) {
-  try {
-    const res = await fetch(`/api/admin/promotions/${promoId}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_active: !currentActive }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      showToast('Promotion status updated', 'success');
-      loadPromotions();
-    } else {
-      showToast(data.error?.message || 'Failed to update status', 'error');
-    }
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-}
-window.togglePromoStatus = togglePromoStatus;
-
-async function deletePromotion(promoId) {
-  if (!confirm('Are you sure you want to delete this promotion?')) return;
-  try {
-    const res = await fetch(`/api/admin/promotions/${promoId}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (data.success) {
-      showToast('Promotion deleted successfully', 'success');
-      loadPromotions();
-    } else {
-      showToast(data.error?.message || 'Failed to delete promotion', 'error');
-    }
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-}
-window.deletePromotion = deletePromotion;
+// ─── Promotions (Disabled & Removed) ───────────────────────────
+window.loadPromotions = function() {};
+window.openAddPromoModal = function() {};
+window.closePromoModal = function() {};
+window.openEditPromoModal = function() {};
+window.togglePromoStatus = function() {};
+window.deletePromotion = function() {};
 
 // ─── Delivery Areas CRUD ───────────────────────────────────────────────
 let cachedDeliveryAreas = [];

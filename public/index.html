@@ -155,7 +155,7 @@
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
           </svg>
-          <span>Deals & Discounts</span>
+          <span>Meal Deals</span>
         </button>
         <button class="nav-item" type="button" data-view="delivery">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -480,20 +480,8 @@
         </div>
       </section>
 
-      <!-- VIEW 4: DEALS & PROMOTIONS -->
+      <!-- VIEW 4: MEAL DEALS -->
       <section id="viewDeals" class="workspace-view hidden">
-        <div class="deals-tabs-strip">
-          <button id="tabDealsBtn" class="deals-tab-btn active" type="button" onclick="window.switchDealsSubTab('deals')">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-            <span>Meal Deals & Bundles</span>
-          </button>
-          <button id="tabPromotionsBtn" class="deals-tab-btn" type="button" onclick="window.switchDealsSubTab('promotions')">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-            <span>Promotions & Coupons</span>
-          </button>
-        </div>
-
-        <!-- Deals Subpanel -->
         <div id="subpanelDeals">
           <div class="catalog-toolbar">
             <div class="toolbar-search">
@@ -526,42 +514,6 @@
               </table>
             </div>
             <div id="dealsPagination" class="table-pagination"></div>
-          </div>
-        </div>
-
-        <!-- Promotions Subpanel -->
-        <div id="subpanelPromotions" class="hidden">
-          <div class="catalog-toolbar">
-            <div class="toolbar-search">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-              <input type="text" id="promoSearchInput" placeholder="Search promotions..." />
-            </div>
-            <button id="openAddPromoBtn" class="btn btn-primary btn-sm" type="button" onclick="window.openAddPromoModal()">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              <span>Add Promotion</span>
-            </button>
-          </div>
-
-          <div class="table-container">
-            <div class="table-scroll-area">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Promotion Name</th>
-                    <th>Promo Code</th>
-                    <th>Discount</th>
-                    <th>Min Order</th>
-                    <th>Max Cap</th>
-                    <th>Status</th>
-                    <th style="text-align: right;">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="promotionsTableBody">
-                  <tr><td colspan="7" class="table-empty">Loading promotions...</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div id="promotionsPagination" class="table-pagination"></div>
           </div>
         </div>
       </section>
@@ -1479,92 +1431,6 @@
     </div>
   </div>
 
-  <!-- MODAL: ADD/EDIT PROMOTION -->
-  <div id="promoModal" class="modal-backdrop hidden">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 id="promoModalTitle">Add Promotion</h3>
-        <button type="button" class="modal-close-btn" onclick="window.closePromoModal()">✕</button>
-      </div>
-      <form id="promoForm" onsubmit="return false;">
-        <input type="hidden" id="promoEditId" value="" />
-        <div class="form-row-2">
-          <div class="input-group">
-            <label for="promoName">Promotion Name *</label>
-            <input type="text" id="promoName" placeholder="e.g. 15% Welcome Discount" required />
-          </div>
-          <div class="input-group">
-            <label for="promoCode">Promo Code (optional)</label>
-            <input type="text" id="promoCode" placeholder="e.g. WELCOME15" style="text-transform: uppercase;" />
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label for="promoDescription">Description</label>
-          <textarea id="promoDescription" rows="2" placeholder="Discount terms and conditions"></textarea>
-        </div>
-
-        <div class="form-row-2">
-          <div class="input-group">
-            <label for="promoDiscountType">Discount Type *</label>
-            <select id="promoDiscountType">
-              <option value="PERCENTAGE">Percentage (%)</option>
-              <option value="FIXED">Fixed Amount (Rs.)</option>
-            </select>
-          </div>
-          <div class="input-group">
-            <label for="promoDiscountValue">Discount Value *</label>
-            <input type="number" id="promoDiscountValue" min="0" step="1" placeholder="15" required />
-          </div>
-        </div>
-
-        <div class="form-row-2">
-          <div class="input-group">
-            <label for="promoMinOrder">Minimum Order (Rs.)</label>
-            <input type="number" id="promoMinOrder" min="0" step="any" placeholder="1000" />
-          </div>
-          <div class="input-group">
-            <label for="promoMaxDiscount">Max Discount Cap (Rs.)</label>
-            <input type="number" id="promoMaxDiscount" min="0" step="any" placeholder="500" />
-          </div>
-        </div>
-
-        <div class="form-row-2">
-          <div class="input-group">
-            <label for="promoStartAt">Start Date (optional)</label>
-            <input type="datetime-local" id="promoStartAt" />
-          </div>
-          <div class="input-group">
-            <label for="promoEndAt">End Date (optional)</label>
-            <input type="datetime-local" id="promoEndAt" />
-          </div>
-        </div>
-
-        <div class="form-row-2">
-          <div class="input-group">
-            <label for="promoTargetType">Applies To</label>
-            <select id="promoTargetType">
-              <option value="ALL">Entire Order / Menu</option>
-            </select>
-          </div>
-          <div class="input-group">
-            <label for="promoIsActive">Status</label>
-            <div class="checkbox-control">
-              <label class="checkbox-label">
-                <input type="checkbox" id="promoIsActive" checked />
-                <span>Active Promotion</span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" onclick="window.closePromoModal()">Cancel</button>
-          <button type="submit" id="promoSaveBtn" class="btn btn-primary">Save Promotion</button>
-        </div>
-      </form>
-    </div>
-  </div>
 
   <!-- MODAL: ADD/EDIT DELIVERY AREA -->
   <div id="deliveryModal" class="modal-backdrop hidden">
