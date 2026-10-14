@@ -57,13 +57,11 @@ router.get('/', async (req, res) => {
         const formatted = availableDeals.map(d => ({
             id: d.id,
             name: d.name,
-            slug: d.slug,
             description: d.description || '',
             dealPrice: Number(d.deal_price),
-            imageUrl: d.image_url || '',
             items: d.deal_items.map(di => ({
                 name: di.menu_item?.name || '',
-                variant: di.menu_variant?.name || null,
+                variant: di.menu_variant?.name || undefined,
                 quantity: di.quantity,
             })),
         }));

@@ -170,17 +170,12 @@ router.get('/search', async (req, res) => {
         const formatted = items.map(item => ({
             id: item.id,
             name: item.name,
-            slug: item.slug,
-            description: item.description || '',
-            category: item.category.name,
+            category: item.category?.name || '',
             basePrice: Number(item.base_price),
-            available: item.is_available,
-            imageUrl: item.image_url || '',
-            variants: item.variants.map(v => ({
+            variants: (item.variants || []).map(v => ({
                 id: v.id,
                 name: v.name,
                 price: Number(v.price),
-                available: v.is_available,
             })),
         }));
 

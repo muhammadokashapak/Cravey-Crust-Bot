@@ -39,20 +39,14 @@ router.get('/', async (req, res) => {
         return res.json({
             success: true,
             data: {
-                id: restaurant.id,
                 name: restaurant.name,
                 address: restaurant.address || '',
                 phone: restaurant.phone || '',
-                openingTime: restaurant.opening_time || '',
-                closingTime: restaurant.closing_time || '',
+                timings: `${restaurant.opening_time || ''} to ${restaurant.closing_time || ''}`,
                 minOrder: Number(restaurant.min_order || 0),
-                defaultDeliveryFee: Number(restaurant.default_delivery_fee || 0),
                 codEnabled: restaurant.cod_enabled,
                 easypaisaEnabled: restaurant.easypaisa_enabled,
                 easypaisaNumber: restaurant.easypaisa_number || '',
-                accountName: restaurant.account_name || '',
-                botName: settingsMap['bot_name'] || settingsMap['persona_name'] || 'Burger Raja',
-                settings: settingsMap,
             },
         });
     } catch (err) {

@@ -43,11 +43,6 @@ router.get('/active', async (req, res) => {
             discountType: p.discount_type,
             discountValue: Number(p.discount_value),
             minimumOrder: p.minimum_order != null ? Number(p.minimum_order) : 0,
-            maximumDiscount: p.maximum_discount != null ? Number(p.maximum_discount) : null,
-            targets: p.targets.map(t => ({
-                targetType: t.target_type,
-                targetId: t.target_id,
-            })),
         }));
 
         return res.json({

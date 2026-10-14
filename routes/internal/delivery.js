@@ -86,7 +86,6 @@ router.post('/check', async (req, res) => {
                 success: true,
                 data: {
                     available: false,
-                    code: result.code,
                     message: result.message,
                 },
             });
@@ -94,7 +93,13 @@ router.post('/check', async (req, res) => {
 
         return res.json({
             success: true,
-            data: result,
+            data: {
+                available: true,
+                areaName: result.area?.name || result.deliveryAddress || 'Delivery Area',
+                areaId: result.area?.id || undefined,
+                deliveryFee: result.deliveryFee,
+                deliveryAddress: result.deliveryAddress,
+            },
         });
     } catch (err) {
         console.error('[INTERNAL] Error checking delivery:', err);

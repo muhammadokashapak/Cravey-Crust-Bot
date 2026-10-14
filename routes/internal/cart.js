@@ -12,6 +12,63 @@ import { getDefaultRestaurantId } from '../../src/services/restaurantService.js'
 const router = express.Router();
 
 /**
+ * Format a slim, token-optimized cart object for AI bots
+ */
+function formatSlimCart(cart) {
+    if (!cart) return { items: [], subtotal: 0, totalItems: 0 };
+    let subtotal = 0;
+    const items = (cart.items || []).map(item => {
+        const name = item.menu_item?.name || item.deal?.name || 'Item';
+        const variant = item.menu_variant?.name || null;
+        const unitPrice = Number(item.menu_variant?.price || item.menu_item?.base_price || item.deal?.deal_price || item.deal?.price || 0);
+        const lineTotal = unitPrice * (item.quantity || 1);
+        subtotal += lineTotal;
+        return {
+            cartItemId: item.id,
+            name,
+            variant: variant || undefined,
+            quantity: item.quantity,
+            price: unitPrice,
+            lineTotal,
+            notes: item.notes || undefined,
+        };
+    });
+    return {
+        cartId: cart.id,
+        items,
+        totalItems: items.reduce((acc, i) => acc + i.quantity, 0),
+        subtotal,
+    };
+}
+
+/**
+ * Format slim totals for calculate endpoint
+ */
+function formatSlimTotals(totals) {
+    if (!totals) return { items: [], subtotal: 0, total: 0 };
+    return {
+        items: (totals.items || []).map(i => ({
+            name: i.name,
+            variant: i.variantName || undefined,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            lineTotal: i.lineTotal,
+        })),
+        deals: (totals.deals || []).map(d => ({
+            name: d.name,
+            quantity: d.quantity,
+            unitPrice: d.unitPrice,
+            lineTotal: d.lineTotal,
+        })),
+        subtotal: totals.subtotal,
+        deliveryFee: totals.deliveryFee,
+        deliveryArea: totals.deliveryArea?.name || undefined,
+        discountTotal: totals.discountTotal > 0 ? totals.discountTotal : undefined,
+        total: totals.total,
+    };
+}
+
+/**
  * GET /api/internal/cart/:sessionKey
  * Load active cart for a session
  */
@@ -28,7 +85,7 @@ router.get('/:sessionKey', async (req, res) => {
 
         return res.json({
             success: true,
-            data: cart,
+            data: formatSlimCart(cart),
         });
     } catch (err) {
         return res.status(err.code ? 400 : 500).json({
@@ -63,7 +120,8 @@ router.post('/:sessionKey/items', async (req, res) => {
 
         return res.status(201).json({
             success: true,
-            data: cart,
+            message: 'Item added to cart',
+            data: formatSlimCart(cart),
         });
     } catch (err) {
         return res.status(err.code ? 400 : 500).json({
@@ -94,7 +152,8 @@ router.patch('/:sessionKey/items/:cartItemId', async (req, res) => {
 
         return res.json({
             success: true,
-            data: cart,
+            message: 'Cart item updated',
+            data: formatSlimCart(cart),
         });
     } catch (err) {
         return res.status(err.code ? 400 : 500).json({
@@ -118,7 +177,8 @@ router.delete('/:sessionKey/items/:cartItemId', async (req, res) => {
 
         return res.json({
             success: true,
-            data: cart,
+            message: 'Cart item removed',
+            data: formatSlimCart(cart),
         });
     } catch (err) {
         return res.status(err.code ? 400 : 500).json({
@@ -138,11 +198,12 @@ router.delete('/:sessionKey/items/:cartItemId', async (req, res) => {
 router.delete('/:sessionKey', async (req, res) => {
     try {
         const { sessionKey } = req.params;
-        const cart = await clearCart({ sessionKey });
+        await clearCart({ sessionKey });
 
         return res.json({
             success: true,
-            data: cart,
+            message: 'Cart cleared successfully',
+            data: { items: [], totalItems: 0, subtotal: 0 },
         });
     } catch (err) {
         return res.status(err.code ? 400 : 500).json({
@@ -177,7 +238,7 @@ router.post('/:sessionKey/calculate', async (req, res) => {
 
         return res.json({
             success: true,
-            data: totals,
+            data: formatSlimTotals(totals),
         });
     } catch (err) {
         return res.status(err.code ? 400 : 500).json({
