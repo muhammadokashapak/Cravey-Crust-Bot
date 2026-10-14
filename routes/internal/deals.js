@@ -54,17 +54,35 @@ router.get('/', async (req, res) => {
             });
         });
 
-        const formatted = availableDeals.map(d => ({
-            id: d.id,
-            name: d.name,
-            description: d.description || '',
-            dealPrice: Number(d.deal_price),
-            items: d.deal_items.map(di => ({
-                name: di.menu_item?.name || '',
-                variant: di.menu_variant?.name || undefined,
-                quantity: di.quantity,
-            })),
-        }));
+        const typeFilter = String(req.query.type || req.query.category || '').trim().toLowerCase();
+
+        const formatted = availableDeals.map(d => {
+            const itemsText = (d.deal_items || []).map(di => di.menu_item?.name || '').join(' ');
+            const fullText = (d.name + ' ' + (d.description || '') + ' ' + itemsText).toLowerCase();
+            const isBurger = /\b(burger|zinger|zeggy)\b/i.test(fullText);
+            const isPizza = /\b(pizza)\b/i.test(fullText);
+            let category = 'Special Deals';
+            if (isBurger && !isPizza) category = 'Burger Deals';
+            else if (isPizza && !isBurger) category = 'Pizza Deals';
+
+            return {
+                id: d.id,
+                name: d.name,
+                category,
+                description: d.description || '',
+                dealPrice: Number(d.deal_price),
+                items: d.deal_items.map(di => ({
+                    name: di.menu_item?.name || '',
+                    variant: di.menu_variant?.name || undefined,
+                    quantity: di.quantity,
+                })),
+            };
+        }).filter(d => {
+            if (!typeFilter) return true;
+            if (typeFilter.includes('burger') || typeFilter.includes('zinger')) return d.category === 'Burger Deals';
+            if (typeFilter.includes('pizza')) return d.category === 'Pizza Deals';
+            return true;
+        });
 
         return res.json({
             success: true,
