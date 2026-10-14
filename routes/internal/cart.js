@@ -106,6 +106,26 @@ router.post('/:sessionKey/items', async (req, res) => {
     try {
         const { sessionKey } = req.params;
         const restaurantId = await getDefaultRestaurantId();
+        if (Array.isArray(req.body?.items) && req.body.items.length > 0) {
+            let lastCart = null;
+            for (const item of req.body.items) {
+                lastCart = await addItemToCart({
+                    sessionKey,
+                    restaurantId,
+                    menuItemId: item.menuItemId,
+                    variantId: item.variantId,
+                    dealId: item.dealId,
+                    quantity: item.quantity ? parseInt(item.quantity, 10) : 1,
+                    notes: item.notes,
+                });
+            }
+            return res.status(201).json({
+                success: true,
+                message: `${req.body.items.length} items added to cart`,
+                data: formatSlimCart(lastCart),
+            });
+        }
+
         const { menuItemId, variantId, dealId, quantity, notes } = req.body || {};
 
         const cart = await addItemToCart({

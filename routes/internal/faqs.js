@@ -12,7 +12,7 @@ const router = express.Router();
 router.get('/search', async (req, res) => {
     try {
         const query = req.query.q || req.query.query || '';
-        const limit = parseInt(req.query.limit, 10) || 3;
+        const limit = Math.min(2, parseInt(req.query.limit, 10) || 2);
 
         const restaurantId = await getDefaultRestaurantId();
 
@@ -22,7 +22,15 @@ router.get('/search', async (req, res) => {
             limit,
         });
 
-        return res.json(searchResult);
+        const slimMatches = (searchResult.data?.results || []).map(r => ({
+            question: r.question,
+            answer: r.answer,
+        }));
+
+        return res.json({
+            success: true,
+            data: slimMatches,
+        });
     } catch (err) {
         console.error('[INTERNAL] Error searching FAQs:', err);
         return res.status(500).json({

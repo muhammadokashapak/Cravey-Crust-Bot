@@ -140,12 +140,43 @@ router.get('/search', async (req, res) => {
             });
         }
 
-        const query = req.query.q || req.query.query || '';
-        if (!query.trim()) {
+        const rawQuery = (req.query.q || req.query.query || '').trim();
+        if (!rawQuery) {
             return res.json({ success: true, data: [] });
         }
 
         const restaurantId = await getDefaultRestaurantId();
+
+        // 1. Normalize size keywords and plurals so "soft drinks 1.5 liter" -> "soft drink"
+        const sizeKeywords = ['small', 'medium', 'large', 'party size', 'party', 'regular', 'can', '1.5 liter', '1.5', '1 liter', '1l'];
+        let cleanQuery = rawQuery.toLowerCase();
+        for (const s of sizeKeywords) {
+            if (cleanQuery.includes(s)) {
+                cleanQuery = cleanQuery.replace(s, ' ').trim();
+            }
+        }
+        cleanQuery = cleanQuery
+            .replace(/\bdrinks\b/g, 'drink')
+            .replace(/\bpizzas\b/g, 'pizza')
+            .replace(/\bburgers\b/g, 'burger')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const searchTerms = [cleanQuery, rawQuery.toLowerCase()].filter(Boolean);
+        const searchWords = cleanQuery.split(' ').filter(w => w.length > 2);
+
+        // Build OR conditions: match by name, variant name, or description
+        const orConditions = [];
+        for (const term of searchTerms) {
+            orConditions.push({ name: { contains: term, mode: 'insensitive' } });
+            orConditions.push({ variants: { some: { name: { contains: term, mode: 'insensitive' } } } });
+        }
+        for (const word of searchWords) {
+            orConditions.push({ name: { contains: word, mode: 'insensitive' } });
+        }
+        if (cleanQuery) {
+            orConditions.push({ description: { contains: cleanQuery, mode: 'insensitive' } });
+        }
 
         const items = await prisma.menuItem.findMany({
             where: {
@@ -153,18 +184,16 @@ router.get('/search', async (req, res) => {
                 is_active: true,
                 is_available: true,
                 category: { is_active: true },
-                OR: [
-                    { name: { contains: query.trim(), mode: 'insensitive' } },
-                    { description: { contains: query.trim(), mode: 'insensitive' } },
-                ],
+                OR: orConditions,
             },
             include: {
-                category: { select: { id: true, name: true, slug: true } },
+                category: { select: { id: true, name: true } },
                 variants: {
                     where: { is_available: true },
                     orderBy: { sort_order: 'asc' },
                 },
             },
+            take: 4, // Max 4 results to prevent token blowup
         });
 
         const formatted = items.map(item => ({
