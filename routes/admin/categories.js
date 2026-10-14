@@ -21,33 +21,68 @@ router.get('/', async (req, res) => {
             });
         }
 
-        let restaurantId = req.user?.restaurantId;
+        let restaurantId = req.user?.restaurantId || req.user?.restaurant_id;
         if (!restaurantId) {
             try {
                 restaurantId = await getDefaultRestaurantId();
             } catch (_) {}
         }
 
-        const categories = await prisma.category.findMany({
-            where: restaurantId ? { restaurant_id: restaurantId } : {},
-            orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
-            include: {
-                _count: {
-                    select: { menu_items: true },
-                },
-            },
-        });
+        const buildWhere = (rid) => (rid ? { restaurant_id: rid } : {});
 
-        const formatted = categories.map(c => ({
+        let categories = [];
+        try {
+            // Attempt 1: with restaurant_id and _count
+            categories = await prisma.category.findMany({
+                where: buildWhere(restaurantId),
+                orderBy: { sort_order: 'asc' },
+                include: {
+                    _count: {
+                        select: { menu_items: true },
+                    },
+                },
+            });
+            // If scoped restaurant has no categories, fallback to all categories
+            if ((!categories || categories.length === 0) && restaurantId) {
+                categories = await prisma.category.findMany({
+                    where: {},
+                    orderBy: { sort_order: 'asc' },
+                    include: {
+                        _count: {
+                            select: { menu_items: true },
+                        },
+                    },
+                });
+            }
+        } catch (queryErr) {
+            console.warn('[ADMIN] Categories query with _count failed, trying fallback without _count:', queryErr.message);
+            try {
+                categories = await prisma.category.findMany({
+                    where: buildWhere(restaurantId),
+                    orderBy: { sort_order: 'asc' },
+                });
+                if ((!categories || categories.length === 0) && restaurantId) {
+                    categories = await prisma.category.findMany({
+                        where: {},
+                        orderBy: { sort_order: 'asc' },
+                    });
+                }
+            } catch (err2) {
+                console.warn('[ADMIN] Final category query fallback without order:', err2.message);
+                categories = await prisma.category.findMany();
+            }
+        }
+
+        const formatted = (categories || []).map(c => ({
             id: c.id,
-            name: c.name,
-            slug: c.slug,
-            description: c.description,
-            sort_order: c.sort_order,
-            is_active: c.is_active,
-            items_count: c._count.menu_items,
-            created_at: c.created_at,
-            updated_at: c.updated_at,
+            name: c.name || '',
+            slug: c.slug || '',
+            description: c.description || '',
+            sort_order: c.sort_order ?? 0,
+            is_active: Boolean(c.is_active ?? true),
+            items_count: c._count?.menu_items ?? 0,
+            created_at: c.created_at || new Date(),
+            updated_at: c.updated_at || new Date(),
         }));
 
         return res.json({ success: true, data: formatted });
@@ -55,7 +90,7 @@ router.get('/', async (req, res) => {
         console.error('[ADMIN] Error listing categories:', err);
         return res.status(500).json({
             success: false,
-            error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve categories' },
+            error: { code: 'INTERNAL_ERROR', message: err.message || 'Failed to retrieve categories' },
         });
     }
 });
@@ -66,22 +101,44 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const prisma = getDbClient();
-        let restaurantId = req.user?.restaurantId;
+        if (!prisma) {
+            return res.status(503).json({
+                success: false,
+                error: { code: 'DB_UNAVAILABLE', message: 'Database not available' },
+            });
+        }
+
+        let restaurantId = req.user?.restaurantId || req.user?.restaurant_id;
         if (!restaurantId) {
             try {
                 restaurantId = await getDefaultRestaurantId();
             } catch (_) {}
         }
 
-        const category = await prisma.category.findFirst({
-            where: {
-                id: req.params.id,
-                ...(restaurantId ? { restaurant_id: restaurantId } : {}),
-            },
-            include: {
-                _count: { select: { menu_items: true } },
-            },
-        });
+        let category = null;
+        try {
+            category = await prisma.category.findFirst({
+                where: {
+                    id: req.params.id,
+                    ...(restaurantId ? { restaurant_id: restaurantId } : {}),
+                },
+                include: {
+                    _count: { select: { menu_items: true } },
+                },
+            });
+            if (!category && restaurantId) {
+                category = await prisma.category.findFirst({
+                    where: { id: req.params.id },
+                    include: {
+                        _count: { select: { menu_items: true } },
+                    },
+                });
+            }
+        } catch (_) {
+            category = await prisma.category.findFirst({
+                where: { id: req.params.id },
+            });
+        }
 
         if (!category) {
             return res.status(404).json({
@@ -94,13 +151,13 @@ router.get('/:id', async (req, res) => {
             success: true,
             data: {
                 ...category,
-                items_count: category._count.menu_items,
+                items_count: category._count?.menu_items ?? 0,
             },
         });
     } catch (err) {
         return res.status(500).json({
             success: false,
-            error: { code: 'INTERNAL_ERROR', message: err.message },
+            error: { code: 'INTERNAL_ERROR', message: err.message || 'Failed to retrieve category' },
         });
     }
 });

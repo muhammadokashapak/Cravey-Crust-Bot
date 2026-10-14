@@ -21,47 +21,103 @@ router.get('/', async (req, res) => {
             });
         }
 
-        let restaurantId = req.user?.restaurantId;
+        let restaurantId = req.user?.restaurantId || req.user?.restaurant_id;
         if (!restaurantId) {
             try {
                 restaurantId = await getDefaultRestaurantId();
             } catch (_) {}
         }
-        const deals = await prisma.deal.findMany({
-            where: restaurantId ? { restaurant_id: restaurantId } : {},
-            orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
-            include: {
-                deal_items: {
-                    include: {
-                        menu_item: { select: { id: true, name: true, base_price: true, is_available: true } },
-                        menu_variant: { select: { id: true, name: true, price: true, is_available: true } },
+
+        const buildWhere = (rid) => (rid ? { restaurant_id: rid } : {});
+
+        let deals = [];
+        try {
+            deals = await prisma.deal.findMany({
+                where: buildWhere(restaurantId),
+                orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
+                include: {
+                    deal_items: {
+                        include: {
+                            menu_item: { select: { id: true, name: true, base_price: true, is_available: true } },
+                            menu_variant: { select: { id: true, name: true, price: true, is_available: true } },
+                        },
                     },
                 },
-            },
-        });
+            });
+            if ((!deals || deals.length === 0) && restaurantId) {
+                deals = await prisma.deal.findMany({
+                    where: {},
+                    orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
+                    include: {
+                        deal_items: {
+                            include: {
+                                menu_item: { select: { id: true, name: true, base_price: true, is_available: true } },
+                                menu_variant: { select: { id: true, name: true, price: true, is_available: true } },
+                            },
+                        },
+                    },
+                });
+            }
+        } catch (queryErr) {
+            console.warn('[ADMIN] Deals complex query failed, trying simplified include:', queryErr.message);
+            try {
+                deals = await prisma.deal.findMany({
+                    where: buildWhere(restaurantId),
+                    orderBy: { sort_order: 'asc' },
+                    include: {
+                        deal_items: {
+                            include: {
+                                menu_item: { select: { id: true, name: true } },
+                            },
+                        },
+                    },
+                });
+                if ((!deals || deals.length === 0) && restaurantId) {
+                    deals = await prisma.deal.findMany({
+                        where: {},
+                        orderBy: { sort_order: 'asc' },
+                        include: {
+                            deal_items: {
+                                include: {
+                                    menu_item: { select: { id: true, name: true } },
+                                },
+                            },
+                        },
+                    });
+                }
+            } catch (err2) {
+                console.warn('[ADMIN] Final deals fallback without relation include:', err2.message);
+                deals = await prisma.deal.findMany({
+                    where: {},
+                    include: {
+                        deal_items: true,
+                    },
+                });
+            }
+        }
 
-        const formatted = deals.map(d => ({
+        const formatted = (deals || []).map(d => ({
             id: d.id,
-            name: d.name,
-            slug: d.slug,
-            description: d.description,
-            image_url: d.image_url,
-            deal_price: Number(d.deal_price),
-            start_at: d.start_at,
-            end_at: d.end_at,
-            is_active: d.is_active,
-            sort_order: d.sort_order,
-            items_count: d.deal_items.length,
-            items: d.deal_items.map(di => ({
+            name: d.name || '',
+            slug: d.slug || '',
+            description: d.description || '',
+            image_url: d.image_url || '',
+            deal_price: Number(d.deal_price ?? 0),
+            start_at: d.start_at || null,
+            end_at: d.end_at || null,
+            is_active: Boolean(d.is_active ?? true),
+            sort_order: d.sort_order ?? 0,
+            items_count: Array.isArray(d.deal_items) ? d.deal_items.length : 0,
+            items: Array.isArray(d.deal_items) ? d.deal_items.map(di => ({
                 id: di.id,
                 menu_item_id: di.menu_item_id,
-                item_name: di.menu_item?.name || 'Unknown Item',
-                menu_variant_id: di.menu_variant_id,
+                item_name: di.menu_item?.name || 'Item',
+                menu_variant_id: di.menu_variant_id || null,
                 variant_name: di.menu_variant?.name || null,
-                quantity: di.quantity,
-            })),
-            created_at: d.created_at,
-            updated_at: d.updated_at,
+                quantity: di.quantity ?? 1,
+            })) : [],
+            created_at: d.created_at || new Date(),
+            updated_at: d.updated_at || new Date(),
         }));
 
         return res.json({ success: true, data: formatted });
@@ -69,7 +125,7 @@ router.get('/', async (req, res) => {
         console.error('[ADMIN] Error listing deals:', err);
         return res.status(500).json({
             success: false,
-            error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve deals' },
+            error: { code: 'INTERNAL_ERROR', message: err.message || 'Failed to retrieve deals' },
         });
     }
 });
@@ -212,8 +268,8 @@ router.get('/:id', async (req, res) => {
             });
         }
 
-        const restaurantId = req.user?.restaurantId;
-        const deal = await prisma.deal.findFirst({
+        let restaurantId = req.user?.restaurantId || req.user?.restaurant_id;
+        let deal = await prisma.deal.findFirst({
             where: {
                 id: req.params.id,
                 ...(restaurantId ? { restaurant_id: restaurantId } : {}),
@@ -228,6 +284,20 @@ router.get('/:id', async (req, res) => {
             },
         });
 
+        if (!deal && restaurantId) {
+            deal = await prisma.deal.findFirst({
+                where: { id: req.params.id },
+                include: {
+                    deal_items: {
+                        include: {
+                            menu_item: true,
+                            menu_variant: true,
+                        },
+                    },
+                },
+            });
+        }
+
         if (!deal) {
             return res.status(404).json({
                 success: false,
@@ -239,13 +309,13 @@ router.get('/:id', async (req, res) => {
             success: true,
             data: {
                 ...deal,
-                deal_price: Number(deal.deal_price),
+                deal_price: Number(deal.deal_price ?? 0),
             },
         });
     } catch (err) {
         return res.status(500).json({
             success: false,
-            error: { code: 'INTERNAL_ERROR', message: err.message },
+            error: { code: 'INTERNAL_ERROR', message: err.message || 'Failed to retrieve deal' },
         });
     }
 });
