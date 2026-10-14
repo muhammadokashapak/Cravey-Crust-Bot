@@ -237,66 +237,45 @@ router.get('/search', async (req, res) => {
 
         const searchWords = cleanQuery.split(' ').filter(w => w.length > 2);
 
-        // Build OR conditions: match by name, variant name, or description
+        // Build OR conditions: match by item name, variant name, category name, or description
         const orConditions = [];
         for (const term of searchTerms) {
             orConditions.push({ name: { contains: term, mode: 'insensitive' } });
+            orConditions.push({ category: { name: { contains: term, mode: 'insensitive' } } });
             orConditions.push({ variants: { some: { name: { contains: term, mode: 'insensitive' } } } });
         }
         for (const word of searchWords) {
             orConditions.push({ name: { contains: word, mode: 'insensitive' } });
+            orConditions.push({ category: { name: { contains: word, mode: 'insensitive' } } });
         }
         if (cleanQuery) {
             orConditions.push({ description: { contains: cleanQuery, mode: 'insensitive' } });
         }
 
-        // First attempt: Direct name match for high precision and ultra-low tokens
-        let items = [];
-        const primaryTerm = searchTerms[0] || cleanQuery;
-        if (primaryTerm && primaryTerm.length >= 3) {
-            items = await prisma.menuItem.findMany({
-                where: {
-                    restaurant_id: restaurantId,
-                    is_active: true,
-                    is_available: true,
-                    category: { is_active: true },
-                    name: { contains: primaryTerm, mode: 'insensitive' },
+        // Search active items across name, category, and description
+        const items = await prisma.menuItem.findMany({
+            where: {
+                restaurant_id: restaurantId,
+                is_active: true,
+                is_available: true,
+                category: { is_active: true },
+                OR: orConditions,
+            },
+            include: {
+                category: { select: { id: true, name: true } },
+                variants: {
+                    where: { is_available: true },
+                    orderBy: { sort_order: 'asc' },
                 },
-                include: {
-                    category: { select: { id: true, name: true } },
-                    variants: {
-                        where: { is_available: true },
-                        orderBy: { sort_order: 'asc' },
-                    },
-                },
-                take: 2,
-            });
-        }
-
-        // Fallback: Broad search only if direct match found nothing
-        if (!items || items.length === 0) {
-            items = await prisma.menuItem.findMany({
-                where: {
-                    restaurant_id: restaurantId,
-                    is_active: true,
-                    is_available: true,
-                    category: { is_active: true },
-                    OR: orConditions,
-                },
-                include: {
-                    category: { select: { id: true, name: true } },
-                    variants: {
-                        where: { is_available: true },
-                        orderBy: { sort_order: 'asc' },
-                    },
-                },
-                take: 3,
-            });
-        }
+            },
+            orderBy: [{ category: { sort_order: 'asc' } }, { name: 'asc' }],
+            take: limitNum,
+        });
 
         const formatted = items.map(item => ({
             id: item.id,
             name: item.name,
+            description: item.description || '',
             category: item.category?.name || '',
             basePrice: Number(item.base_price),
             variants: (item.variants || []).map(v => ({
