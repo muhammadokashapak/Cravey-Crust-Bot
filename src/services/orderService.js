@@ -102,15 +102,13 @@ export async function createOrder(params) {
     // ─── 2. Validate Contact Mode & Phone Numbers ────────────────────────────
     let finalPhone = '';
     const phoneStr = String(phone || '').toLowerCase().trim();
-    const isSameNumberRequest = phoneStr === 'same' || 
-        phoneStr === 'same number' || 
-        phoneStr === 'same_number' || 
-        phoneStr === 'whatsapp' || 
-        phoneStr === 'same_whatsapp' || 
-        phoneStr === 'yahi' ||
-        phoneStr === 'yehi' ||
-        phoneStr === 'wahi' ||
-        phoneStr.includes('same') ||
+
+    // Comprehensive same-number detection: catches all Roman Urdu & English variations
+    // Covers: "same number", "yahi number", "yeh jis se msg kr rha hoon", "is number pe",
+    // "mera number", "mere number pe", "apne number pe", "whatsapp wala", etc.
+    const sameNumberRegex = /\b(same|yahi|yehi|yeh|ye|wahi|isi|is|mera|meri|mere|apna|apne|apni|default|whatsapp|wa)\b|same.?(number|num|no|contact|phone)|yahi.?(number|num|no)|yehi.?(number|num|no)|is.?(number|pe|wala|se)|isi.?(number|pe|wala|se)|jis.?se.?(msg|message|text|baat|bat|messaging|whatsapp|number)|yeh.?jis|yeh.?number|is.?wala|yeh.?wala|mere.?(number|pe|se)|mera.?(number|pe|se)|apne.?(number|pe|se)|apna.?(number|pe|se)|messaging.?number|contact.?number.?(hi|yahi|same)|number.?(hi|yahi|same|yehi|wahi)/i;
+
+    const isSameNumberRequest = sameNumberRegex.test(phoneStr) ||
         contactNumberMode === 'same_whatsapp';
 
     const cleanDigits = phoneStr.replace(/\D/g, '');
