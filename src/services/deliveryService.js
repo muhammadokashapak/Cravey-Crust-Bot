@@ -262,7 +262,8 @@ export async function checkDeliveryAvailability(params) {
 
         if (rankedAreas.length > 0) {
             const closest = rankedAreas[0];
-            if (closest.distance <= closest.radiusKm) {
+            const effectiveRadius = Math.max(closest.radiusKm || 2.5, 3.5);
+            if (closest.distance <= effectiveRadius || distToRestaurant <= 8.0) {
                 matchedArea = closest.area;
             } else {
                 return {
@@ -321,6 +322,24 @@ export async function checkDeliveryAvailability(params) {
         .replace(/^Khana Pull$/i, 'Khanna Pul')
         .trim();
 
+    // Construct the formatted delivery address from shared location
+    const mapUrl = (lat != null && lng != null) ? `https://www.google.com/maps?q=${lat},${lng}` : null;
+    let deliveryAddress = '';
+
+    const candidateText = [address, areaName].filter(Boolean).find(t => t && !t.startsWith('http') && !t.includes('lat='));
+    if (candidateText && candidateText.trim().length > 0) {
+        deliveryAddress = candidateText.trim();
+        if (!deliveryAddress.toLowerCase().includes(cleanDisplayName.toLowerCase())) {
+            deliveryAddress = `${deliveryAddress}, ${cleanDisplayName}`;
+        }
+    } else {
+        deliveryAddress = cleanDisplayName;
+    }
+
+    if (mapUrl && !deliveryAddress.includes('maps.google.com') && !deliveryAddress.includes('google.com/maps')) {
+        deliveryAddress += ` (Location Pin: ${mapUrl})`;
+    }
+
     return {
         available: true,
         area: {
@@ -334,6 +353,11 @@ export async function checkDeliveryAvailability(params) {
         deliveryFee,
         minimumOrder,
         minimumMet: minMet,
+        deliveryAddress,
+        formattedAddress: deliveryAddress,
+        latitude: lat,
+        longitude: lng,
+        googleMapsUrl: mapUrl,
         ...(minMet ? {} : {
             code: 'DELIVERY_MINIMUM_NOT_MET',
             message: `Order subtotal of Rs. ${subtotalNum} is below minimum delivery order of Rs. ${minimumOrder}`,

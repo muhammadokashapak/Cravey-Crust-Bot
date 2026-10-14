@@ -6,9 +6,10 @@
  * ╚══════════════════════════════════════════╝
  *
  * Exported functions:
- *   extractLocation(msg)          → location object | null
- *   extractGoogleMapsUrl(text)    → URL string | null
- *   buildGoogleMapsUrl(lat, lng)  → URL string
+ *   extractLocation(msg)              → location object | null
+ *   extractGoogleMapsUrl(text)        → URL string | null
+ *   extractCoordinatesFromText(text)  → { latitude, longitude } | null
+ *   buildGoogleMapsUrl(lat, lng)      → URL string
  */
 
 // ─── Google Maps URL patterns ─────────────────────────────
@@ -16,30 +17,47 @@
 const GOOGLE_MAPS_REGEX =
     /https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.com\/maps|maps\.google\.com)[^\s]*/i;
 
+// Matches explicit coordinates in Google Maps URLs or text
+const COORDS_REGEX = /(?:q=|@|ll=)(-?\d+\.\d+),\s*(-?\d+\.\d+)/i;
+
 /**
  * Unwrap common Baileys message wrappers to reach the inner message object.
- * Mirrors the same wrapper list used in extractMessageText() in bot.js.
+ * Handles viewOnce, ephemeral, edited, and nested protocol containers.
  *
- * @param {object} m  msg.message (already one level deep from the raw msg)
+ * @param {object} m  msg or msg.message
  * @returns {object}  innermost message object
  */
 function unwrapMessage(m) {
     if (!m) return m;
+    if (m.message) m = m.message;
+
     const WRAPPERS = [
         'ephemeralMessage',
         'viewOnceMessage',
         'viewOnceMessageV2',
         'viewOnceMessageV2Extension',
         'documentWithCaptionMessage',
+        'editedMessage',
     ];
-    for (let depth = 0; depth < 3; depth++) {
+
+    for (let depth = 0; depth < 5; depth++) {
         let unwrapped = false;
         for (const w of WRAPPERS) {
-            if (m[w] && m[w].message) {
-                m = m[w].message;
-                unwrapped = true;
-                break;
+            if (m && m[w]) {
+                if (m[w].message) {
+                    m = m[w].message;
+                    unwrapped = true;
+                    break;
+                } else if (w === 'editedMessage' && m[w].protocolMessage?.editedMessage) {
+                    m = m[w].protocolMessage.editedMessage;
+                    unwrapped = true;
+                    break;
+                }
             }
+        }
+        if (m && m.protocolMessage?.editedMessage) {
+            m = m.protocolMessage.editedMessage;
+            unwrapped = true;
         }
         if (!unwrapped) break;
     }
@@ -59,9 +77,6 @@ export function buildGoogleMapsUrl(latitude, longitude) {
 
 /**
  * Detect and extract a Google Maps URL from a plain-text message.
- * Returns the URL string when found, otherwise null.
- *
- * Does NOT attempt to resolve shortened URLs or scrape coordinates.
  *
  * @param {string} text
  * @returns {string|null}
@@ -73,68 +88,98 @@ export function extractGoogleMapsUrl(text) {
 }
 
 /**
+ * Extract GPS coordinates from text or Google Maps URLs if present.
+ *
+ * @param {string} text
+ * @returns {{ latitude: number, longitude: number }|null}
+ */
+export function extractCoordinatesFromText(text) {
+    if (!text || typeof text !== 'string') return null;
+    const match = text.match(COORDS_REGEX);
+    if (match) {
+        const lat = Number(match[1]);
+        const lng = Number(match[2]);
+        if (!isNaN(lat) && !isNaN(lng) && !(lat === 0 && lng === 0)) {
+            return { latitude: lat, longitude: lng };
+        }
+    }
+    return null;
+}
+
+/**
  * Extract location information from a raw Baileys message object.
  *
  * Handles:
- *   - locationMessage        (standard WhatsApp current location)
- *   - liveLocationMessage    (live location share)
- *   - Messages wrapped in ephemeral / viewOnce containers
+ *   - locationMessage        (standard WhatsApp current location / pin)
+ *   - liveLocationMessage    (WhatsApp live location share / refresh)
+ *   - Messages wrapped in ephemeral / viewOnce / edited containers
  *
  * Returns null when no location is present — never guesses coordinates.
  *
- * @param {object} msg  Raw Baileys message object (the outer msg, not msg.message)
+ * @param {object} msg  Raw Baileys message object
  * @returns {{
  *   type: 'current_location'|'live_location',
  *   latitude: number,
  *   longitude: number,
  *   name: string,
  *   address: string,
+ *   formattedAddress: string,
  *   mapUrl: string,
- *   originalUrl: string
+ *   originalUrl: string,
+ *   accuracy?: number|null
  * }|null}
  */
 export function extractLocation(msg) {
-    if (!msg || !msg.message) return null;
+    if (!msg) return null;
 
-    const m = unwrapMessage(msg.message);
+    const m = unwrapMessage(msg);
     if (!m) return null;
 
-    // ── Standard current location ────────────────────────
+    // ── Standard current location / GPS pin ───────────────────
     if (m.locationMessage) {
         const loc = m.locationMessage;
-        const lat = loc.degreesLatitude;
-        const lng = loc.degreesLongitude;
-        // Use == null to reject both null and undefined while still accepting 0
-        if (lat == null || lng == null) return null;
+        const lat = Number(loc.degreesLatitude);
+        const lng = Number(loc.degreesLongitude);
+        if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return null;
+
+        const name = (loc.name || '').trim();
+        const address = (loc.address || '').trim();
+        const mapUrl = buildGoogleMapsUrl(lat, lng);
+        const formattedAddress = [name, address].filter(Boolean).join(', ') || `Shared Location Pin (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
 
         return {
-            type:        'current_location',
-            latitude:    lat,
-            longitude:   lng,
-            name:        loc.name    || '',
-            address:     loc.address || '',
-            mapUrl:      buildGoogleMapsUrl(lat, lng),
-            originalUrl: '',
+            type:             'current_location',
+            latitude:         lat,
+            longitude:        lng,
+            name,
+            address:          address || name,
+            formattedAddress,
+            mapUrl,
+            originalUrl:      loc.url || mapUrl,
         };
     }
 
-    // ── Live location ─────────────────────────────────────
+    // ── Live location ─────────────────────────────────────────
     if (m.liveLocationMessage) {
         const loc = m.liveLocationMessage;
-        const lat = loc.degreesLatitude;
-        const lng = loc.degreesLongitude;
-        // Use == null to reject both null and undefined while still accepting 0
-        if (lat == null || lng == null) return null;
+        const lat = Number(loc.degreesLatitude);
+        const lng = Number(loc.degreesLongitude);
+        if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return null;
+
+        const caption = (loc.caption || '').trim();
+        const mapUrl = buildGoogleMapsUrl(lat, lng);
+        const formattedAddress = caption ? `${caption} (Live Pin: ${mapUrl})` : `Live Location Pin (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
 
         return {
-            type:        'live_location',
-            latitude:    lat,
-            longitude:   lng,
-            name:        loc.caption           || '',
-            address:     '',
-            accuracy:    loc.accuracyInMeters  || null,
-            mapUrl:      buildGoogleMapsUrl(lat, lng),
-            originalUrl: '',
+            type:             'live_location',
+            latitude:         lat,
+            longitude:        lng,
+            name:             caption,
+            address:          caption,
+            formattedAddress,
+            accuracy:         loc.accuracyInMeters || null,
+            mapUrl,
+            originalUrl:      mapUrl,
         };
     }
 

@@ -1579,6 +1579,10 @@ function extractMessageText(msg) {
         m.imageMessage?.caption ||
         m.videoMessage?.caption ||
         m.documentMessage?.caption ||
+        m.locationMessage?.name ||
+        m.locationMessage?.address ||
+        m.locationMessage?.comment ||
+        m.liveLocationMessage?.caption ||
         m.buttonsResponseMessage?.selectedButtonId ||
         m.listResponseMessage?.singleSelectReply?.selectedRowId ||
         m.templateButtonReplyMessage?.selectedId ||

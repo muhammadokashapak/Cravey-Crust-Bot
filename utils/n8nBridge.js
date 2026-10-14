@@ -12,7 +12,7 @@
  */
 
 import axios from 'axios';
-import { extractLocation, extractGoogleMapsUrl } from './location.js';
+import { extractLocation, extractGoogleMapsUrl, extractCoordinatesFromText, buildGoogleMapsUrl } from './location.js';
 import { resolveSenderIdentity } from './senderIdentity.js';
 
 // ─── Config (read dynamically or at startup) ─────────────
@@ -113,18 +113,23 @@ export function buildN8nPayload(sock, msg, session, text) {
     // Try WhatsApp native location first (locationMessage / liveLocationMessage)
     let locationData = extractLocation(msg);
 
-    // If no native location, check if the text contains a Google Maps URL
+    // If no native location, check if the text contains a Google Maps URL or coordinates
     if (!locationData && text) {
         const mapsUrl = extractGoogleMapsUrl(text);
-        if (mapsUrl) {
+        const coords = extractCoordinatesFromText(text);
+        if (mapsUrl || coords) {
+            const lat = coords?.latitude ?? null;
+            const lng = coords?.longitude ?? null;
+            const url = mapsUrl || (lat != null && lng != null ? buildGoogleMapsUrl(lat, lng) : '');
             locationData = {
-                type:        'google_maps_url',
-                latitude:    null,
-                longitude:   null,
-                name:        '',
-                address:     '',
-                mapUrl:      mapsUrl,
-                originalUrl: mapsUrl,
+                type:             'google_maps_url',
+                latitude:         lat,
+                longitude:        lng,
+                name:             '',
+                address:          '',
+                formattedAddress: url,
+                mapUrl:           url,
+                originalUrl:      url,
             };
         }
     }
@@ -161,6 +166,20 @@ export function buildN8nPayload(sock, msg, session, text) {
         null
     );
 
+    // If user sent a location pin without accompanying text, provide rich descriptive text
+    let effectiveText = (text || '').trim();
+    if (!effectiveText && locationData) {
+        const typeLabel = locationData.type === 'live_location' ? 'live location' : 'location pin';
+        const parts = [];
+        if (locationData.name) parts.push(`Jagah: ${locationData.name}`);
+        if (locationData.address && locationData.address !== locationData.name) parts.push(`Pata: ${locationData.address}`);
+        if (locationData.latitude != null && locationData.longitude != null) {
+            parts.push(`lat=${locationData.latitude}, lng=${locationData.longitude}`);
+        }
+        if (locationData.mapUrl) parts.push(`url=${locationData.mapUrl}`);
+        effectiveText = `Customer ne ${typeLabel} share ki: ${parts.join(', ')}`;
+    }
+
     // ── Build Payload ───────────────────────────────────
     const payload = {
         sessionId,
@@ -174,10 +193,10 @@ export function buildN8nPayload(sock, msg, session, text) {
         name,
         messageId:       msg.key.id,
         messageType,
-        message:         text || '',
-        text:            text || '',
-        chatInput:       text || '',
-        content:         text || '',
+        message:         effectiveText,
+        text:            effectiveText,
+        chatInput:       effectiveText,
+        content:         effectiveText,
         timestamp:       msg.messageTimestamp
             ? Number(msg.messageTimestamp)
             : Math.floor(Date.now() / 1000),

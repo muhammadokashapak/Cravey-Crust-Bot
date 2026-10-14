@@ -919,10 +919,11 @@ Aap WhatsApp location pin bhej sakte hain, Google Maps link bhej sakte hain ya a
         }
     }
 
-    // PROVIDE_LOCATION (Stage: WAITING_LOCATION)
-    if (convSession.stage === 'WAITING_LOCATION') {
+    // PROVIDE_LOCATION (Global or Stage: WAITING_LOCATION)
+    if (intent === 'PROVIDE_LOCATION' || (location && convSession.stage !== 'WAITING_PAYMENT' && convSession.stage !== 'WAITING_ORDER_CONFIRMATION')) {
         const cartTotals = await calculateCartTotals({ sessionKey: convSession.session_key });
-        const subtotal = cartTotals.subtotal;
+        const subtotal = cartTotals.subtotal || 0;
+        const hasCartItems = cartTotals.items && cartTotals.items.length > 0;
 
         let checkParams = { restaurantId, subtotal };
 
@@ -934,46 +935,28 @@ Aap WhatsApp location pin bhej sakte hain, Google Maps link bhej sakte hain ya a
                 checkParams.areaName = locText;
             }
         } else {
-            const mapsUrl = extractGoogleMapsUrl(text);
+            const mapsUrl = extractGoogleMapsUrl(cleanText);
             if (mapsUrl) {
                 checkParams.areaName = mapsUrl;
             } else {
-                checkParams.areaName = text.trim();
+                checkParams.areaName = cleanText.trim();
             }
         }
 
         const delResult = await checkDeliveryAvailability(checkParams);
 
-        // Requirement 29: Exact rejection wording
+        // Location out of coverage range
         if (!delResult.available) {
             return {
-                text: 'Sorry, ye location hamari current delivery range mein nahi aati, is liye yahan delivery possible nahi hai.\n\nBarah-e-karam koi doosri location share karein.',
-                intent,
-                stage: 'WAITING_LOCATION',
+                text: 'Sorry, ye location hamari delivery range mein nahi aati, is liye yahan delivery possible nahi hai.\n\nCravey Crust sirf apne coverage areas (Ghauri Town, Tarlai, Khanna, Gulberg, Burma, Taramari vaghera) mein deliver karta hai.\n\nBarah-e-karam koi doosri location share karein.',
+                intent: 'PROVIDE_LOCATION',
+                stage: hasCartItems ? 'WAITING_LOCATION' : convSession.stage,
             };
         }
 
-        // Requirement 30: Delivery minimum not met
-        if (delResult.minMet === false) {
-            const minReq = delResult.area.minimumOrder;
-            const diff = minReq - subtotal;
-            return {
-                text: 
-`Minimum order requirement poori nahi hui.
-
-Minimum order: Rs.${minReq}
-Current subtotal: Rs.${subtotal}
-Required additional amount: Rs.${diff}
-
-Barah-e-karam cart mein mazeed items add karein taakay delivery possible ho sakay.`,
-                intent,
-                stage: 'WAITING_LOCATION',
-            };
-        }
-
-        const finalAddress = location
-            ? ([location.name, location.address].filter(Boolean).join(', ') || location.mapUrl || delResult.area.name)
-            : (text.trim() || delResult.area.name);
+        // Auto-select Delivery Address from shared location pin or detected details
+        const finalAddress = delResult.deliveryAddress || delResult.formattedAddress ||
+            (location ? ([location.name, location.address].filter(Boolean).join(', ') || `${delResult.area.name} (Location Pin: ${location.mapUrl})`) : (delResult.area.name || cleanText.trim()));
 
         draft.delivery = {
             areaId: delResult.area.id,
@@ -982,30 +965,65 @@ Barah-e-karam cart mein mazeed items add karein taakay delivery possible ho saka
             fee: delResult.area.deliveryFee,
             latitude: checkParams.latitude,
             longitude: checkParams.longitude,
-            googleMapsUrl: location ? location.mapUrl : null,
+            googleMapsUrl: location ? location.mapUrl : (delResult.googleMapsUrl || null),
         };
-
-        await updateSessionStage({ sessionKey: convSession.session_key, stage: 'WAITING_PAYMENT' });
-
-        const codOk = restaurant?.cod_enabled !== false;
-        const epOk = restaurant?.easypaisa_enabled === true;
 
         const feeVal = Number(delResult.deliveryFee ?? delResult.area?.deliveryFee ?? 0);
         const feeDisplay = feeVal === 0 ? 'FREE' : `Rs.${feeVal}`;
-        let payMsg = `Delivery area verified: ${delResult.area.name} (Delivery Fee: ${feeDisplay}).\n\nPayment method select karein:\n`;
-        if (codOk) payMsg += `COD (Cash on Delivery)\n`;
-        if (epOk) {
-            payMsg += `EasyPaisa\n`;
-            if (restaurant?.easypaisa_number) {
-                payMsg += `EasyPaisa Number: ${restaurant.easypaisa_number}\n`;
-            }
-            if (restaurant?.account_name) {
-                payMsg += `Account Title: ${restaurant.account_name}\n`;
-            }
-        }
-        payMsg += `\nReply with COD ya EasyPaisa.`;
 
-        return { text: payMsg, intent, stage: 'WAITING_PAYMENT' };
+        // Case 1: Customer has items in cart -> proceed to checkout / payment
+        if (hasCartItems) {
+            // Check minimum order requirement
+            if (delResult.minMet === false) {
+                const minReq = delResult.area.minimumOrder;
+                const diff = minReq - subtotal;
+                return {
+                    text: 
+`Minimum order requirement poori nahi hui.
+
+Minimum order: Rs.${minReq}
+Current subtotal: Rs.${subtotal}
+Required additional amount: Rs.${diff}
+
+Barah-e-karam cart mein mazeed items add karein taakay delivery possible ho sakay.`,
+                    intent: 'PROVIDE_LOCATION',
+                    stage: 'WAITING_LOCATION',
+                };
+            }
+
+            await updateSessionStage({ sessionKey: convSession.session_key, stage: 'WAITING_PAYMENT' });
+
+            const codOk = restaurant?.cod_enabled !== false;
+            const epOk = restaurant?.easypaisa_enabled === true;
+
+            let payMsg = `Aapki location hamare delivery area mein aati hai (${delResult.area.name})!\n📍 Delivery Address select ho gaya hai: ${finalAddress}\n🚚 Delivery Fee: ${feeDisplay}.\n\nPayment method select karein:\n`;
+            if (codOk) payMsg += `1. COD (Cash on Delivery)\n`;
+            if (epOk) {
+                payMsg += `2. EasyPaisa\n`;
+                if (restaurant?.easypaisa_number) {
+                    payMsg += `EasyPaisa Number: ${restaurant.easypaisa_number}\n`;
+                }
+                if (restaurant?.account_name) {
+                    payMsg += `Account Title: ${restaurant.account_name}\n`;
+                }
+            }
+            payMsg += `\nReply with COD ya EasyPaisa.`;
+
+            return { text: payMsg, intent: 'PROVIDE_LOCATION', stage: 'WAITING_PAYMENT' };
+        }
+
+        // Case 2: Cart is empty -> confirm area & address, prompt to browse menu/deals
+        return {
+            text: 
+`Aapki location hamare delivery area mein aati hai (${delResult.area.name})!
+📍 Delivery Address select ho gaya hai: ${finalAddress}
+🚚 Delivery Fee: ${feeDisplay}
+
+Aap aaj kya order karna chahenge? Hamare paas Mazedar Pizzas, Burgers aur Deals dastiyab hain!
+(Menu dekhne ke liye "Menu" ya Deals ke liye "Deals" likhein)`,
+            intent: 'PROVIDE_LOCATION',
+            stage: convSession.stage,
+        };
     }
 
     // SELECT_PAYMENT (Stage: WAITING_PAYMENT)

@@ -224,6 +224,16 @@ export async function createOrder(params) {
         }
 
         // C. Create Order
+        let finalDeliveryAddress = (delivery?.address || '').trim();
+        if (!finalDeliveryAddress) {
+            const areaLabel = pricing.deliveryArea?.name || delivery?.areaName || 'Coverage Area';
+            if (delivery?.latitude != null && delivery?.longitude != null) {
+                finalDeliveryAddress = `${areaLabel} (Location Pin: https://www.google.com/maps?q=${delivery.latitude},${delivery.longitude})`;
+            } else if (delivery?.areaName) {
+                finalDeliveryAddress = delivery.areaName;
+            }
+        }
+
         const createdOrder = await tx.order.create({
             data: {
                 order_number: orderNumber,
@@ -232,7 +242,7 @@ export async function createOrder(params) {
                 customer_name: customerName.trim(),
                 phone: finalPhone,
                 whatsapp_phone: session.verified_phone || customer.whatsapp_phone || null,
-                delivery_address: delivery?.address || null,
+                delivery_address: finalDeliveryAddress || null,
                 delivery_area_id: pricing.deliveryArea?.id || delivery?.areaId || null,
                 delivery_area_name: pricing.deliveryArea?.name || delivery?.areaName || null,
                 latitude: delivery?.latitude != null ? Number(delivery.latitude) : null,

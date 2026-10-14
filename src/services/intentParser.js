@@ -12,6 +12,8 @@
  *   Returns { intent, entities, confidence }
  */
 
+import { extractGoogleMapsUrl } from '../../utils/location.js';
+
 // ─── Regular Expressions & Pattern Dictionaries ───────────────────────────
 
 const GREETING_REGEX = /^(?:hi+|hello+|hey+|aoa|assalam\s*o?\s*alaikum|salam+|slam|start|shuru)\b/i;
@@ -130,7 +132,25 @@ export class DeterministicIntentProvider {
         const text = (context.text || '').trim();
         const stage = context.stage || 'START';
         const lower = text.toLowerCase();
-        const hasLocation = Boolean(context.location || context.messageType === 'location');
+        const hasLocation = Boolean(
+            context.location ||
+            context.messageType === 'location' ||
+            context.messageType === 'live_location' ||
+            context.messageType === 'current_location'
+        );
+        const mapsUrl = extractGoogleMapsUrl(text);
+
+        // Global Location Detection: If user shared WhatsApp location pin, live location, or Google Maps URL
+        if ((hasLocation || mapsUrl) && stage !== 'WAITING_NAME' && stage !== 'WAITING_CONTACT' && stage !== 'WAITING_ORDER_CONFIRMATION') {
+            return {
+                intent: 'PROVIDE_LOCATION',
+                entities: {
+                    location: context.location || null,
+                    locationText: mapsUrl || (context.location?.name ? `${context.location.name}, ${context.location.address || ''}`.trim() : text),
+                },
+                confidence: 1.0,
+            };
+        }
 
         // ─── 1. Strict Stage Dialog Handlers ─────────────────────────────────
 
