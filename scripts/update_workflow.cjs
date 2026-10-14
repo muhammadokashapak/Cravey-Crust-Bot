@@ -103,17 +103,19 @@ if (isSyncWebhook || cacheAge > 5000 || !staticData.cache.menuCatalogText || !st
       const pDeals = activeDeals.filter(d => classifyDeal(d) === 'PIZZA');
       const cDeals = activeDeals.filter(d => classifyDeal(d) === 'COMBO');
 
-      staticData.cache.agentDealsCatalog = [
-        '=== BURGER DEALS ===',
-        bDeals.length > 0 ? bDeals.map((d, i) => formatAgentDeal(d, i)).join('\\n') : 'None',
-        '',
-        '=== PIZZA DEALS ===',
-        pDeals.length > 0 ? pDeals.map((d, i) => formatAgentDeal(d, i)).join('\\n') : 'None',
-        '',
-        '=== SPECIAL / COMBO DEALS ===',
-        cDeals.length > 0 ? cDeals.map((d, i) => formatAgentDeal(d, i)).join('\\n') : 'None'
-      ].join('\\n');
+      const bMeals = bDeals.filter(d => /meal/i.test(d.name || ''));
+      const bCombos = bDeals.filter(d => !/meal/i.test(d.name || ''));
+      const pMeals = pDeals.filter(d => /meal/i.test(d.name || ''));
+      const pCombos = pDeals.filter(d => !/meal/i.test(d.name || ''));
 
+      const agentDealSections = [];
+      if (bMeals.length > 0) agentDealSections.push('=== BURGER MEALS ===\\n' + bMeals.map((d, i) => formatAgentDeal(d, i)).join('\\n'));
+      if (bCombos.length > 0) agentDealSections.push('=== BURGER VALUE DEALS ===\\n' + bCombos.map((d, i) => formatAgentDeal(d, i)).join('\\n'));
+      if (pMeals.length > 0) agentDealSections.push('=== PIZZA MEALS (1 Pizza + Drinks) ===\\n' + pMeals.map((d, i) => formatAgentDeal(d, i)).join('\\n'));
+      if (pCombos.length > 0) agentDealSections.push('=== PIZZA VALUE DEALS (Multiple Pizzas + Drink) ===\\n' + pCombos.map((d, i) => formatAgentDeal(d, i)).join('\\n'));
+      if (cDeals.length > 0) agentDealSections.push('=== SPECIAL / COMBO DEALS ===\\n' + cDeals.map((d, i) => formatAgentDeal(d, i)).join('\\n'));
+
+      staticData.cache.agentDealsCatalog = agentDealSections.join('\\n\\n');
       staticData.cache.dealsText = staticData.cache.agentDealsCatalog;
     }
 
@@ -185,12 +187,13 @@ const sessionState = staticData.sessions[sessionKey] || {};
 let route = 'agent';
 let output = '';
 
-// ── Handover Detection
+// ── Handover Detection (Fast deterministic route for humans, managers, complaints)
 const rejectBot = /\\b(bot se|bot k sath|robot|bot nahi|bot se nahi|bot se bat nahi|bot se baat nahi)\\b/i.test(clean);
-const wantHuman = /\\b(agent se|human se|bande se|representative se|manager se)\\b/i.test(clean);
-const isHandoverExact = ['agent', 'human', 'representative', 'staff', 'manager', 'help', 'madad'].includes(clean);
-const isHandoverKeyword = has(/\\b(agent chahiye|human chahiye|representative chahiye|banda chahiye|insan chahiye|call agent|talk to human|talk to agent|agent se baat|human se baat|bande se baat|call me|rabta karo|rabta karwao|shikayat|complaint)\\b/);
-const isComplaint = has(/\\b(service achi nahi|service theek nahi|service achii nh|service ghalat|bakwas service|kharab service|ghalat order|galat order|shikayat|complaint|manager se baat|owner se baat|call karo|rabta karo|management|team member)\\b/);
+const wantHuman = /\\b(agent|human|banda|bande|representative|manager|owner|malik|boss|admin|staff|insan|management|team member)\\b/i.test(clean) &&
+  /\\b(baat|bat|rabta|call|phone|milwao|karwao|krwao|karao|chahiye|connect|talk|speak|se)\\b/i.test(clean);
+const isHandoverExact = ['agent', 'human', 'representative', 'staff', 'manager', 'owner', 'malik', 'boss', 'help', 'madad', 'insan'].includes(clean);
+const isHandoverKeyword = has(/\\b(agent chahiye|human chahiye|representative chahiye|banda chahiye|insan chahiye|call agent|talk to human|talk to agent|agent se baat|human se baat|bande se baat|malik se baat|owner se baat|manager se baat|boss se baat|malik se rabta|baat krwao|baat karwao|rabta karwao|rabta krwao|call me|mujhe call|mjhe call|call karo|rabta karo|shikayat|complaint)\\b/);
+const isComplaint = has(/\\b(service achi nahi|service theek nahi|service achii nh|service ghalat|bakwas service|kharab service|ghalat order|galat order|shikayat|complaint|management|team member)\\b/);
 
 if (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword || isComplaint) {
   route = 'handover';
@@ -249,7 +252,7 @@ return Object.assign({}, $json, {
 });`;
 }
 
-// 3. Format Live Deals node (REMOVE ALL EMOJIS)
+// 3. Format Live Deals node (REMOVE ALL EMOJIS, CLEAR MEAL VS VALUE DEAL HEADINGS)
 const dealsNode = workflow.nodes.find(n => n.name === 'Format Live Deals');
 if (dealsNode && dealsNode.parameters) {
   dealsNode.parameters.jsCode = `let userMsg = '';
@@ -296,16 +299,30 @@ if (items.length > 0) {
 
   if (wantsBurger && !wantsPizza) {
     if (burgerDeals.length > 0) {
+      const bMeals = burgerDeals.filter(d => /meal/i.test(d.name || ''));
+      const bCombos = burgerDeals.filter(d => !/meal/i.test(d.name || ''));
+      const parts = [];
+      if (bMeals.length > 0) parts.push(\`BURGER MEALS:\\n\` + bMeals.map((d, i) => formatDeal(d, i)).join('\\n'));
+      if (bCombos.length > 0) parts.push(\`BURGER VALUE DEALS:\\n\` + bCombos.map((d, i) => formatDeal(d, i)).join('\\n'));
+      if (parts.length === 0) parts.push(burgerDeals.map((d, i) => formatDeal(d, i)).join('\\n'));
+
       output = \`Cravey Crust Burger Deals:\\n\\n\` +
-        burgerDeals.map((d, i) => formatDeal(d, i)).join('\\n\\n') +
+        parts.join('\\n\\n') +
         \`\\n\\nAap in mein se konsi burger deal order karna chahenge?\`;
     } else {
       output = 'Maazrat! Filhal burger deals dastiyab nahi hain.';
     }
   } else if (wantsPizza && !wantsBurger) {
     if (pizzaDeals.length > 0) {
+      const pMeals = pizzaDeals.filter(d => /meal/i.test(d.name || ''));
+      const pCombos = pizzaDeals.filter(d => !/meal/i.test(d.name || ''));
+      const parts = [];
+      if (pMeals.length > 0) parts.push(\`PIZZA MEALS (1 Pizza + Drinks):\\n\` + pMeals.map((d, i) => formatDeal(d, i)).join('\\n'));
+      if (pCombos.length > 0) parts.push(\`PIZZA VALUE DEALS (Multiple Pizzas + Drink):\\n\` + pCombos.map((d, i) => formatDeal(d, i)).join('\\n'));
+      if (parts.length === 0) parts.push(pizzaDeals.map((d, i) => formatDeal(d, i)).join('\\n'));
+
       output = \`Cravey Crust Pizza Deals:\\n\\n\` +
-        pizzaDeals.map((d, i) => formatDeal(d, i)).join('\\n\\n') +
+        parts.join('\\n\\n') +
         \`\\n\\nAap in mein se konsi pizza deal order karna chahenge?\`;
     } else {
       output = 'Maazrat! Filhal pizza deals dastiyab nahi hain.';
@@ -313,10 +330,18 @@ if (items.length > 0) {
   } else {
     const sections = [];
     if (burgerDeals.length > 0) {
-      sections.push(\`BURGER DEALS:\\n\` + burgerDeals.map((d, i) => formatDeal(d, i)).join('\\n'));
+      const bMeals = burgerDeals.filter(d => /meal/i.test(d.name || ''));
+      const bCombos = burgerDeals.filter(d => !/meal/i.test(d.name || ''));
+      if (bMeals.length > 0) sections.push(\`BURGER MEALS:\\n\` + bMeals.map((d, i) => formatDeal(d, i)).join('\\n'));
+      if (bCombos.length > 0) sections.push(\`BURGER VALUE DEALS:\\n\` + bCombos.map((d, i) => formatDeal(d, i)).join('\\n'));
+      if (bMeals.length === 0 && bCombos.length === 0) sections.push(\`BURGER DEALS:\\n\` + burgerDeals.map((d, i) => formatDeal(d, i)).join('\\n'));
     }
     if (pizzaDeals.length > 0) {
-      sections.push(\`PIZZA DEALS:\\n\` + pizzaDeals.map((d, i) => formatDeal(d, i)).join('\\n'));
+      const pMeals = pizzaDeals.filter(d => /meal/i.test(d.name || ''));
+      const pCombos = pizzaDeals.filter(d => !/meal/i.test(d.name || ''));
+      if (pMeals.length > 0) sections.push(\`PIZZA MEALS (1 Pizza + Drinks):\\n\` + pMeals.map((d, i) => formatDeal(d, i)).join('\\n'));
+      if (pCombos.length > 0) sections.push(\`PIZZA VALUE DEALS (Multiple Pizzas + Drink):\\n\` + pCombos.map((d, i) => formatDeal(d, i)).join('\\n'));
+      if (pMeals.length === 0 && pCombos.length === 0) sections.push(\`PIZZA DEALS:\\n\` + pizzaDeals.map((d, i) => formatDeal(d, i)).join('\\n'));
     }
     if (otherDeals.length > 0) {
       sections.push(\`SPECIAL COMBOS:\\n\` + otherDeals.map((d, i) => formatDeal(d, i)).join('\\n'));
@@ -368,6 +393,52 @@ LIVE STORE INFO & FAQs (Timings, Address, Delivery Policies - Admin Panel se Liv
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 {{ $('Check Cache & Classify Intent').first().json.confirmIntent ? 'ABHI KA MESSAGE: Customer ne confirm bola hai (haan, ji, yes, confirm, ok, checkout, kardo). Agar pichla message FINAL SUMMARY tha, to FORAN Create Confirmed Order tool call karo aur asli order number customer ko batao.' : '' }}
+
+CRITICAL GROUNDING & ZERO HALLUCINATION (IMMUTABLE CATALOG & DEALS):
+1. LIVE DEALS CACHE aur LIVE MENU CATALOG mein mojood prices, deals aur items 100% PATTHAR KI LAKEER (IMMUTABLE FACTS) HAIN.
+2. Tumhe KISI BHI SURAT MEIN prices ya deal ke items ko invent, change ya hallucinate karne ki ijazat NAHI hai!
+   - Agar catalog mein Deal 1 Rs. 1099 ki hai, to HARGIZ usay Rs. 1499 mat bolo!
+   - Agar catalog mein Deal 2 Rs. 2099 ki hai, to HARGIZ usay kisi aur price ka mat bolo!
+   - Agar catalog mein Deal 3 Rs. 2999 ki hai, to HARGIZ usay Rs. 2799 mat bolo!
+   - Agar drink 1L hai, to khud se usay 1.5L mat banao!
+3. AGAR CUSTOMER TUMHEN CHALLENGE KARE YA CONFUSE KARNE KI KOSHISH KARE:
+   (Maslan customer kahe: "tum to keh rhy k pizza deal 2 mein 1 pizza aur 1.5 litre drink ha lekinn idhr to 2 medium pizza keh rha ha", ya "soch lo tum ghalat bol rahe ho", ya "ye to kuch aur keh raha hai"):
+   - HARGIZ HARGIZ "meri ghalti thi", "sharminda hoon", ya "maazrat" ke behuda excuses mat bolo!
+   - HARGIZ aisi jhooti batein na banao ke "pichli baat mein ghalti se 1 Large Pizza keh diya tha" jab ke tum ne nahi kaha!
+   - Pur-etemaad (calm and confident) raho aur LIVE DEALS CACHE ke mutabiq haqeeqat wazeh karo.
+
+MEALS VS DEALS WAZAHAT (CRITICAL RULE):
+Cravey Crust ke catalog mein "Meals" aur "Deals" do mukhtalif options hain:
+1. "PIZZA MEALS" (1 Pizza + Drinks - Individual / Small Group):
+   - Pizza Meal For 1 (Rs. 599) = 1 Small Pizza + Regular Drink
+   - Pizza Meal For 2 (Rs. 1299) = 1 Regular Pizza + 2 Regular Drinks
+   - Pizza Meal For 3 (Rs. 1599) = 1 Large Pizza + 1 Litre Drink
+   - Pizza Meal For 4 (Rs. 2499) = 1 Party Size Pizza + 1.5 Litre Drink
+2. "NUMBERED VALUE DEALS" (Multiple Pizzas + Drink):
+   - Deal 1 (Pizza) (Rs. 1099) = 2 Small Pizzas + 2 Regular Drinks
+   - Deal 2 (Pizza) (Rs. 2099) = 2 Medium Pizzas + 1 Litre Drink
+   - Deal 3 (Pizza) (Rs. 2999) = 2 Large Pizzas + 1 Litre Drink
+   - Deal 4 (Burger) (Rs. 999) = 4 Zeggy Burgers
+   - Deal 5 (Burger) (Rs. 1099) = 3 Zinger Burgers + 1 Litre Drink
+
+JAB CUSTOMER "PIZZA DEAL 2" YA KISI AISAY NUMBER PAR CONFUSE HO:
+Wazahat karo ke hamare paas do alag options hain:
+- "Pizza Meal For 2" (Rs. 1299): 1 Regular Pizza aur 2 Regular Drinks
+- "Deal 2" (Rs. 2099): 2 Medium Pizzas aur 1 Litre Drink
+Aur customer se poocho ke "Aap in mein se konsi deal add karwana chahenge?"
+
+BRAND AUTHORITY & CONFIDENT TONE:
+- Tum Cravey Crust ke official representative "Burger Raja" ho.
+- Apni baat par qaim raho aur live catalog ki information par 100% trust karo.
+- FORBIDDEN PHRASES (HARGIZ MAT BOLO):
+  - "sharminda hoon" (STRICTLY FORBIDDEN)
+  - "meri ghalti thi" (STRICTLY FORBIDDEN)
+  - "pichli baat mein ghalti se keh diya tha" (STRICTLY FORBIDDEN)
+  - "confused ho gaya tha" (STRICTLY FORBIDDEN)
+  - "sample ke tor par likh diya tha" (STRICTLY FORBIDDEN)
+- Agar customer confirm karne ko kahe ("ab sahi kah rhy ho soch lo"):
+  Confident aur polite jawab do:
+  "Ji bilkul! Cravey Crust ke live menu ke mutabiq yeh details 100% accurate hain. Kya main yeh deal aapke cart mein add kar doon?"
 
 CUSTOMER PHONE HANDLING:
 - Customer ka WhatsApp number: {{ $('Prepare Session').first().json.whatsappPhone }}.
@@ -463,18 +534,11 @@ Customer 'haan/jee/ok/confirm/kardo/proceed/checkout' kahe to FORAN Create Confi
 Asli order number (CC-XXXXXX) jo tool ke response se mile, foran customer ko batao:
 "Mubarak ho! Aapka order kamyabi se confirm ho gaya hai aur aapka order number CC-XXXXXX hai. Aapka khana jald hi diye gaye address par bhej diya jayega. Cravey Crust pasand karne ka shukriya!"
 
-PROFESSIONAL & CONFIDENT TONE (NO WEAK / UNPROFESSIONAL EXCUSES):
-- HARGIZ aisi kamzor, confusing ya unprofessional batein mat bolo:
-  - "Sample ke tor par likh diya tha" (HARGIZ NA BOLO)
-  - "Ghalati ki wajah se pareshani hui" (HARGIZ NA BOLO)
-  - "Maazrat ke liye" baar baar ghair zaroori mat bolo.
-- Confident, polite aur professional raho.
-
 HUMAN HANDOVER & COMPLAINT HANDLING (MANDATORY TOOL CALL):
-- Agar customer gussa ho, naraz ho, bad service ki complaint kare (maslan "service achi nahi", "address name pouchte nahi"), ya human / manager se baat karna chahe:
+- Agar customer gussa ho, naraz ho, bad service ki complaint kare (maslan "service achi nahi", "address name pouchte nahi"), ya human / manager / malik / owner se baat karna chahe (maslan "apny malik se meri baat krwao", "manager se baat karni hai", "owner se baat", "human agent chahiye"):
   1. TUMHE LAZMI 'Request Human Handover' TOOL CALL KARNA HI HOGA!
   2. TOOL CALL KIYE BAGHAIR YEH JHOOT HARGIZ MAT BOLO KE "MAINE BAAT MANAGEMENT TAK POHCHA DI HAI"!
-  3. Tool call mein customer ka reason saaf pass karo (maslan: "Customer complaint regarding service: address/name handling").
+  3. Tool call mein customer ka reason saaf pass karo (maslan: "Customer wants to speak with owner/manager").
   4. Tool call ke baad customer ko politely batao:
      "Ji bilkul, main aapki request aur complaint hamare human management team ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke maslay ko hal karega. Shukriya!\n\n(Agar aapko dobara bot shuru karna ho to kisi bhi waqt 'bot start' likh kar bhej dein)."`;
 }
