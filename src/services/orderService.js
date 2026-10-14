@@ -148,7 +148,12 @@ export async function createOrder(params) {
         throw err;
     }
 
-    if (!customerName || !customerName.trim() || ['customer', 'user', 'guest', 'none', 'unknown'].includes(customerName.trim().toLowerCase())) {
+    const cleanCustomerName = (customerName || '').trim();
+    const isDummyName = !cleanCustomerName || 
+        cleanCustomerName.length < 2 || 
+        /^(customer|user|guest|none|unknown|customer\s*name|name|\.|\.\.|\-|\_)$/i.test(cleanCustomerName);
+
+    if (isDummyName) {
         const err = new Error('Customer actual name is required. Please ask the customer for their real name.');
         err.code = 'CUSTOMER_NAME_REQUIRED';
         throw err;
@@ -256,17 +261,23 @@ export async function createOrder(params) {
 
         // C. Create Order
         let finalDeliveryAddress = (delivery?.address || '').trim();
-        if (!finalDeliveryAddress) {
-            const areaLabel = pricing.deliveryArea?.name || delivery?.areaName || '';
-            if (delivery?.latitude != null && delivery?.longitude != null) {
-                finalDeliveryAddress = `${areaLabel ? areaLabel + ' ' : ''}(Location Pin: https://www.google.com/maps?q=${delivery.latitude},${delivery.longitude})`;
-            } else if (areaLabel) {
-                finalDeliveryAddress = areaLabel;
-            }
+        const dummyAddressRegex = /^(school\s*stop|tarlai|tarlai\s*kalan|lehtrar\s*road|near\s*fazal|fazal\s*e\s*haq|islamabad|rawalpindi|customer\s*address|none|unknown|n\/a|address|delivery\s*address|\.|\-)$/i;
+        const isRestaurantAddress = /lehtrar\s*road/i.test(finalDeliveryAddress) && (/fazal/i.test(finalDeliveryAddress) || /school\s*stop/i.test(finalDeliveryAddress));
+        const areaLabel = pricing.deliveryArea?.name || delivery?.areaName || '';
+        const isOnlyAreaName = areaLabel && finalDeliveryAddress.toLowerCase() === areaLabel.toLowerCase();
+
+        if (dummyAddressRegex.test(finalDeliveryAddress) || isRestaurantAddress || isOnlyAreaName) {
+            finalDeliveryAddress = '';
         }
 
         if (!finalDeliveryAddress) {
-            const err = new Error('Delivery address or location pin is required. Please ask the customer for their delivery address.');
+            if (delivery?.latitude != null && delivery?.longitude != null) {
+                finalDeliveryAddress = `${areaLabel ? areaLabel + ' ' : ''}(Location Pin: https://www.google.com/maps?q=${delivery.latitude},${delivery.longitude})`;
+            }
+        }
+
+        if (!finalDeliveryAddress || finalDeliveryAddress.length < 5) {
+            const err = new Error('Valid customer delivery address or location pin is required. Please ask the customer for their specific house/street delivery address.');
             err.code = 'DELIVERY_ADDRESS_REQUIRED';
             throw err;
         }

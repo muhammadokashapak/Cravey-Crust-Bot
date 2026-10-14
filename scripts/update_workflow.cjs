@@ -152,10 +152,10 @@ if (isSyncWebhook || cacheAge > 5000 || !staticData.cache.menuCatalogText || !st
       const closeTime = restData.closingTime || restData.closing_time || '';
       const addr = restData.address || restData.addressLine1 || '';
       staticData.cache.storeInfoText = [
-        restData.name ? 'Restaurant: ' + restData.name : '',
-        addr ? 'Address: ' + addr : '',
-        (openTime || closeTime) ? 'Timings: ' + openTime + ' - ' + closeTime : '',
-        restData.phone ? 'Phone: ' + restData.phone : '',
+        restData.name ? 'Restaurant Branch: ' + restData.name : '',
+        addr ? 'RESTAURANT OUTLET ADDRESS (Branch / Dukan Address - Delivery Location NAHI Hai): ' + addr : '',
+        (openTime || closeTime) ? 'Restaurant Timings: ' + openTime + ' - ' + closeTime : '',
+        restData.phone ? 'Restaurant Phone: ' + restData.phone : '',
         restData.minOrder ? 'Min Order: Rs.' + restData.minOrder : '',
       ].filter(Boolean).join('\\n');
     }
@@ -236,9 +236,10 @@ if (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword || isComplain
   }
 }
 
-const confirmRe = /\\b(confirm|confim|confrim|confirmed|confirmation|haan|han|haa|ha|haji|ji|jee|yes|yeah|yep|ok|okay|theek|thik|done|kardo|kar do|kr do|krdo|kardu|kar du|kr du|krdu|place|bhej do|bhejdo|proceed|checkout|check out)\\b/i;
+const confirmRe = /\\b(confirm|confim|confrim|confirmed|confirmation|haan|han|haa|ha|haji|ji|jee|yes|yeah|yep|ok|okay|theek|thik|done|kardo|kar do|kr do|krdo|kardu|kar du|kr du|krdu|place|bhej do|bhejdo|proceed)\\b/i;
 const negRe = /\\b(nahi|nahin|nai|no|cancel|mat|dont|don t)\\b/i;
-const confirmIntent = wordCount > 0 && wordCount <= 8 && !/\\d/.test(clean) && confirmRe.test(clean) && !negRe.test(clean);
+const isCheckoutReq = /\\b(checkout|check out)\\b/i.test(clean);
+const confirmIntent = wordCount > 0 && wordCount <= 8 && !/\\d/.test(clean) && confirmRe.test(clean) && !negRe.test(clean) && !isCheckoutReq;
 
 return Object.assign({}, $json, {
   route,
@@ -415,6 +416,27 @@ ABSOLUTE NO EMOJI / NO ICON RULE:
 - Kisi bhi surat mein koi bhi emoji, icon ya symbol (maslan burger, pizza, party, thumbs up, dil, smileys waghera) HARGIZ USE MAT KARO!
 - Sirf saaf plain text Roman Urdu ya English likho.
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KHABARDAAR - ADDRESS, NAAM AUR NUMBER KHUD SE GUESS KARNA SAKHT MANA HAI:
+1. DELIVERY ADDRESS / LOCATION MANGNA LAZMI HAI:
+   - LIVE STORE INFO mein jo address ("School stop, Lehtrar Road, near Fazal e haq, Tarlai Kalan, Islamabad") likha hai, WO CRAVEY CRUST RESTAURANT BRANCH KA ADDRESS HAI! WO CUSTOMER KA DELIVERY ADDRESS HARGIZ NAHI HAI!
+   - Tumhe kisi bhi surat mein customer ka delivery address khud se guess ya assume karne ki ijazat NAHI hai!
+   - Agar tumne restaurant ka address ya koi farzi address (maslan "Ghauri Town", "Tarlai", "Islamabad", "Customer Address", ".") use kiya to backend system order reject kar dega!
+   - JAB CUSTOMER CHECKOUT KAHE: Customer se uska mukammal ghar/gali number aur area ka Delivery Address ya WhatsApp location pin poochna 100% LAZMI hai!
+   - JAB TAK CUSTOMER APNA COMPLETE ADDRESS YA LOCATION PIN NA DE, TUM NA FINAL SUMMARY BHEJ SAKTE HO AUR NA ORDER BOOK KAR SAKTE HO!
+
+2. CUSTOMER KA ASLI NAAM:
+   - Agar customer ne abhi tak chat mein apna asli naam nahi bataya, to checkout ke waqt customer se uska asli naam poocho: "Order proceed karne ke liye baraye meherbani apna Naam bata dein?"
+   - Placeholder naam maslan "Customer", "User", ya "." use karna SAKHT MANA HAI!
+
+3. PHONE NUMBER & "SAME NUMBER" STRICT RULE:
+   - Customer ka verified WhatsApp sender number yeh hai: {{ $('Prepare Session').first().json.whatsappPhone }}.
+   - Jab customer se contact number poocho aur customer kahe:
+     "same", "same number", "yahi", "yehi", "isi pe", "isi number pe", "wahi", "whatsapp number", "apna number", ya alag se koi naya number na de:
+     TO HAMESHA YAHI ASLI VERIFIED NUMBER: {{ $('Prepare Session').first().json.whatsappPhone }} USE KARO!
+   - KISI BHI SURAT MEIN koi fake dummy number (maslan 03001234567, 03123456789, 03000000000, 03211234567) HARGIZ USE MAT KARO!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 LIVE CATEGORIES (Admin Panel se Live):
 {{ $('Check Cache & Classify Intent').first().json.cachedCategoriesSummary || 'Search Menu Item tool use karein.' }}
@@ -425,12 +447,12 @@ LIVE MENU CATALOG (Tamam Active Products, Categories, Variants & IDs):
 LIVE DEALS CACHE (Tamam Active Deals & IDs - Alag Alag Categories):
 {{ $('Check Cache & Classify Intent').first().json.cachedDealsSummary || 'Get Current Deals tool use karein.' }}
 
-LIVE STORE INFO & FAQs (Timings, Address, Delivery Policies - Admin Panel se Live):
+LIVE STORE INFO & FAQs (Timings, Outlet Address, Delivery Policies - Admin Panel se Live):
 {{ $('Check Cache & Classify Intent').first().json.cachedStoreInfo }}
 {{ $('Check Cache & Classify Intent').first().json.cachedFaqs }}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-{{ $('Check Cache & Classify Intent').first().json.confirmIntent ? 'ABHI KA MESSAGE: Customer ne confirm bola hai (haan, ji, yes, confirm, ok, checkout, kardo). Agar pichla message FINAL SUMMARY tha, to FORAN Create Confirmed Order tool call karo aur asli order number customer ko batao.' : '' }}
+{{ $('Check Cache & Classify Intent').first().json.confirmIntent ? 'ABHI KA MESSAGE: Customer ne Final Summary par confirm bola hai (haan, ji, yes, confirm, ok, kardo). AGAR AAP PEHLE HI FINAL SUMMARY CARD BHEJ CHUKE HAIN JIS MEIN CUSTOMER KA ASLI NAAM AUR DELIVERY ADDRESS MAUJOOD THA, to ab Create Confirmed Order tool call karo aur asli order number customer ko batao. AGAR CUSTOMER KA ADDRESS YA NAAM ABHI TAK NAHI MILA TO TOOL CALL HARGIZ MAT KARO!' : '' }}
 
 CRAVEY CRUST STRICT MENU SCOPE (ZERO HALLUCINATION - SIRF YEH ITEMS DASTIYAB HAIN):
 Cravey Crust par SIRF aur SIRF yeh items dastiyab hain:
@@ -585,34 +607,34 @@ CRITICAL RULES:
 
 CART & CHECKOUT RULES:
 1. Item/deal add karne ke baad: "Kya aap kuch aur add karna chahenge, ya order checkout karein?"
-2. CUSTOMER "NAI SIRF YEHI" / "BAS YEHI" / CHECKOUT TRIGGER HANDLING:
-   - Jab bot poochhe: "Kya aap kuch aur add karna chahenge, ya order checkout karein?"
-     Aur customer kahe: "nai sirf yehi krna ha", "nahi bas yahi", "sirf yehi", "checkout", "nahi kuch aur nahi", "final kardo", "order kardo", "jee check out kro":
-     1. Iska matlab hai customer mazeed koi item add nahi karna chahta aur checkout proceed karna chahta hai!
-     2. FORAN checkout shuru karo! Pehle customer se Naam aur Delivery Address maango:
-        "Theek hai! Order complete karne ke liye baraye meherbani apna Naam aur mukammal Delivery Address (ya WhatsApp location pin) share kar dein?"
-     3. Contact number confirm karo:
+2. CUSTOMER CHECKOUT TRIGGER HANDLING:
+   - Jab customer kahe: "checkout", "jee check out kro", "nai sirf yehi krna ha", "nahi bas yahi", "sirf yehi", "final kardo", "order kardo", "bill kitna hua", "pack kardo", "bhej do":
+     1. Iska matlab hai customer checkout shuru karna chahta hai!
+     2. FORAN customer se Naam aur Delivery Address maango:
+        "Theek hai! Order complete karne ke liye baraye meherbani apna Naam aur mukammal Delivery Address (Ghar/Gali number, Area) ya WhatsApp location pin share kar dein?"
+     3. Aur contact number confirm karo:
         "Contact number yahi WhatsApp number ({{ $('Prepare Session').first().json.whatsappPhone }}) rahega ya koi doosra number dena chahenge?"
-     - HARGIZ kisi technical maslay ka bahana mat banao!
+     4. KHABARDAAR: Pehle customer se address aur naam mile baghair 'Create Confirmed Order' tool call karna SAKHT MANA HAI!
 
 STRICT 4-STEP CHECKOUT PROTOCOL (MANDATORY GATE - NO SHORTCUTS):
-Jab customer order finalize / checkout / place karne ka kahe (maslan "final kar do", "checkout", "order kardo", "bill kitna hua", "pack kardo", "bhej do", "nai sirf yehi krna ha"):
-PEHLE Calculate Cart Totals call karo taake customer ko bill pata chale.
+Jab customer order finalize / checkout / place karne ka kahe:
+PEHLE Calculate Cart Totals call karo taake bill pata chale.
 LEKIN FINAL SUMMARY CARD TAB TAK HARGIZ MAT BHEJO JAB TAK YEH 4 CHEEZEIN CUSTOMER EXPLICITLY NA DE CHUKA HO:
 
 [1] CUSTOMER KA ASLI NAAM:
     - Agar customer ne abhi tak apna naam nahi bataya:
       Poocho: "Order complete karne ke liye baraye meherbani apna Naam bata dein?"
-    - HARGIZ placeholder naam maslan "Customer" ya koi farzi naam use mat karo!
+    - HARGIZ placeholder naam maslan "Customer", "User", ya "." use mat karo! Customer se asli naam maango.
 
-[2] DELIVERY ADDRESS:
+[2] DELIVERY ADDRESS / LOCATION PIN (NO AUTO-GUESSING):
     - Agar customer ne apna complete address ya location pin share nahi ki:
-      Poocho: "Apna mukammal Delivery Address ya WhatsApp Location share kar dein?"
-    - Customer ke bataye baghair KHUD SE KOI BHI ADDRESS (maslan Ghauri Town, Tarlai waghera) HARGIZ GUESS / HALLUCINATE MAT KARO! Address verify karne ke liye Check Delivery Availability tool use karo.
+      Poocho: "Apna mukammal Delivery Address (Ghar/Gali number, Area) ya WhatsApp location pin share kar dein?"
+    - Customer ke bataye baghair KHUD SE KOI BHI ADDRESS (maslan School stop, Tarlai, Ghauri Town, Islamabad waghera) HARGIZ USE YA GUESS MAT KARO! STORE INFO ka address restaurant branch ka hai, delivery address NAHI hai!
 
 [3] CONTACT PHONE NUMBER:
-    - Customer ka WhatsApp number: {{ $('Prepare Session').first().json.whatsappPhone }} mojood hai.
-    - Confirm karo: "Contact number yahi WhatsApp number rahega ya koi doosra number dena chahenge?"
+    - Customer ka verified WhatsApp number: {{ $('Prepare Session').first().json.whatsappPhone }} mojood hai.
+    - Confirm karo: "Contact number yahi WhatsApp number ({{ $('Prepare Session').first().json.whatsappPhone }}) rahega ya koi doosra number dena chahenge?"
+    - Agar customer "same", "same number", "yahi", "yehi", "isi pe" bole to {{ $('Prepare Session').first().json.whatsappPhone }} use karo. KABHI BHI 03001234567 waghera mat likho!
 
 [4] PAYMENT METHOD:
     - Customer se poochho: "Payment Cash on Delivery (COD) ada karenge ya EasyPaisa?"
@@ -620,21 +642,21 @@ LEKIN FINAL SUMMARY CARD TAB TAK HARGIZ MAT BHEJO JAB TAK YEH 4 CHEEZEIN CUSTOME
 HARGIZ FINAL SUMMARY CARD MAT BHEJO JAB TAK YEH 4 CHEEZEIN CUSTOMER SE NA MIL GAYI HON!
 Agar aik bhi cheez missing hai to FINAL SUMMARY CARD HARGIZ MAT BHEJO! Sirf missing field customer se maango.
 
-FINAL SUMMARY FORMAT (SIRF AUR SIRF TAB JAB 4 CHEEZEIN MIL JAYEIN):
+FINAL SUMMARY FORMAT (SIRF AUR SIRF TAB JAB 4 CHEEZEIN CUSTOMER SE MIL JAYEIN):
 Aapke order ki mukammal details yeh hain:
-Items: [Item List]
+Items: [Item List with size and quantity]
 Total Bill: Rs. [Total] (Delivery Fee: Rs. [Fee])
 Delivery Details:
-- Naam: [Customer Name]
-- Contact Number: [Customer Phone]
-- Address: [Confirmed Address]
+- Naam: [Customer ka Asli Naam]
+- Contact Number: [{{ $('Prepare Session').first().json.whatsappPhone }} ya customer ka diya hua number]
+- Address: [Customer ka confirmed address ya location pin]
 - Payment Method: [COD ya EasyPaisa]
-Kya aapki yeh details theek hain? Order confirm karne ke liye haan likhein.
+Kya aapki yeh details theek hain? Order confirm karne ke liye haan ya confirm likhein.
 
-ORDER CONFIRMATION & CART VERIFICATION:
-1. Customer se 4 details (Naam, Address, Phone, Payment Method) milte hi FINAL SUMMARY CARD BHEJO.
-2. Jab customer summary par "haan / confirm / ok / kardo" bole:
-   - Pehle check karo ke cart mein item mojood hai. Agar pichli chat mein customer ne item bola tha (maslan Medium Cheese Lover Pizza) lekin cart kisi wajah se empty hai, to PEHLE foran 'Add to Cart' tool call karke item add karo!
+ORDER CONFIRMATION & ORDER NUMBER:
+1. Customer se 4 details milte hi Final Summary Card bhejo aur customer se confirmation maango.
+2. Jab customer summary par "haan / confirm / ok / theek hai / kardo" bole:
+   - Pehle check karo ke cart mein item mojood hai. Agar cart empty ho to pehle 'Add to Cart' tool call karke item add karo!
    - Uske baad 'Create Confirmed Order' tool call karo!
 3. Asli order number (CC-XXXXXX) jo tool ke response se mile, foran customer ko batao:
    "Mubarak ho! Aapka order kamyabi se confirm ho gaya hai aur aapka order number CC-XXXXXX hai. Aapka khana jald hi diye gaye address par bhej diya jayega. Cravey Crust pasand karne ka shukriya!"
@@ -713,8 +735,8 @@ if (requestHandoverToolNode && requestHandoverToolNode.parameters) {
 // 10. Create Confirmed Order (AI Agent Tool) node (Strict tool description and parameter guidelines)
 const createOrderToolNode = workflow.nodes.find(n => n.name === 'Create Confirmed Order');
 if (createOrderToolNode && createOrderToolNode.parameters) {
-  createOrderToolNode.parameters.toolDescription = 'Asli order place karta hai. SIRF AUR SIRF TAB CALL KARO jab customer se Name, Delivery Address, Phone aur Payment Method mil chuka ho aur customer ne Final Summary par haan/confirm kaha ho. Agar Name ya Delivery Address missing hai to ye tool call karna sakht mana hai. Result se CC-... order number milta hai.';
-  createOrderToolNode.parameters.jsonBody = "={{ JSON.stringify({\\n  sessionKey: $('Prepare Session').first().json.sessionKey,\\n  customerName: $fromAI('customerName', 'Customer ka asli naam jo usne chat mein bataya ho (kabhi bhi placeholder Customer mat likho)', 'string'),\\n  phone: (() => { const wa = String($('Prepare Session').first().json.whatsappPhone || '').trim(); const rawP = String($fromAI('phone', 'Customer ka naya phone number agar customer ne chat mein koi mukhtalif/doosra number likha ho, warna khali chhoro', 'string', '') || '').trim(); if (!rawP) return wa; if (/^(same|yahi|yehi|isi|wahi|same\\\\s*number|same\\\\s*whatsapp|whatsapp|whatsapp\\\\s*number|default|my\\\\s*number|apna\\\\s*number)$/i.test(rawP)) return wa; const digits = rawP.replace(/[^0-9]/g, ''); const isDummy = /^(0?3001234567|0?3123456789|0?3000000000|0?3211234567|0?3009876543|0?3120000000|0?3451234567|0?3331234567|0?3001111111|0?3001234568|0?3000000001|0?3111111111)$/.test(digits); if (isDummy) return wa; if (digits.length >= 10) { if (digits.startsWith('92') && digits.length === 12) return '0' + digits.slice(2); if (digits.length === 10 && digits.startsWith('3')) return '0' + digits; return digits; } return wa || digits; })(),\\n  contactNumberMode: 'provided',\\n  confirmationNumberMode: 'default',\\n  confirmationPhone: $fromAI('confirmationPhone', 'Sirf agar customer ne kisi aur number par confirmation maangi, warna khali', 'string', '') || undefined,\\n  delivery: {\\n    address: ($fromAI('deliveryAddress', 'Customer ka confirmed delivery address ya location pin (khud se guess mat karo)', 'string') || $('Prepare Session').first().json.locationAddress || ($('Prepare Session').first().json.locationLat ? (($('Prepare Session').first().json.locationName ? $('Prepare Session').first().json.locationName + ', ' : '') + ($('Prepare Session').first().json.locationAddress || 'Shared Location') + ' (Location Pin: https://www.google.com/maps?q=' + $('Prepare Session').first().json.locationLat + ',' + $('Prepare Session').first().json.locationLng + ')') : undefined)),\\n    areaName: ($fromAI('deliveryAreaName', 'Delivery area ka naam', 'string', '') || $('Prepare Session').first().json.locationName || ''),\\n    areaId: $fromAI('deliveryAreaId', 'Area ID agar delivery check se mili, warna khali', 'string', '') || undefined,\\n    latitude: (Number($fromAI('latitude', 'Shared location ki latitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLat) || $('Webhook').first().json.body?.location?.latitude) || undefined,\\n    longitude: (Number($fromAI('longitude', 'Shared location ki longitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLng) || $('Webhook').first().json.body?.location?.longitude) || undefined,\\n    googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || ''\\n  },\\n  paymentMethod: String($fromAI('paymentMethod', 'COD ya EASYPAISA', 'string', 'COD') || 'COD').toUpperCase().replace(/\\\\s+/g, ''),\\n  notes: $fromAI('notes', 'Order notes, warna khali', 'string', '') || undefined,\\n  idempotencyKey: $('Prepare Session').first().json.messageId || undefined\\n}) }}";
+  createOrderToolNode.parameters.toolDescription = 'Asli order place karta hai. SIRF AUR SIRF TAB CALL KARO jab customer chat mein apna Asli Naam aur Mukammal Delivery Address de chuka ho aur Final Summary par haan/confirm bola ho. Agar Name ya Delivery Address missing hai to ye tool call karna SAKHT MANA HAI. Result se CC-... order number milta hai.';
+  createOrderToolNode.parameters.jsonBody = "={{ JSON.stringify({\\n  sessionKey: $('Prepare Session').first().json.sessionKey,\\n  customerName: (() => { const n = String($fromAI('customerName', 'Customer ka asli naam jo usne chat mein bataya ho', 'string', '') || '').trim(); if (!n || /^(customer|user|guest|none|unknown|customer\\\\s*name|name|\\\\.)$/i.test(n) || n.length < 2) { const pn = String($('Prepare Session').first().json.pushName || '').trim(); if (pn && !/^(customer|user|guest|none|unknown|customer\\\\s*name|name|\\\\.)$/i.test(pn) && pn.length >= 2) return pn; return ''; } return n; })(),\\n  phone: (() => { const wa = String($('Prepare Session').first().json.whatsappPhone || '').trim(); const rawP = String($fromAI('phone', 'Customer ka naya phone number agar customer ne chat mein koi mukhtalif/doosra number likha ho, warna khali chhoro', 'string', '') || '').trim(); if (!rawP) return wa; if (/^(same|yahi|yehi|isi|wahi|same\\\\s*number|same\\\\s*whatsapp|whatsapp|whatsapp\\\\s*number|default|my\\\\s*number|apna\\\\s*number|none|unknown)$/i.test(rawP)) return wa; const digits = rawP.replace(/[^0-9]/g, ''); const isDummy = /^(0?3001234567|0?3123456789|0?3000000000|0?3211234567|0?3009876543|0?3120000000|0?3451234567|0?3331234567|0?3001111111|0?3001234568|0?3000000001|0?3111111111)$/.test(digits); if (isDummy || digits.length < 10) return wa; if (digits.startsWith('92') && digits.length === 12) return '0' + digits.slice(2); if (digits.length === 10 && digits.startsWith('3')) return '0' + digits; return digits; })(),\\n  contactNumberMode: 'provided',\\n  confirmationNumberMode: 'default',\\n  confirmationPhone: $fromAI('confirmationPhone', 'Sirf agar customer ne kisi aur number par confirmation maangi, warna khali', 'string', '') || undefined,\\n  delivery: {\\n    address: (() => { let addr = String($fromAI('deliveryAddress', 'Customer ka confirmed delivery address jo customer ne chat mein diya ho', 'string', '') || '').trim(); const isDummy = /^(school\\\\s*stop|tarlai|lehtrar\\\\s*road|near\\\\s*fazal|fazal\\\\s*e\\\\s*haq|islamabad|rawalpindi|customer\\\\s*address|none|unknown|n\\\\/a|address|delivery\\\\s*address|\\\\.)$/i.test(addr) || (addr.toLowerCase().includes('lehtrar') && addr.toLowerCase().includes('fazal')); if (isDummy) addr = ''; if (!addr) { if ($('Prepare Session').first().json.locationAddress) return $('Prepare Session').first().json.locationAddress; if ($('Prepare Session').first().json.locationLat) { return ($('Prepare Session').first().json.locationName ? $('Prepare Session').first().json.locationName + ', ' : '') + ($('Prepare Session').first().json.locationAddress || 'Shared Location') + ' (Location Pin: https://www.google.com/maps?q=' + $('Prepare Session').first().json.locationLat + ',' + $('Prepare Session').first().json.locationLng + ')'; } } return addr; })(),\\n    areaName: ($fromAI('deliveryAreaName', 'Delivery area ka naam', 'string', '') || $('Prepare Session').first().json.locationName || ''),\\n    areaId: $fromAI('deliveryAreaId', 'Area ID agar delivery check se mili, warna khali', 'string', '') || undefined,\\n    latitude: (Number($fromAI('latitude', 'Shared location ki latitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLat) || $('Webhook').first().json.body?.location?.latitude) || undefined,\\n    longitude: (Number($fromAI('longitude', 'Shared location ki longitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLng) || $('Webhook').first().json.body?.location?.longitude) || undefined,\\n    googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || ''\\n  },\\n  paymentMethod: String($fromAI('paymentMethod', 'COD ya EASYPAISA', 'string', 'COD') || 'COD').toUpperCase().replace(/\\\\s+/g, ''),\\n  notes: $fromAI('notes', 'Order notes, warna khali', 'string', '') || undefined,\\n  idempotencyKey: $('Prepare Session').first().json.messageId || undefined\\n}) }}";
 }
 
 // 11. Add to Cart (AI Agent Tool) node (Strict tool description)
