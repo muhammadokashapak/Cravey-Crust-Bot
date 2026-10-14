@@ -128,8 +128,8 @@ export async function createOrder(params) {
         throw err;
     }
 
-    if (!customerName || !customerName.trim()) {
-        const err = new Error('Customer name is required');
+    if (!customerName || !customerName.trim() || ['customer', 'user', 'guest', 'none', 'unknown'].includes(customerName.trim().toLowerCase())) {
+        const err = new Error('Customer actual name is required. Please ask the customer for their real name.');
         err.code = 'CUSTOMER_NAME_REQUIRED';
         throw err;
     }
@@ -237,12 +237,18 @@ export async function createOrder(params) {
         // C. Create Order
         let finalDeliveryAddress = (delivery?.address || '').trim();
         if (!finalDeliveryAddress) {
-            const areaLabel = pricing.deliveryArea?.name || delivery?.areaName || 'Coverage Area';
+            const areaLabel = pricing.deliveryArea?.name || delivery?.areaName || '';
             if (delivery?.latitude != null && delivery?.longitude != null) {
-                finalDeliveryAddress = `${areaLabel} (Location Pin: https://www.google.com/maps?q=${delivery.latitude},${delivery.longitude})`;
-            } else if (delivery?.areaName) {
-                finalDeliveryAddress = delivery.areaName;
+                finalDeliveryAddress = `${areaLabel ? areaLabel + ' ' : ''}(Location Pin: https://www.google.com/maps?q=${delivery.latitude},${delivery.longitude})`;
+            } else if (areaLabel) {
+                finalDeliveryAddress = areaLabel;
             }
+        }
+
+        if (!finalDeliveryAddress) {
+            const err = new Error('Delivery address or location pin is required. Please ask the customer for their delivery address.');
+            err.code = 'DELIVERY_ADDRESS_REQUIRED';
+            throw err;
         }
 
         const createdOrder = await tx.order.create({
