@@ -29,12 +29,7 @@ router.get('/', async (req, res) => {
         }
 
         const categories = await prisma.category.findMany({
-            where: restaurantId ? {
-                OR: [
-                    { restaurant_id: restaurantId },
-                    { restaurant_id: null },
-                ],
-            } : {},
+            where: restaurantId ? { restaurant_id: restaurantId } : {},
             orderBy: [{ sort_order: 'asc' }, { name: 'asc' }],
             include: {
                 _count: {
@@ -81,12 +76,7 @@ router.get('/:id', async (req, res) => {
         const category = await prisma.category.findFirst({
             where: {
                 id: req.params.id,
-                ...(restaurantId ? {
-                    OR: [
-                        { restaurant_id: restaurantId },
-                        { restaurant_id: null },
-                    ],
-                } : {}),
+                ...(restaurantId ? { restaurant_id: restaurantId } : {}),
             },
             include: {
                 _count: { select: { menu_items: true } },
@@ -153,12 +143,7 @@ router.post('/', async (req, res) => {
         // Check duplicate name or slug within restaurant
         const existing = await prisma.category.findFirst({
             where: {
-                ...(restaurantId ? {
-                    OR: [
-                        { restaurant_id: restaurantId },
-                        { restaurant_id: null },
-                    ],
-                } : {}),
+                ...(restaurantId ? { restaurant_id: restaurantId } : {}),
                 OR: [
                     { slug: baseSlug },
                     { name: { equals: name, mode: 'insensitive' } },

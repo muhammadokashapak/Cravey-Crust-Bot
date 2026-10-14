@@ -28,12 +28,7 @@ router.get('/', async (req, res) => {
             } catch (_) {}
         }
         const deals = await prisma.deal.findMany({
-            where: restaurantId ? {
-                OR: [
-                    { restaurant_id: restaurantId },
-                    { restaurant_id: null },
-                ],
-            } : {},
+            where: restaurantId ? { restaurant_id: restaurantId } : {},
             orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
             include: {
                 deal_items: {
@@ -119,12 +114,7 @@ router.post('/', async (req, res) => {
         let counter = 1;
         while (await prisma.deal.findFirst({
             where: {
-                ...(restaurantId ? {
-                    OR: [
-                        { restaurant_id: restaurantId },
-                        { restaurant_id: null },
-                    ],
-                } : {}),
+                ...(restaurantId ? { restaurant_id: restaurantId } : {}),
                 slug,
             },
         })) {
@@ -137,12 +127,7 @@ router.post('/', async (req, res) => {
                 const menuItem = await prisma.menuItem.findFirst({
                     where: {
                         id: it.menu_item_id,
-                        ...(restaurantId ? {
-                            OR: [
-                                { restaurant_id: restaurantId },
-                                { restaurant_id: null },
-                            ],
-                        } : {}),
+                        ...(restaurantId ? { restaurant_id: restaurantId } : {}),
                     },
                     include: { variants: true },
                 });

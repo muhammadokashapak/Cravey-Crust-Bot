@@ -18,15 +18,15 @@ router.get('/', async (req, res) => {
             });
         }
 
-        const restaurantId = await getDefaultRestaurantId();
+        let restaurantId;
+        try {
+            restaurantId = await getDefaultRestaurantId();
+        } catch (_) {}
         const now = new Date();
 
         const deals = await prisma.deal.findMany({
             where: {
-                OR: [
-                    { restaurant_id: restaurantId },
-                    { restaurant_id: null },
-                ],
+                ...(restaurantId ? { restaurant_id: restaurantId } : {}),
                 is_active: true,
                 AND: [
                     { OR: [{ start_at: null }, { start_at: { lte: now } }] },

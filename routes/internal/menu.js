@@ -19,15 +19,15 @@ router.get('/', async (req, res) => {
             });
         }
 
-        const restaurantId = await getDefaultRestaurantId();
+        let restaurantId;
+        try {
+            restaurantId = await getDefaultRestaurantId();
+        } catch (_) {}
 
         // Query active categories containing active, available items
         const categories = await prisma.category.findMany({
             where: {
-                OR: [
-                    { restaurant_id: restaurantId },
-                    { restaurant_id: null },
-                ],
+                ...(restaurantId ? { restaurant_id: restaurantId } : {}),
                 is_active: true,
             },
             orderBy: { sort_order: 'asc' },
@@ -101,13 +101,13 @@ router.get('/categories', async (req, res) => {
             });
         }
 
-        const restaurantId = await getDefaultRestaurantId();
+        let restaurantId;
+        try {
+            restaurantId = await getDefaultRestaurantId();
+        } catch (_) {}
         const categories = await prisma.category.findMany({
             where: {
-                OR: [
-                    { restaurant_id: restaurantId },
-                    { restaurant_id: null },
-                ],
+                ...(restaurantId ? { restaurant_id: restaurantId } : {}),
                 is_active: true,
             },
             orderBy: { sort_order: 'asc' },
@@ -154,13 +154,13 @@ router.get('/search', async (req, res) => {
         // When q is empty, return ALL active+available menu items so n8n cache
         // can be fully populated in a single call (no item is ever skipped).
         if (!rawQuery) {
-            const restaurantId = await getDefaultRestaurantId();
+            let restaurantId;
+            try {
+                restaurantId = await getDefaultRestaurantId();
+            } catch (_) {}
             const allItems = await prisma.menuItem.findMany({
                 where: {
-                    OR: [
-                        { restaurant_id: restaurantId },
-                        { restaurant_id: null },
-                    ],
+                    ...(restaurantId ? { restaurant_id: restaurantId } : {}),
                     is_active: true,
                     is_available: true,
                     category: { is_active: true },
@@ -264,10 +264,7 @@ router.get('/search', async (req, res) => {
         // Search active items across name, category, and description
         const items = await prisma.menuItem.findMany({
             where: {
-                OR: [
-                    { restaurant_id: restaurantId },
-                    { restaurant_id: null },
-                ],
+                ...(restaurantId ? { restaurant_id: restaurantId } : {}),
                 is_active: true,
                 is_available: true,
                 category: { is_active: true },
