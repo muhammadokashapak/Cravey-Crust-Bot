@@ -446,6 +446,15 @@ CUSTOMER PHONE HANDLING:
 - Dobara phone number pooch kar customer ko tang mat karo agar WhatsApp number mojood hai!
 - "Aapka WhatsApp number privacy ki wajah se show nahi ho raha" WALA JHOOT HARGIZ MAT BOLO kyunki WhatsApp number system mein mojood hai!
 
+MANDATORY ADD TO CART TOOL CALL (MENU ITEMS & DEALS):
+- JAB BHI CUSTOMER KISI PIZZA, BURGER, ITEM YA DEAL KA SIZE / QUANTITY BATAYE YA ADD KARNE KA KAHE:
+  (Maslan: "Medium", "Large", "Small", "Party Size", "Cheese Lover medium", "1 zinger", "add kardo", "ye chahiye"):
+  1. TUMHE LAZMI 'Add to Cart' TOOL EXECUTE KARNA HAI!
+  2. TOOL CALL KIYE BAGHAIR YEH JHOOT HARGIZ MAT BOLO KE "aapke cart mein add kar diya gaya hai"!
+  3. LIVE MENU CATALOG se menuItemId aur variantId (maslan Cheese Lover ke liye menuItemId: cmv5k2ypv003spt5t7cvxv7xt aur Medium ke liye variantId: cmv5k2ypx003wpt5tn3rjfsk0) nikaal kar 'Add to Cart' tool call karo!
+  4. Jab tool call success ho jaye, SIRF TAB customer ko confirm karo:
+     "[Item Name] [Size/Variant] aapke cart mein add kar diya gaya hai. Kya aap kuch aur add karna chahenge, ya order checkout karein?"
+
 DEAL CONFIRMATION RULE:
 - Jab customer kisi deal ka naam ya number bole (maslan "deal 2", "deal 3", "burger meal 3"):
   1. Agar ambiguity ho (maslan "Meal 3" dono Burger Deals aur Pizza Deals mein hota hai), to pehle clarify karo.
@@ -529,10 +538,16 @@ Delivery Details:
 - Payment Method: [COD ya EasyPaisa]
 Kya aapki yeh details theek hain? Order confirm karne ke liye haan likhein.
 
-ORDER CONFIRMATION:
-Customer 'haan/jee/ok/confirm/kardo/proceed/checkout' kahe to FORAN Create Confirmed Order tool call karo!
-Asli order number (CC-XXXXXX) jo tool ke response se mile, foran customer ko batao:
-"Mubarak ho! Aapka order kamyabi se confirm ho gaya hai aur aapka order number CC-XXXXXX hai. Aapka khana jald hi diye gaye address par bhej diya jayega. Cravey Crust pasand karne ka shukriya!"
+ORDER CONFIRMATION & CART VERIFICATION:
+1. Customer se 4 details (Naam, Address, Phone, Payment Method) milte hi FINAL SUMMARY CARD BHEJO.
+2. Jab customer summary par "haan / confirm / ok / kardo" bole:
+   - Pehle check karo ke cart mein item mojood hai. Agar pichli chat mein customer ne item bola tha (maslan Medium Cheese Lover Pizza) lekin cart kisi wajah se empty hai, to PEHLE foran 'Add to Cart' tool call karke item add karo!
+   - Uske baad 'Create Confirmed Order' tool call karo!
+3. Asli order number (CC-XXXXXX) jo tool ke response se mile, foran customer ko batao:
+   "Mubarak ho! Aapka order kamyabi se confirm ho gaya hai aur aapka order number CC-XXXXXX hai. Aapka khana jald hi diye gaye address par bhej diya jayega. Cravey Crust pasand karne ka shukriya!"
+4. AGAR TOOL CALL MEIN KISI WAJAH SE CART_EMPTY ERROR AYE:
+   - Customer ko "technical masla" ka bahana HARGIZ mat banao!
+   - Foran customer ke bataye hue item ko 'Add to Cart' tool se add karo aur 'Create Confirmed Order' call karo!
 
 HUMAN HANDOVER & COMPLAINT HANDLING (MANDATORY TOOL CALL):
 - Agar customer gussa ho, naraz ho, bad service ki complaint kare (maslan "service achi nahi", "address name pouchte nahi"), ya human / manager / malik / owner se baat karna chahe (maslan "apny malik se meri baat krwao", "manager se baat karni hai", "owner se baat", "human agent chahiye"):
@@ -605,6 +620,12 @@ const createOrderToolNode = workflow.nodes.find(n => n.name === 'Create Confirme
 if (createOrderToolNode && createOrderToolNode.parameters) {
   createOrderToolNode.parameters.toolDescription = 'Asli order place karta hai. SIRF AUR SIRF TAB CALL KARO jab customer se Name, Delivery Address, Phone aur Payment Method mil chuka ho aur customer ne Final Summary par haan/confirm kaha ho. Agar Name ya Delivery Address missing hai to ye tool call karna sakht mana hai. Result se CC-... order number milta hai.';
   createOrderToolNode.parameters.jsonBody = "={{ JSON.stringify({\\n  sessionKey: $('Prepare Session').first().json.sessionKey,\\n  customerName: $fromAI('customerName', 'Customer ka asli naam jo usne chat mein bataya ho (kabhi bhi placeholder Customer mat likho)', 'string'),\\n  phone: ($fromAI('phone', 'Sirf agar customer ne alag contact number diya ho, warna khali chhodo', 'string', '') || $('Prepare Session').first().json.whatsappPhone || undefined),\\n  contactNumberMode: 'provided',\\n  confirmationNumberMode: 'default',\\n  confirmationPhone: $fromAI('confirmationPhone', 'Sirf agar customer ne kisi aur number par confirmation maangi, warna khali', 'string', '') || undefined,\\n  delivery: {\\n    address: ($fromAI('deliveryAddress', 'Customer ka confirmed delivery address ya location pin (khud se guess mat karo)', 'string') || $('Prepare Session').first().json.locationAddress || ($('Prepare Session').first().json.locationLat ? (($('Prepare Session').first().json.locationName ? $('Prepare Session').first().json.locationName + ', ' : '') + ($('Prepare Session').first().json.locationAddress || 'Shared Location') + ' (Location Pin: https://www.google.com/maps?q=' + $('Prepare Session').first().json.locationLat + ',' + $('Prepare Session').first().json.locationLng + ')') : undefined)),\\n    areaName: ($fromAI('deliveryAreaName', 'Delivery area ka naam', 'string', '') || $('Prepare Session').first().json.locationName || ''),\\n    areaId: $fromAI('deliveryAreaId', 'Area ID agar delivery check se mili, warna khali', 'string', '') || undefined,\\n    latitude: (Number($fromAI('latitude', 'Shared location ki latitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLat) || $('Webhook').first().json.body?.location?.latitude) || undefined,\\n    longitude: (Number($fromAI('longitude', 'Shared location ki longitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLng) || $('Webhook').first().json.body?.location?.longitude) || undefined,\\n    googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || ''\\n  },\\n  paymentMethod: String($fromAI('paymentMethod', 'COD ya EASYPAISA', 'string', 'COD') || 'COD').toUpperCase().replace(/\\\\s+/g, ''),\\n  promoCode: $fromAI('promoCode', 'Promo code agar diya ho, warna khali', 'string', '') || undefined,\\n  notes: $fromAI('notes', 'Order notes, warna khali', 'string', '') || undefined,\\n  idempotencyKey: $('Prepare Session').first().json.messageId || undefined\\n}) }}";
+}
+
+// 11. Add to Cart (AI Agent Tool) node (Strict tool description)
+const addToCartToolNode = workflow.nodes.find(n => n.name === 'Add to Cart');
+if (addToCartToolNode && addToCartToolNode.parameters) {
+  addToCartToolNode.parameters.toolDescription = 'LAZMI EXECUTE KARO jab customer kisi item ya deal ka size, quantity ya order karne ka kahe (maslan Medium, Large, Small, Cheese lover, Zinger). menuItemId aur variantId (sized items ke liye) ya dealId bhejo. Tool call kiye baghair cart mein add hone ka jhoot bolna sakht mana hai.';
 }
 
 // Write to all 4 workflow files
