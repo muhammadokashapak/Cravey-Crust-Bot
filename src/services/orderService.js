@@ -101,20 +101,31 @@ export async function createOrder(params) {
 
     // ─── 2. Validate Contact Mode & Phone Numbers ────────────────────────────
     let finalPhone = '';
-    if (contactNumberMode === 'same_whatsapp') {
-        if (!session.verified_phone) {
-            const err = new Error('Verified WhatsApp phone is required when using same_whatsapp contact mode');
-            err.code = 'CONTACT_NUMBER_REQUIRED';
-            throw err;
+    const phoneStr = String(phone || '').toLowerCase().trim();
+    const isSameNumberRequest = phoneStr === 'same' || 
+        phoneStr === 'same number' || 
+        phoneStr === 'same_number' || 
+        phoneStr === 'whatsapp' || 
+        phoneStr === 'same_whatsapp' || 
+        phoneStr.includes('same') ||
+        contactNumberMode === 'same_whatsapp';
+
+    if (isSameNumberRequest || !phone) {
+        if (session.verified_phone) {
+            finalPhone = normalizePhone(session.verified_phone);
         }
-        finalPhone = normalizePhone(session.verified_phone);
     } else {
         finalPhone = normalizePhone(phone);
-        if (!finalPhone) {
-            const err = new Error('Contact phone number is required');
-            err.code = 'CONTACT_NUMBER_REQUIRED';
-            throw err;
+        // Fallback to verified_phone if phone string couldn't be parsed but session has verified_phone
+        if (!finalPhone && session.verified_phone) {
+            finalPhone = normalizePhone(session.verified_phone);
         }
+    }
+
+    if (!finalPhone) {
+        const err = new Error('Contact phone number is required');
+        err.code = 'CONTACT_NUMBER_REQUIRED';
+        throw err;
     }
 
     if (!customerName || !customerName.trim()) {
