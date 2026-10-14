@@ -525,28 +525,15 @@ async function seed() {
     }
     console.log('✅ 12 deals created in Deals table.');
 
-    // ── 6.5. Seed Active Promotions (from Discounts sheet) ────────────────────
-    console.log('🎟️ Creating promotions from Discounts sheet...');
+    // ── 6.5. Clear Promotions & Discounts ────────────────────
+    console.log('🎟️ Clearing promotions and discounts...');
     await prisma.promotionTarget.deleteMany({
         where: { promotion: { restaurant_id: restaurantId } },
     });
     await prisma.promotion.deleteMany({
         where: { restaurant_id: restaurantId },
     });
-
-    await prisma.promotion.create({
-        data: {
-            restaurant_id: restaurantId,
-            name: 'Cravey Mega Savings',
-            code: 'SAVINGS30',
-            description: '30% discount on orders above Rs. 500 (Excluding deals)',
-            discount_type: 'PERCENTAGE',
-            discount_value: 30,
-            minimum_order: 500,
-            is_active: true,
-        },
-    });
-    console.log('✅ Active promotion Cravey Mega Savings (SAVINGS30 - 30%) created.');
+    console.log('✅ Promotions cleared.');
 
     // ── 7. Seed FAQ Categories & FAQs ─────────────────────────────────────────
     console.log('💡 Creating FAQ categories and FAQs...');
