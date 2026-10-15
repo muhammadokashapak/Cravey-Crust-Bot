@@ -204,10 +204,12 @@ if (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword || isComplain
   const hasOrderAction = has(/\\b(order|add|cart|pack|kar|kardo|krdo|kr|chahiye|mangwa|mangwana|banao|confirm|lagao|laga)\\b/);
   const isGeneralDealsAsk = hasDealWord && !hasSpecificDealNo && !hasOrderAction && wordCount <= 6;
 
-  // Broad menu ask detection (e.g. "menu", "menu dikhao", "ap ke pass kia milta ha", "kya kya milta hai")
-  const hasMenuWord = has(/\\b(menu|menue|categories|catagories|rate list|price list|food list)\\b/) || any(['\\u0645\\u06CC\\u0646\\u0648','\\u0631\\u06CC\\u0679 \\u0644\\u0633\\u0679']);
-  const isWhatDoYouHave = has(/\\b(kia milta ha|kya milta hai|kia milta|kya milta|kya kya milta|kia kia milta|kia ha ap k pas|kya hai aap ke paas|kya kya hai|kia kia hai|apke pas kya hai|ap k pas kia ha|ap ke pass kia|ap k pass kia|menu dikhao|menu bhejo|menu batao|menu card|rate list dikhao)\\b/);
-  const isGeneralMenuAsk = (hasMenuWord || isWhatDoYouHave) && !hasDealWord && !hasOrderAction && wordCount <= 7;
+  // Broad menu ask detection (e.g. "menu", "menu dikhao", "kia kia ha tumhary pas", "kia kia ha khany mein", "ap ke pass kia milta ha")
+  const hasMenuWord = has(/\\b(menu|menue|categories|catagories|rate list|price list|food list|items)\\b/) || any(['\\u0645\\u06CC\\u0646\\u0648','\\u0631\\u06CC\\u0679 \\u0644\\u0633\\u0679']);
+  const isWhatDoYouHave = has(/\\b(kia|kya)\\b.*\\b(pas|paas|pass|khana|khany|khane|milta|milti|available|rakha|dastiyab)\\b/) ||
+    has(/\\b(kya kya|kia kia|kya hai|kia hai|kya h|kia h|kya milta|kia milta|khana kya|khane me kya|khany mein kya|khany me|khane mein)\\b/) ||
+    has(/\\b(menu dikhao|menu bhejo|menu batao|menu card|rate list|price list|food list|items dikhao|list dikhao|kya items|kia items)\\b/);
+  const isGeneralMenuAsk = (hasMenuWord || isWhatDoYouHave) && !hasDealWord && !hasOrderAction && wordCount <= 8;
 
   const isChitchat = has(/\\b(kese ho|kaise ho|kase ho|kesy ho|kaisy ho|kia hal|kya hal|kya haal|kia haal|how are you|how r u|kya ho raha|kya kr rahe|aur sunao|or sunao|sab theek|tabiyat)\\b/) && !hasDealWord && !hasOrderAction;
 
@@ -439,46 +441,48 @@ KHABARDAAR - ADDRESS, NAAM AUR NUMBER KHUD SE GUESS KARNA SAKHT MANA HAI:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-LIVE CATEGORIES (Admin Panel se Live):
-{{ $('Check Cache & Classify Intent').first().json.cachedCategoriesSummary || 'Search Menu Item tool use karein.' }}
+STORE INFO:
+Restaurant Branch Address: School stop, Lehtrar Road, near Fazal e haq, Tarlai Kalan, Islamabad (Branch Outlet - Delivery address NAHI hai).
+Delivery Areas: Tarlai Kalan, Ghauri Town, Al-Huda Town, Chatha Bakhtawar, Khanna Pul, Shahzad Town, PWD, Chak Shahzad.
+Timings: 12:00 PM - 02:00 AM. Cash on Delivery (COD) ya EasyPaisa.
 
-LIVE MENU CATALOG (Tamam Active Products, Categories, Variants & IDs):
-{{ $('Check Cache & Classify Intent').first().json.cachedMenuCatalog || 'Search Menu Item tool use karein.' }}
+OFFICIAL MENU & PRODUCT CATALOG (Tamam Active Products, Prices & IDs for Add to Cart):
+- CLASSIC PIZZAS (Small Rs. 599, Medium Rs. 1299, Large Rs. 1499, Party Size Rs. 2599):
+  1. Cheese Lover [item:cmv5k2ypv003spt5t7cvxv7xt] (Small:cmv5k2ypw003upt5th9k5ni95, Medium:cmv5k2ypx003wpt5tn3rjfsk0, Large:cmv5k2ypy003ypt5tn4mq9ilc, Party Size:cmv5k2ypz0040pt5t0g4c8i15)
+  2. Chicken Tikka [item:cmv5k2yq00042pt5ttirv4uem] (Small:cmv5k2yq10044pt5tfmujdi3u, Medium:cmv5k2yq20046pt5tvb3sbb5e, Large:cmv5k2yq20048pt5t7u7k57kk, Party Size:cmv5k2yq3004apt5tl9knzk59)
+  3. Chicken Fajita [item:cmv5k2yq9004mpt5tekusjgyx] (Small:cmv5k2yqa004opt5twpxz6y50, Medium:cmv5k2yqa004qpt5t4ke5wewx, Large:cmv5k2yqb004spt5t9gvimzbh, Party Size:cmv5k2yqc004upt5t8yn1flbd)
+  4. Chicken Supreme [item:cmv5k2yq4004cpt5toswe0i7j] (Small:cmv5k2yq5004ept5tazzz5m9r, Medium:cmv5k2yq6004gpt5try176p8a, Large:cmv5k2yq7004ipt5tztqrw40t, Party Size:cmv5k2yq8004kpt5tgujcxjpb)
+  5. Chicken Tandori [item:cmv5k2yqd004wpt5tuhc29zj8] (Small:cmv5k2yqe004ypt5tngkfwz37, Medium:cmv5k2yqf0050pt5tft7u2wos, Large:cmv5k2yqg0052pt5t7kk6vn76, Party Size:cmv5k2yqh0054pt5t6prp25lb)
 
-LIVE DEALS CACHE (Tamam Active Deals & IDs - Alag Alag Categories):
-{{ $('Check Cache & Classify Intent').first().json.cachedDealsSummary || 'Get Current Deals tool use karein.' }}
+- PREMIUM PIZZAS (Small Rs. 699, Medium Rs. 1399, Large Rs. 1799, Party Size Rs. 2799):
+  1. Behari Kebab Pizza [item:cmv5k2yph0030pt5tewx0y2pp] (Small:cmv5k2ypj0032pt5t8v5u5ifq, Medium:cmv5k2ypk0034pt5tm50gzxbm, Large:cmv5k2ypl0036pt5t1zr1jvwl, Party Size:cmv5k2ypm0038pt5t1r8y8a8z)
+  2. Chicken Extreme [item:cmv5k2yp5002gpt5t2nxp8ehv] (Small:cmv5k2yp7002ipt5t0b7l1n0c, Medium:cmv5k2yp9002kpt5tk9dr6gjg, Large:cmv5k2ypa002mpt5t75y2r9o9, Party Size:cmv5k2ypb002opt5tesqdfz3e)
+  3. Crown Crust [item:cmv5k2ypn003apt5t6jvyla53] (Small:cmv5k2ypo003cpt5tf81l8116, Medium:cmv5k2ypp003ept5tdf2q4cwe, Large:cmv5k2ypq003gpt5tpmll96x2, Party Size:cmv5k2ypr003ipt5t1kxg44w4)
+  4. Peri Peri Pizza [item:cmv5k2ypc002qpt5tnn1a8l1o] (Small:cmv5k2ypd002spt5tl926t5pt, Medium:cmv5k2ype002upt5tgq4i895l, Large:cmv5k2ypf002wpt5tl4drs0r2, Party Size:cmv5k2ypg002ypt5tevkhobo8)
+  5. Stuffed Crust [item:cmv5k2yps003kpt5t0xr66vzf] (Medium Rs. 1499:cmv5k2ypt003mpt5tmxqillwl, Large Rs. 1999:cmv5k2ypu003opt5tywgvyoo9, Party Size Rs. 2999:cmv5k2ypv003qpt5tbxm9rgld)
 
-LIVE STORE INFO & FAQs (Timings, Outlet Address, Delivery Policies - Admin Panel se Live):
-{{ $('Check Cache & Classify Intent').first().json.cachedStoreInfo }}
-{{ $('Check Cache & Classify Intent').first().json.cachedFaqs }}
+- BURGER DEALS (Add to Cart mein dealId pass karo):
+  1. Burger Meal For 1 (Rs. 599) [dealId:cmv5k2yre0074pt5t6df9jkev]: 1 Zinger Burger + Regular Fries + Regular Drink
+  2. Burger Meal For 2 (Rs. 999) [dealId:cmv5k2yrg0076pt5t3xdtq7h1]: 2 Zinger Burgers + Regular Fries + 2 Regular Drinks
+  3. Burger Meal For 3 (Rs. 1599) [dealId:cmv5k2yrh0078pt5t3o3wy66d]: 3 Zinger Burgers + 3 Chicken Pieces + 1 Litre Drink
+  4. Deal 4 (Rs. 999) [dealId:cmv5k2yrl007gpt5tzi8ylxkh]: 4 Zeggy Burgers
+  5. Deal 5 (Rs. 1099) [dealId:cmv5k2yrm007ipt5tdwd8wbje]: 3 Zinger Burgers + 1 Litre Drink
+
+- PIZZA DEALS (Add to Cart mein dealId pass karo):
+  1. Pizza Meal For 1 (Rs. 599) [dealId:cmv5k2yr9006wpt5tqhdeo8bd]: 1 Small Pizza + Regular Drink
+  2. Pizza Meal For 2 (Rs. 1299) [dealId:cmv5k2yrb006ypt5tzw9xf28e]: 1 Regular Pizza + 2 Regular Drinks
+  3. Pizza Meal For 3 (Rs. 1599) [dealId:cmv5k2yrc0070pt5tho6mqejm]: 1 Large Pizza + 1 Litre Drink
+  4. Pizza Meal For 4 (Rs. 2499) [dealId:cmv5k2yrd0072pt5tses1qgkj]: 1 Party Size Pizza + 1.5 Litre Drink
+  5. Deal 1 (Rs. 1099) [dealId:cmv5k2yri007apt5t0v0fu5qc]: 2 Small Pizzas + 2 Regular Drinks
+  6. Deal 2 (Rs. 2099) [dealId:cmv5k2yrj007cpt5tc1p6dlwm]: 2 Medium Pizzas + 1 Litre Drink
+  7. Deal 3 (Rs. 2999) [dealId:cmv5k2yrk007ept5ti388fk1o]: 2 Large Pizzas + 1 Litre Drink
+
+- DRINKS (Add to Cart mein menuItemId aur variantId pass karo):
+  1. Soft Drink [item:cmv5k2yr3006ipt5t0rupb07e] (Regular Rs. 120:cmv5k2yr4006kpt5tzi28v1kp, 1 Litre Rs. 220:cmv5k2yr5006opt5tw7xab43q)
+  2. Mineral Water [item:cmv5k2yr7006spt5tu5uhl3ey] (Small Rs. 60:cmv5k2yr8006upt5txyneh0lp, Large Rs. 110:cmv5k2yr8006upt5txyneh0lp)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 {{ $('Check Cache & Classify Intent').first().json.confirmIntent ? 'CURRENT STATUS: Customer ne abhi confirm bola hai (haan / yes / confirm / theek hai / ok / ji / kardo). Agar aap pehle hi customer ko Final Summary Card bhej chuke the jis mein Naam aur Address maujood tha, to ab FORAN Create Confirmed Order tool call karo aur result se mila CC-... order number customer ko batao. Agar pichla message Final Summary nahi tha to pehle summary bhejo!' : 'CURRENT STATUS: Customer ne abhi order confirm NAHI kiya hai (customer ne abhi address, naam, phone ya payment method bataya hai ya koi sawal poocha hai). KHABARDAAR: IS WAQT Create Confirmed Order TOOL CALL KARNA 100% SAKHT MANA HAI! Agar chaaron details (Naam, Address, Phone, Payment) poori ho chuki hain, to Calculate Cart Totals call karo aur SIRF Final Summary Card bhej kar poocho \\"Kya aapki yeh details theek hain? Order confirm karne ke liye haan ya confirm likhein\\" aur customer ke confirmation reply ka intezar karo!' }}
-
-CRAVEY CRUST STRICT MENU SCOPE (ZERO HALLUCINATION - SIRF YEH ITEMS DASTIYAB HAIN):
-Cravey Crust par SIRF aur SIRF yeh items dastiyab hain:
-1. CLASSIC PIZZAS (Small Rs. 599, Medium Rs. 1299, Large Rs. 1499, Party Size Rs. 2599):
-   - Cheese Lover, Chicken Tikka, Chicken Fajita, Chicken Supreme, Chicken Tandori
-2. PREMIUM PIZZAS (Small Rs. 699, Medium Rs. 1399, Large Rs. 1799, Party Size Rs. 2799):
-   - Behari Kebab Pizza, Chicken Extreme, Crown Crust, Peri Peri Pizza
-   - Stuffed Crust (Medium Rs. 1499, Large Rs. 1999, Party Size Rs. 2999)
-3. BURGER DEALS:
-   - Burger Meal 1 (Rs. 599): 1 Zinger Burger + Regular Fries + Regular Drink
-   - Burger Meal 2 (Rs. 999): 2 Zinger Burgers + Regular Fries + 2 Regular Drinks
-   - Burger Meal 3 (Rs. 1599): 3 Zinger Burgers + 3 Chicken Pieces + 1 Litre Drink
-   - Deal 4 (Rs. 999): 4 Zeggy Burgers
-   - Deal 5 (Rs. 1099): 3 Zinger Burgers + 1 Litre Drink
-4. PIZZA DEALS:
-   - Pizza Meal 1 (Rs. 599): 1 Small Pizza + Regular Drink
-   - Pizza Meal 2 (Rs. 1299): 1 Regular Pizza + 2 Regular Drinks
-   - Pizza Meal 3 (Rs. 1599): 1 Large Pizza + 1 Litre Drink
-   - Pizza Meal 4 (Rs. 2499): 1 Party Size Pizza + 1.5 Litre Drink
-   - Deal 1 (Rs. 1099): 2 Small Pizzas + 2 Regular Drinks
-   - Deal 2 (Rs. 2099): 2 Medium Pizzas + 1 Litre Drink
-   - Deal 3 (Rs. 2999): 2 Large Pizzas + 1 Litre Drink
-5. DRINKS:
-   - Soft Drink: Regular (Rs. 120), 1 Litre (Rs. 220)
-   - Mineral Water: Small (Rs. 60), Large (Rs. 110)
 
 HARGIZ YEH GHAIR-MOJOOD CHEEZEIN CUSTOMER KO NA BOLO (CRAVEY CRUST PAR DASTIYAB NAHI HAIN):
 - NO DESSERTS (Brownies, ice creams, cakes Cravey Crust par BILKUL NAHI HAIN). Agar customer maange to polite bolo: "Maazrat! Cravey Crust par desserts dastiyab nahi hain. Hamare paas Mazedar Pizzas, Burger Deals aur Chilled Drinks hain."
@@ -705,7 +709,7 @@ HUMAN HANDOVER & COMPLAINT HANDLING (MANDATORY TOOL CALL):
   3. Tool call mein customer ka reason saaf pass karo (maslan: "Customer wants to speak with owner/manager").
   4. Tool call ke baad customer ko politely batao:
      "Ji bilkul, main aapki request aur complaint hamare human management team ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke maslay ko hal karega. Shukriya!\n\n(Agar aapko dobara bot shuru karna ho to kisi bhi waqt 'bot start' likh kar bhej dein)."`;
-  agentNode.parameters.options.maxIterations = 12;
+  agentNode.parameters.options.maxIterations = 5;
 }
 
 
@@ -762,13 +766,31 @@ if (calcToolNode && calcToolNode.parameters) {
   calcToolNode.parameters.jsonBody = "={{ JSON.stringify({\\n  deliveryAreaId: $fromAI('deliveryAreaId', 'Area ID from delivery check', 'string', '') || undefined,\\n  deliveryAreaName: $fromAI('deliveryAreaName', 'Delivery area name', 'string', '') || $('Prepare Session').first().json.locationName || undefined,\\n  address: $('Prepare Session').first().json.locationAddress || undefined,\\n  chatId: $('Prepare Session').first().json.chatId || undefined,\\n  verifiedPhone: $('Prepare Session').first().json.whatsappPhone || undefined,\\n  latitude: Number($fromAI('latitude', 'Latitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined,\\n  longitude: Number($fromAI('longitude', 'Longitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined\\n}) }}";
 }
 
-// 13. DeepSeek Chat Model (Use official deepseek-chat model name)
+// 13. Google Gemini Chat Model (Fix model to valid official gemini-1.5-flash)
+const geminiNode = workflow.nodes.find(n => n.name === 'Google Gemini Chat Model');
+if (geminiNode && geminiNode.parameters) {
+  geminiNode.parameters.modelName = 'models/gemini-1.5-flash';
+  if (!geminiNode.parameters.options) geminiNode.parameters.options = {};
+  geminiNode.parameters.options.maxOutputTokens = 2048;
+  geminiNode.parameters.options.temperature = 0.2;
+}
+
+// 14. DeepSeek Chat Model (Official deepseek-chat)
 const deepseekNode = workflow.nodes.find(n => n.name === 'DeepSeek Chat Model');
 if (deepseekNode && deepseekNode.parameters) {
   deepseekNode.parameters.model = 'deepseek-chat';
+  if (!deepseekNode.parameters.options) deepseekNode.parameters.options = {};
+  deepseekNode.parameters.options.maxTokens = 2048;
+  deepseekNode.parameters.options.temperature = 0.2;
 }
 
-// 13. Completely remove 'Get Active Promotions' node and connections from workflow
+// 15. Simple Memory (Reduce window length to 5 to save tokens and prevent memory bloat)
+const memoryNode = workflow.nodes.find(n => n.name === 'Simple Memory');
+if (memoryNode && memoryNode.parameters) {
+  memoryNode.parameters.contextWindowLength = 5;
+}
+
+// 16. Completely remove 'Get Active Promotions' node and connections from workflow
 workflow.nodes = workflow.nodes.filter(n => n.name !== 'Get Active Promotions');
 
 if (workflow.connections['AI Agent'] && workflow.connections['AI Agent'].ai_tool) {
@@ -778,7 +800,7 @@ if (workflow.connections['AI Agent'] && workflow.connections['AI Agent'].ai_tool
 }
 delete workflow.connections['Get Active Promotions'];
 
-// 14. Verify Order Reply node (Detect and intercept all fake claims, placeholders and unverified order confirmations)
+// 17. Verify Order Reply node (Detect and intercept all fake claims, placeholders and unverified order confirmations)
 const verifyNode = workflow.nodes.find(n => n.name === 'Verify Order Reply');
 if (verifyNode && verifyNode.parameters) {
   verifyNode.parameters.jsCode = `const prep = $('Prepare Session').first().json;
@@ -786,7 +808,7 @@ const cls = $('Check Cache & Classify Intent').first().json;
 let out = String($json.output || $json.text || '').trim();
 
 if (!out) {
-  out = 'Aapka message process ho raha tha lekin ek masla aa gaya. Baraye meherbani dobara bhej dein ya "agent" likhein.';
+  out = 'Walaikum Assalam! Main Cravey Crust ka ordering assistant Burger Raja hoon. Hamare paas Mazedar Pizzas, Burgers aur Value Deals dastiyab hain. Hamara menu dekhne ke liye "menu" ya "deals" likhein, ya bataiye aap kya order karna chahenge!';
 }
 
 // 1. Check if Create Confirmed Order tool was ACTUALLY executed in this execution and returned success
