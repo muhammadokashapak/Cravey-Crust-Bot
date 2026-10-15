@@ -8,9 +8,19 @@ import { getDefaultRestaurantId } from './restaurantService.js';
  */
 export function normalizePhone(phone) {
     if (!phone) return '';
-    const cleaned = String(phone).replace(/[^\d+]/g, '');
+    let cleaned = String(phone).replace(/[^\d+]/g, '');
     if (cleaned.startsWith('+')) {
-        return cleaned.substring(1);
+        cleaned = cleaned.substring(1);
+    }
+    // Format Pakistani numbers to standard 11-digit local mobile format: 03xxxxxxxxx
+    if (cleaned.startsWith('92') && cleaned.length === 12) {
+        return '0' + cleaned.slice(2);
+    }
+    if (cleaned.startsWith('03') && cleaned.length === 11) {
+        return cleaned;
+    }
+    if (cleaned.length === 10 && cleaned.startsWith('3')) {
+        return '0' + cleaned;
     }
     return cleaned;
 }

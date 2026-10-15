@@ -343,8 +343,8 @@ export async function clearCart({ sessionKey }) {
  * Calculate totals for active cart using central pricingService
  * Never stores permanent unvalidated prices in cart
  */
-export async function calculateCartTotals({ sessionKey, restaurantId, promoCode, deliveryAreaId, deliveryAreaName, latitude, longitude }) {
-    const cart = await getActiveCart({ sessionKey, restaurantId });
+export async function calculateCartTotals({ sessionKey, restaurantId, promoCode, deliveryAreaId, deliveryAreaName, latitude, longitude, chatId, verifiedPhone }) {
+    const cart = await getActiveCart({ sessionKey, restaurantId, chatId, verifiedPhone });
     const restId = restaurantId || cart.restaurant_id;
 
     if (!cart.items || cart.items.length === 0) {

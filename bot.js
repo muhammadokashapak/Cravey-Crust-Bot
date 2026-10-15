@@ -1035,7 +1035,14 @@ async function startSession(session, options = {}) {
 
                 console.log(`[N8N] Live location update from ${senderNum}`);
                 const text = '';
-                setImmediate(() => sendToN8n(buildN8nPayload(sock, msg, session, text)));
+                setImmediate(async () => {
+                    try {
+                        const payload = await buildN8nPayload(sock, msg, session, text);
+                        sendToN8n(payload);
+                    } catch (err) {
+                        console.error('[N8N] Error sending live location to n8n:', err.message);
+                    }
+                });
             } catch (err) {
                 console.error(`[${session.id}] Live location update error:`, err.message);
             }
@@ -1268,7 +1275,14 @@ async function handleMessage(sock, msg, session) {
                 return; // Bot remains completely silent!
             }
 
-            setImmediate(() => sendToN8n(buildN8nPayload(sock, msg, session, text)));
+            setImmediate(async () => {
+                try {
+                    const payload = await buildN8nPayload(sock, msg, session, text);
+                    sendToN8n(payload);
+                } catch (err) {
+                    console.error('[N8N] Error building/sending payload:', err.message);
+                }
+            });
             return; // Forwarded to n8n AI agent
         }
         // Owner command (starts with PREFIX): fall through to command system below
@@ -1291,7 +1305,7 @@ async function handleMessage(sock, msg, session) {
             return;
         }
         try {
-            const identity = resolveSenderIdentity(sock, msg, session);
+            const identity = await resolveSenderIdentity(sock, msg, session);
             const normalized = {
                 sessionId: session.id,
                 chatId: jid,

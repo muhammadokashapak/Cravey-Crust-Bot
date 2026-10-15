@@ -85,15 +85,15 @@ export async function sendToN8n(payload) {
  * @param {string} text     Pre-extracted text (from extractMessageText in bot.js)
  * @returns {object}        Normalized payload ready to POST to n8n
  */
-export function buildN8nPayload(sock, msg, session, text) {
+export async function buildN8nPayload(sock, msg, session, text) {
     const jid       = msg.key.remoteJid;
     const sessionId = session?.id || 'primary';
 
     // ── Safe sender identity resolution ────────────────────
     // Replaces the unsafe sender extraction that could treat @lid digits as a phone number.
-    // resolveSenderIdentity() never converts LID bytes to phone digits.
-    const identity  = resolveSenderIdentity(sock, msg, session);
-    const phone     = identity.phone; // empty string when not safely known
+    // resolveSenderIdentity() extracts actual phone number (03...) from PN/Alt/JID/LID mapping.
+    const identity  = await resolveSenderIdentity(sock, msg, session);
+    const phone     = identity.phone; // formatted customer phone (03xxxxxxxxx) or empty string
 
     // Log identity resolution result (no sensitive data exposed)
     if (identity.phoneVerified) {
@@ -203,8 +203,10 @@ export function buildN8nPayload(sock, msg, session, text) {
             : Math.floor(Date.now() / 1000),
         fromMe:          !!msg.key.fromMe,
         // ── Extended sender identity fields (additive — new in v1.1) ──
-        // whatsappPhone: same as phone, verified @s.whatsapp.net phone digits
+        // whatsappPhone: actual customer phone digits (03xxxxxxxxx)
         whatsappPhone:   identity.whatsappPhone,
+        customerPhone:   identity.whatsappPhone || identity.phone || '',
+        verifiedPhone:   identity.whatsappPhone || identity.phone || '',
         // phoneVerified: true only when phone was extracted from a real PN JID
         phoneVerified:   identity.phoneVerified,
         // phoneSource: which Baileys key field the phone was resolved from

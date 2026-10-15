@@ -118,23 +118,34 @@ export async function createOrder(params) {
         contactNumberMode === 'same_whatsapp';
 
     const cleanDigits = phoneStr.replace(/\D/g, '');
-    const isDummy = /^(0?3001234567|0?3123456789|0?3000000000|0?3211234567|0?3009876543|0?3120000000|0?3451234567|0?3331234567|0?3001111111|0?3001234568|0?3000000001|0?3111111111)$/.test(cleanDigits);
+    const isDummy = /^(0?3001234567|0?3123456789|0?3000000000|0?3211234567|0?3009876543|0?3120000000|0?3451234567|0?3331234567|0?3001111111|0?3001234568|0?3000000001|0?3111111111|0?3321234567)$/.test(cleanDigits);
+
+    const verifiedPhoneParam = params.verifiedPhone || params.whatsappPhone;
+    if (verifiedPhoneParam && !session.verified_phone) {
+        session.verified_phone = normalizePhone(verifiedPhoneParam);
+        await prisma.conversationSession.update({
+            where: { id: session.id },
+            data: { verified_phone: session.verified_phone },
+        }).catch(() => {});
+    }
 
     if (isSameNumberRequest || isDummy || !phone) {
         if (session.verified_phone) {
             finalPhone = normalizePhone(session.verified_phone);
+        } else if (verifiedPhoneParam) {
+            finalPhone = normalizePhone(verifiedPhoneParam);
         }
     } else {
         finalPhone = normalizePhone(phone);
         // Fallback to verified_phone if phone string couldn't be parsed but session has verified_phone
-        if (!finalPhone && session.verified_phone) {
-            finalPhone = normalizePhone(session.verified_phone);
+        if (!finalPhone && (session.verified_phone || verifiedPhoneParam)) {
+            finalPhone = normalizePhone(session.verified_phone || verifiedPhoneParam);
         }
     }
 
     // Fallback: extract clean digits from session_key, chat_id, or sessionKey if not raw @lid
     if (!finalPhone) {
-        const candidates = [session.verified_phone, session.session_key, session.chat_id, sessionKey];
+        const candidates = [session.verified_phone, verifiedPhoneParam, session.session_key, session.chat_id, sessionKey];
         for (const c of candidates) {
             if (c && !String(c).includes('@lid')) {
                 const digits = String(c).split('@')[0].replace(/\D/g, '');

@@ -283,7 +283,7 @@ router.post('/:sessionKey/calculate', async (req, res) => {
     try {
         const { sessionKey } = req.params;
         const restaurantId = await getDefaultRestaurantId();
-        const { promoCode, deliveryAreaId, deliveryAreaName, latitude, longitude } = req.body || {};
+        const { promoCode, deliveryAreaId, deliveryAreaName, latitude, longitude, chatId, verifiedPhone } = req.body || {};
 
         const totals = await calculateCartTotals({
             sessionKey,
@@ -293,6 +293,8 @@ router.post('/:sessionKey/calculate', async (req, res) => {
             deliveryAreaName,
             latitude: latitude != null ? Number(latitude) : undefined,
             longitude: longitude != null ? Number(longitude) : undefined,
+            chatId: chatId || req.query?.chatId || sessionKey,
+            verifiedPhone: verifiedPhone || req.query?.verifiedPhone,
         });
 
         return res.json({

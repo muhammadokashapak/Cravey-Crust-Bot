@@ -33,7 +33,8 @@
  */
 export function isPhoneJid(jid) {
     if (typeof jid !== 'string' || !jid) return false;
-    return jid.endsWith('@s.whatsapp.net');
+    const cleanJid = jid.split(':')[0] + (jid.includes('@') ? '@' + jid.split('@')[1] : '');
+    return cleanJid.endsWith('@s.whatsapp.net') || cleanJid.endsWith('@c.us');
 }
 
 /**
@@ -51,46 +52,54 @@ export function isLidJid(jid) {
 // ─── Phone Extraction ─────────────────────────────────────
 
 /**
- * Extract a clean numeric phone string from a verified @s.whatsapp.net JID.
- * Returns "" if the JID is not a safe phone-number JID.
+ * Extract a clean numeric phone string from a verified phone JID or candidate string.
+ * Formats Pakistani mobile numbers into the standard 11-digit local format: 03xxxxxxxxx.
  *
  * Examples:
- *   "923001234567@s.whatsapp.net"  → "923001234567"
- *   "86634523582505@lid"            → ""  (NEVER converted)
- *   null / undefined                → ""
+ *   "923001234567@s.whatsapp.net"  → "03001234567"
+ *   "03001234567"                  → "03001234567"
+ *   "3001234567"                   → "03001234567"
+ *   "86634523582505@lid"           → ""  (NEVER converted)
  *
- * @param {string|undefined|null} jid
+ * @param {string|undefined|null} input
  * @returns {string}
  */
-export function normalizePhoneFromJid(jid) {
-    if (!isPhoneJid(jid)) return '';
-    // Strip device suffix (e.g. "923001234567:12@s.whatsapp.net") then domain
-    const user = jid.split('@')[0].split(':')[0];
-    // Keep only digits — strip any unexpected characters
+export function normalizePhoneFromJid(input) {
+    if (!input || typeof input !== 'string') return '';
+    const s = input.trim();
+    if (s.includes('@lid') && !s.includes('@s.whatsapp.net')) return '';
+    // Strip device suffix (e.g. :12) and domain
+    const user = s.split('@')[0].split(':')[0];
     const digits = user.replace(/\D/g, '');
-    return digits;
+    if (!digits) return '';
+
+    // Format Pakistani numbers to standard 11-digit local format: 03xxxxxxxxx
+    if (digits.startsWith('92') && digits.length === 12) {
+        return '0' + digits.slice(2);
+    }
+    if (digits.startsWith('03') && digits.length === 11) {
+        return digits;
+    }
+    if (digits.length === 10 && digits.startsWith('3')) {
+        return '0' + digits;
+    }
+    if (digits.length >= 10) {
+        return digits;
+    }
+    return '';
 }
 
 // ─── Main Identity Resolver ───────────────────────────────
 
 /**
  * Resolve the verified sender identity from a Baileys message.
+ * Fetches the user's actual phone number across all Baileys stanza attributes,
+ * alternate JIDs, and LID mappings.
  *
- * Priority order for phone-number JID resolution:
- *   1. msg.key.senderPn        — WhatsApp-provided PN JID for private chats
- *   2. msg.key.participantPn   — WhatsApp-provided PN JID for group participants
- *   3. msg.key.participant     — if it is a @s.whatsapp.net JID
- *   4. msg.key.remoteJid       — if it is a @s.whatsapp.net JID
- *
- * LID candidates (for senderLid output field only):
- *   msg.key.senderLid, msg.key.participantLid, or msg.key.remoteJid if @lid
- *
- * NEVER uses raw LID digits as a phone number.
- *
- * @param {object} sock     Baileys socket (reserved for future use — not called currently)
+ * @param {object} sock     Baileys socket
  * @param {object} msg      Raw Baileys message object
- * @param {object} session  WhatsAppSession instance (reserved for future use)
- * @returns {{
+ * @param {object} session  WhatsAppSession instance
+ * @returns {Promise<{
  *   phone: string,
  *   whatsappPhone: string,
  *   phoneVerified: boolean,
@@ -99,15 +108,14 @@ export function normalizePhoneFromJid(jid) {
  *   senderLid: string,
  *   rawRemoteJid: string,
  *   rawParticipant: string
- * }}
+ * }>}
  */
-export function resolveSenderIdentity(sock, msg, session) {
-    /** Safe fallback — always returned when an error occurs */
+export async function resolveSenderIdentity(sock, msg, session) {
     const UNRESOLVED = {
         phone: '',
         whatsappPhone: '',
         phoneVerified: false,
-        phoneSource: 'error',
+        phoneSource: 'unknown',
         senderJid: '',
         senderLid: '',
         rawRemoteJid: '',
@@ -118,13 +126,17 @@ export function resolveSenderIdentity(sock, msg, session) {
         if (!msg || !msg.key) return { ...UNRESOLVED, phoneSource: 'no_key' };
 
         const key = msg.key;
-        const rawRemoteJid   = typeof key.remoteJid   === 'string' ? key.remoteJid   : '';
-        const rawParticipant = typeof key.participant  === 'string' ? key.participant  : '';
+        const rawRemoteJid      = typeof key.remoteJid      === 'string' ? key.remoteJid      : '';
+        const rawParticipant    = typeof key.participant    === 'string' ? key.participant    : '';
+        const rawRemoteJidAlt   = typeof key.remoteJidAlt   === 'string' ? key.remoteJidAlt   : '';
+        const rawParticipantAlt = typeof key.participantAlt === 'string' ? key.participantAlt : '';
+        const rawSenderPn       = typeof key.senderPn       === 'string' ? key.senderPn       : '';
+        const rawParticipantPn  = typeof key.participantPn  === 'string' ? key.participantPn  : '';
+        const rawMsgParticipant = typeof msg.participant    === 'string' ? msg.participant    : '';
 
         // ── Collect LID candidates ──────────────────────────
-        // We store the first @lid JID found for the senderLid output field.
         let resolvedLid = '';
-        if (isLidJid(rawRemoteJid))   resolvedLid = rawRemoteJid;
+        if (isLidJid(rawRemoteJid)) resolvedLid = rawRemoteJid;
         if (!resolvedLid && isLidJid(typeof key.senderLid === 'string' ? key.senderLid : '')) {
             resolvedLid = key.senderLid;
         }
@@ -132,80 +144,82 @@ export function resolveSenderIdentity(sock, msg, session) {
             resolvedLid = key.participantLid;
         }
 
-        // ── Priority 1: msg.key.senderPn ───────────────────
-        // Baileys sets this from WhatsApp stanza attr sender_pn — the most trustworthy source.
-        if (isPhoneJid(key.senderPn)) {
-            const phone = normalizePhoneFromJid(key.senderPn);
-            if (phone) {
-                return {
-                    phone,
-                    whatsappPhone: phone,
-                    phoneVerified: true,
-                    phoneSource: 'sender_pn',
-                    senderJid: key.senderPn,
-                    senderLid: resolvedLid,
-                    rawRemoteJid,
-                    rawParticipant,
-                };
+        // ── Prioritized Phone Candidates ────────────────────
+        const candidates = [
+            { jid: rawRemoteJidAlt,   source: 'remote_jid_alt' },
+            { jid: rawSenderPn,       source: 'sender_pn' },
+            { jid: rawParticipantAlt, source: 'participant_alt' },
+            { jid: rawParticipantPn,  source: 'participant_pn' },
+            { jid: rawParticipant,    source: 'participant' },
+            { jid: rawMsgParticipant, source: 'msg_participant' },
+            { jid: rawRemoteJid,      source: 'remote_jid' },
+        ];
+
+        for (const cand of candidates) {
+            if (cand.jid && isPhoneJid(cand.jid)) {
+                const phone = normalizePhoneFromJid(cand.jid);
+                if (phone) {
+                    return {
+                        phone,
+                        whatsappPhone: phone,
+                        phoneVerified: true,
+                        phoneSource: cand.source,
+                        senderJid: cand.jid,
+                        senderLid: resolvedLid,
+                        rawRemoteJid,
+                        rawParticipant,
+                    };
+                }
             }
         }
 
-        // ── Priority 2: msg.key.participantPn ─────────────
-        // Baileys sets this from stanza attr participant_pn — trusted for group messages.
-        if (isPhoneJid(key.participantPn)) {
-            const phone = normalizePhoneFromJid(key.participantPn);
-            if (phone) {
-                return {
-                    phone,
-                    whatsappPhone: phone,
-                    phoneVerified: true,
-                    phoneSource: 'participant_pn',
-                    senderJid: key.participantPn,
-                    senderLid: resolvedLid,
-                    rawRemoteJid,
-                    rawParticipant,
-                };
+        // ── Signal Repository LID Mapping Lookup ────────────
+        if (resolvedLid && sock?.signalRepository?.lidMapping?.getPNForLID) {
+            try {
+                const mappedPn = await sock.signalRepository.lidMapping.getPNForLID(resolvedLid);
+                if (mappedPn && isPhoneJid(mappedPn)) {
+                    const phone = normalizePhoneFromJid(mappedPn);
+                    if (phone) {
+                        return {
+                            phone,
+                            whatsappPhone: phone,
+                            phoneVerified: true,
+                            phoneSource: 'lid_mapping',
+                            senderJid: mappedPn,
+                            senderLid: resolvedLid,
+                            rawRemoteJid,
+                            rawParticipant,
+                        };
+                    }
+                }
+            } catch (lidErr) {
+                // Non-critical mapping lookup fallback
             }
         }
 
-        // ── Priority 3: msg.key.participant ────────────────
-        // Present in group messages; may be a PN or LID JID.
-        if (isPhoneJid(rawParticipant)) {
-            const phone = normalizePhoneFromJid(rawParticipant);
-            if (phone) {
-                return {
-                    phone,
-                    whatsappPhone: phone,
-                    phoneVerified: true,
-                    phoneSource: 'participant',
-                    senderJid: rawParticipant,
-                    senderLid: resolvedLid,
-                    rawRemoteJid,
-                    rawParticipant,
-                };
+        // ── Socket Contacts Cache Lookup ────────────────────
+        const contacts = sock?.store?.contacts || sock?.contacts;
+        if (resolvedLid && contacts && contacts[resolvedLid]) {
+            const c = contacts[resolvedLid];
+            const candidate = c.phoneNumber || c.pn || c.id;
+            if (candidate && isPhoneJid(candidate)) {
+                const phone = normalizePhoneFromJid(candidate);
+                if (phone) {
+                    return {
+                        phone,
+                        whatsappPhone: phone,
+                        phoneVerified: true,
+                        phoneSource: 'store_contacts',
+                        senderJid: candidate,
+                        senderLid: resolvedLid,
+                        rawRemoteJid,
+                        rawParticipant,
+                    };
+                }
             }
         }
 
-        // ── Priority 4: msg.key.remoteJid ──────────────────
-        // For private chats where the JID itself is the phone number.
-        if (isPhoneJid(rawRemoteJid)) {
-            const phone = normalizePhoneFromJid(rawRemoteJid);
-            if (phone) {
-                return {
-                    phone,
-                    whatsappPhone: phone,
-                    phoneVerified: true,
-                    phoneSource: 'remote_jid',
-                    senderJid: rawRemoteJid,
-                    senderLid: resolvedLid,
-                    rawRemoteJid,
-                    rawParticipant,
-                };
-            }
-        }
-
-        // ── Unresolved — @lid with no PN available ─────────
-        // ABSOLUTELY do NOT extract digits from an @lid value.
+        // ── Unresolved LID ──────────────────────────────────
         if (resolvedLid) {
             return {
                 phone: '',
@@ -219,20 +233,9 @@ export function resolveSenderIdentity(sock, msg, session) {
             };
         }
 
-        // ── Completely unknown structure ────────────────────
-        return {
-            phone: '',
-            whatsappPhone: '',
-            phoneVerified: false,
-            phoneSource: 'unknown',
-            senderJid: '',
-            senderLid: '',
-            rawRemoteJid,
-            rawParticipant,
-        };
+        return { ...UNRESOLVED, phoneSource: 'unknown' };
 
     } catch (err) {
-        // Never crash the bot — return safe unresolved identity
         return { ...UNRESOLVED, phoneSource: 'error' };
     }
 }
