@@ -336,6 +336,9 @@ if (items.length > 0) {
   const pizzaDeals = activeDeals.filter(d => classify(d) === 'PIZZA');
   const otherDeals = activeDeals.filter(d => classify(d) !== 'BURGER' && classify(d) !== 'PIZZA');
 
+  const wantsBurger = /\\\\b(burger|zinger|zeggy)\\\\b/i.test(userMsg);
+  const wantsPizza = /\\\\b(pizza)\\\\b/i.test(userMsg);
+
   const cleanMsg = userMsg.replace(/[^a-z0-9\\s]/g, ' ');
   const dMatch = cleanMsg.match(/\\bdeal\\s*(\\d+)\\b/);
   const pmMatch = cleanMsg.match(/\\bpizza\\s*meal(?:\\s*for)?\\s*(\\d+)\\b/);
