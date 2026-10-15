@@ -81,6 +81,12 @@ export async function createOrder(params) {
         }
     }
 
+    if (params.confirmed === false) {
+        const err = new Error('Order confirmation required from customer before placing the order. Present the Final Summary Card first and wait for customer confirmation.');
+        err.code = 'CONFIRMATION_REQUIRED';
+        throw err;
+    }
+
     // ─── 1. Load active cart & session ───────────────────────────────────────
     const cart = await getActiveCart({ sessionKey, restaurantId: restId });
     if (!cart.items || cart.items.length === 0) {
