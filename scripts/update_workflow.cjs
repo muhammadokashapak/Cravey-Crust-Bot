@@ -202,7 +202,8 @@ if (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword || isComplain
   const hasDealWord = has(/\\b(deal|deals|deala|delas|dels|deels|dlz|combo|combos|package|packages|offer|offers)\\b/) || any(['\\u0688\\u06CC\\u0644','\\u0688\\u06CC\\u0644\\u0632']);
   const hasSpecificDealNo = /\\b(deal|deala|delas|dels|package|combo|meal)\\s*\\d+\\b/.test(clean) || /\\d+/.test(clean);
   const hasOrderAction = has(/\\b(order|add|cart|pack|kar|kardo|krdo|kr|chahiye|mangwa|mangwana|banao|confirm|lagao|laga)\\b/);
-  const isGeneralDealsAsk = hasDealWord && !hasSpecificDealNo && !hasOrderAction && wordCount <= 6;
+  const isFoodCategoryInquiry = has(/\\b(burger|burgers|zinger|zeggy|pizza|pizzas)\\b/) && !hasSpecificDealNo && !hasOrderAction && wordCount <= 3;
+  const isGeneralDealsAsk = (hasDealWord || isFoodCategoryInquiry) && !hasSpecificDealNo && !hasOrderAction && wordCount <= 6;
 
   // Broad menu ask detection (e.g. "menu", "menu dikhao", "kia kia ha tumhary pas", "kia kia ha khany mein", "ap ke pass kia milta ha")
   const hasMenuWord = has(/\\b(menu|menue|categories|catagories|rate list|price list|food list|items)\\b/) || any(['\\u0645\\u06CC\\u0646\\u0648','\\u0631\\u06CC\\u0679 \\u0644\\u0633\\u0679']);
@@ -775,7 +776,7 @@ if (geminiNode && geminiNode.parameters) {
   geminiNode.parameters.options.temperature = 0.2;
 }
 
-// 14. DeepSeek Chat Model (Official deepseek-chat)
+// 14. DeepSeek Chat Model (Official deepseek-chat) - Set as ONLY primary language model
 const deepseekNode = workflow.nodes.find(n => n.name === 'DeepSeek Chat Model');
 if (deepseekNode && deepseekNode.parameters) {
   deepseekNode.parameters.model = 'deepseek-chat';
@@ -783,6 +784,20 @@ if (deepseekNode && deepseekNode.parameters) {
   deepseekNode.parameters.options.maxTokens = 2048;
   deepseekNode.parameters.options.temperature = 0.2;
 }
+
+// Ensure DeepSeek is the exclusive language model connected to AI Agent at index 0
+workflow.connections['DeepSeek Chat Model'] = {
+  ai_languageModel: [
+    [
+      {
+        node: 'AI Agent',
+        type: 'ai_languageModel',
+        index: 0
+      }
+    ]
+  ]
+};
+delete workflow.connections['Google Gemini Chat Model'];
 
 // 15. Simple Memory (Reduce window length to 5 to save tokens and prevent memory bloat)
 const memoryNode = workflow.nodes.find(n => n.name === 'Simple Memory');
