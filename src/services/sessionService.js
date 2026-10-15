@@ -37,11 +37,25 @@ export async function getOrCreateSession({ restaurantId, chatId, sessionKey, ver
         throw new Error('Database client not available');
     }
 
+    const isBotOrDummyPhone = (num) => {
+        if (!num) return true;
+        const digits = String(num).replace(/\D/g, '');
+        if (digits.length < 10) return true;
+        if (digits.includes('3055375501')) return true;
+        const ownerNum = (process.env.OWNER_NUMBER || '').replace(/\D/g, '');
+        if (ownerNum && digits === ownerNum) return true;
+        if (/^(0?3001234567|0?3123456789|0?3000000000|0?3211234567|0?3321234567|0?3009876543|0?3120000000|0?3451234567|0?3331234567|0?3001111111|0?3001234568|0?3000000001|0?3111111111)$/.test(digits)) {
+            return true;
+        }
+        return false;
+    };
+
     const restId = restaurantId || await getDefaultRestaurantId();
     const key = sessionKey || chatId;
     const now = new Date();
     const expiresAt = new Date(now.getTime() + SESSION_TIMEOUT_MS);
-    const cleanPhone = normalizePhone(verifiedPhone);
+    const rawClean = normalizePhone(verifiedPhone);
+    const cleanPhone = (rawClean && !isBotOrDummyPhone(rawClean)) ? rawClean : '';
 
     let session = await prisma.conversationSession.findUnique({
         where: { session_key: key },
@@ -66,7 +80,7 @@ export async function getOrCreateSession({ restaurantId, chatId, sessionKey, ver
                 where: { id: session.id },
                 data: {
                     stage: stage || 'START',
-                    verified_phone: cleanPhone || session.verified_phone,
+                    verified_phone: cleanPhone || (isBotOrDummyPhone(session.verified_phone) ? null : session.verified_phone),
                     pending_order_id: null,
                     pending_cancel_order_id: null,
                     last_activity_at: now,
@@ -81,6 +95,8 @@ export async function getOrCreateSession({ restaurantId, chatId, sessionKey, ver
             };
             if (cleanPhone && cleanPhone !== session.verified_phone) {
                 updateData.verified_phone = cleanPhone;
+            } else if (isBotOrDummyPhone(session.verified_phone)) {
+                updateData.verified_phone = null;
             }
             if (stage && SESSION_STAGES.includes(stage)) {
                 updateData.stage = stage;

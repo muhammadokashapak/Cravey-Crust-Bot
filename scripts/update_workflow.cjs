@@ -10,11 +10,11 @@ if (prepNode && prepNode.parameters && prepNode.parameters.assignments) {
   const assigns = prepNode.parameters.assignments.assignments;
   const phoneAssign = assigns.find(a => a.name === 'whatsappPhone');
   if (phoneAssign) {
-    phoneAssign.value = "={{ (() => { const clean = (str) => { if (!str) return ''; const s = String(str).trim(); if (s.includes('@lid')) return ''; const digits = s.replace(/@.*$/, '').replace(/[^0-9]/g, ''); if (digits.startsWith('92') && digits.length === 12) return '0' + digits.slice(2); if (digits.startsWith('03') && digits.length === 11) return digits; if (digits.length === 10 && digits.startsWith('3')) return '0' + digits; if (digits.length === 11 && digits.startsWith('0')) return digits; if (digits.length >= 10) return digits; return ''; }; const candidates = [ $json.body?.customerPhone, $json.body?.verifiedPhone, $json.body?.whatsappPhone, $json.body?.phone, $json.body?.senderPn, $json.body?.senderJid, $json.body?.chatId, $json.body?.sessionKey, $json.customerPhone, $json.verifiedPhone, $json.whatsappPhone, $json.phone, $json.senderPn, $json.senderJid, $json.chatId, $json.sessionKey ]; for (const c of candidates) { const parsed = clean(c); if (parsed) return parsed; } return ''; })() }}";
+    phoneAssign.value = "={{ (() => { const clean = (str) => { if (!str) return ''; const s = String(str).trim(); if (s.includes('@lid') || s.includes('@g.us')) return ''; const digits = s.replace(/@.*$/, '').replace(/[^0-9]/g, ''); if (!digits || digits.length < 10) return ''; if (digits.includes('3055375501')) return ''; if (/^(0?3001234567|0?3123456789|0?3000000000|0?3211234567|0?3321234567|0?3009876543|0?3120000000|0?3451234567|0?3331234567|0?3001111111|0?3001234568|0?3000000001|0?3111111111)$/.test(digits)) return ''; if (digits.startsWith('92') && digits.length === 12) return '0' + digits.slice(2); if (digits.startsWith('03') && digits.length === 11) return digits; if (digits.length === 10 && digits.startsWith('3')) return '0' + digits; if (digits.length === 11 && digits.startsWith('0')) return digits; if (digits.length >= 10) return digits; return ''; }; const candidates = [ $json.body?.customerPhone, $json.body?.verifiedPhone, $json.body?.whatsappPhone, $json.body?.phone, $json.body?.senderPn, $json.body?.chatId, $json.body?.senderJid, $json.body?.sessionKey, $json.customerPhone, $json.verifiedPhone, $json.whatsappPhone, $json.phone, $json.senderPn, $json.chatId, $json.senderJid, $json.sessionKey ]; for (const c of candidates) { const parsed = clean(c); if (parsed) return parsed; } return ''; })() }}";
   }
   const verifiedAssign = assigns.find(a => a.name === 'phoneVerified');
   if (verifiedAssign) {
-    verifiedAssign.value = "={{ Boolean($json.body?.phoneVerified === true || $json.body?.verifiedPhone || ($json.body?.customerPhone && !String($json.body.customerPhone).includes('@lid')) || ($json.body?.whatsappPhone && !String($json.body.whatsappPhone).includes('@lid')) || ($json.body?.phone && !String($json.body.phone).includes('@lid')) || ($json.body?.senderPn && !String($json.body.senderPn).includes('@lid')) || ($json.body?.senderJid && !String($json.body.senderJid).includes('@lid')) || ($json.body?.chatId && !String($json.body.chatId).includes('@lid'))) }}";
+    verifiedAssign.value = "={{ Boolean($json.body?.phoneVerified === true || $json.body?.verifiedPhone || ($json.body?.customerPhone && !String($json.body.customerPhone).includes('@lid') && !String($json.body.customerPhone).includes('3055375501')) || ($json.body?.whatsappPhone && !String($json.body.whatsappPhone).includes('@lid') && !String($json.body.whatsappPhone).includes('3055375501')) || ($json.body?.phone && !String($json.body.phone).includes('@lid') && !String($json.body.phone).includes('3055375501')) || ($json.body?.senderPn && !String($json.body.senderPn).includes('@lid') && !String($json.body.senderPn).includes('3055375501')) || ($json.body?.chatId && !String($json.body.chatId).includes('@lid') && !String($json.body.chatId).includes('3055375501'))) }}";
   }
   let pushNameAssign = assigns.find(a => a.name === 'pushName');
   if (pushNameAssign) {
@@ -430,11 +430,12 @@ KHABARDAAR - ADDRESS, NAAM AUR NUMBER KHUD SE GUESS KARNA SAKHT MANA HAI:
    - Placeholder naam maslan "Customer", "User", ya "." use karna SAKHT MANA HAI!
 
 3. PHONE NUMBER & "SAME NUMBER" STRICT RULE:
-   - Customer jis number se message kar raha hai uska verified WhatsApp sender number yeh hai: {{ $('Prepare Session').first().json.whatsappPhone }}.
+   - Customer jis WhatsApp number se message kar raha hai uska verified number yeh hai: {{ $('Prepare Session').first().json.whatsappPhone }}.
    - Jab customer se contact number poocho aur customer kahe:
-     "same", "same number", "yahi", "yehi", "isi pe", "isi number pe", "wahi", "whatsapp number", "apna number", ya alag se koi naya number na de:
-     TO HAMESHA YAHI ASLI VERIFIED NUMBER: {{ $('Prepare Session').first().json.whatsappPhone }} USE KARO!
-   - KISI BHI SURAT MEIN koi fake dummy ya invented number HARGIZ USE YA ASSUME MAT KARO!
+     "same", "same number", "yahi", "yehi", "isi pe", "isi number pe", "wahi", "whatsapp number", "mera number", "apna number", "yahi number hai", "is number pe", ya alag se koi naya number na de:
+     TO HAMESHA YAHI ASLI VERIFIED NUMBER: {{ $('Prepare Session').first().json.whatsappPhone }} USE KARO AUR ORDER SUMMARY MEIN YAHI LIKHO!
+   - KISI BHI SURAT MEIN restaurant ka number, bot ka number ya koi fake/dummy number (maslan 03001234567 waghera) HARGIZ USE YA ASSUME MAT KARO!
+   - Agar customer koi naya/mukhtalif 11-digit mobile number (maslan 03xxxxxxxxx) likh kar bataye to sirf tab wo naya number use karo.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -916,13 +917,15 @@ return {
 };`;
 }
 
-// Write to all 5 workflow files
+// 5. Update Create Confirmed Order tool node
+const orderNode = workflow.nodes.find(n => n.name === 'Create Confirmed Order');
+if (orderNode && orderNode.parameters) {
+  orderNode.parameters.jsonBody = "={{ JSON.stringify({\\n  sessionKey: $('Prepare Session').first().json.sessionKey,\\n  chatId: $('Prepare Session').first().json.chatId || undefined,\\n  verifiedPhone: $('Prepare Session').first().json.whatsappPhone || undefined,\\n  confirmed: Boolean($('Check Cache & Classify Intent').first().json.confirmIntent),\\n  customerName: (() => { const n = String($fromAI('customerName', 'Customer ka asli naam jo usne chat mein bataya ho', 'string', '') || '').trim(); if (!n || /^(customer|user|guest|none|unknown|customer\\\\s*name|name|\\\\.)$/i.test(n) || n.length < 2) { const pn = String($('Prepare Session').first().json.pushName || '').trim(); if (pn && !/^(customer|user|guest|none|unknown|customer\\\\s*name|name|\\\\.)$/i.test(pn) && pn.length >= 2) return pn; return ''; } return n; })(),\\n  phone: (() => { const wa = String($('Prepare Session').first().json.whatsappPhone || '').trim(); const rawP = String($fromAI('phone', 'Customer ka naya phone number agar customer ne chat mein koi mukhtalif/doosra number likha ho warna khali chhoro. AGAR CUSTOMER NE SAME NUMBER KAHA HO YA WHATSAPP NUMBER MENTION KIYA HO TO KHALI CHHORO.', 'string', '') || '').trim(); if (!rawP || /yahi|yehi|same|wahi|isi|apna|default|whatsapp|my.?number|same.?number|apna.?number|yahi.?whatsapp|yehi.?number|isi.?number|isi.?pe/i.test(rawP) || /^(none|unknown|number|contact|phone)$/i.test(rawP)) return wa; const digits = rawP.replace(/[^0-9]/g, ''); const isDummyOrBot = digits.includes('3055375501') || /^(0?3001234567|0?3123456789|0?3000000000|0?3211234567|0?3321234567|0?3009876543|0?3120000000|0?3451234567|0?3331234567|0?3001111111|0?3001234568|0?3000000001|0?3111111111)$/.test(digits); if (isDummyOrBot || digits.length < 10) return wa; if (digits.startsWith('92') && digits.length === 12) return '0' + digits.slice(2); if (digits.length === 10 && digits.startsWith('3')) return '0' + digits; return digits; })(),\\n  contactNumberMode: (() => { const rawP = String($fromAI('phone', 'Customer ka phone number', 'string', '') || '').trim(); if (!rawP || /yahi|yehi|same|wahi|isi|apna|default|whatsapp|my.?number|same.?number|apna.?number|yahi.?whatsapp|yehi.?number|isi.?number|isi.?pe/i.test(rawP)) return 'same_whatsapp'; return 'provided'; })(),\\n  confirmationNumberMode: 'default',\\n  confirmationPhone: $fromAI('confirmationPhone', 'Sirf agar customer ne kisi aur number par confirmation maangi, warna khali', 'string', '') || undefined,\\n  delivery: {\\n    address: (() => { let addr = String($fromAI('deliveryAddress', 'Customer ka confirmed delivery address jo customer ne chat mein diya ho', 'string', '') || '').trim(); const isDummy = /^(school\\\\s*stop|tarlai|lehtrar\\\\s*road|near\\\\s*fazal|fazal\\\\s*e\\\\s*haq|islamabad|rawalpindi|customer\\\\s*address|none|unknown|n\\\\/a|address|delivery\\\\s*address|\\\\.)$/i.test(addr) || (addr.toLowerCase().includes('lehtrar') && addr.toLowerCase().includes('fazal')); if (isDummy) addr = ''; if (!addr) { if ($('Prepare Session').first().json.locationAddress) return $('Prepare Session').first().json.locationAddress; if ($('Prepare Session').first().json.locationLat) { return ($('Prepare Session').first().json.locationName ? $('Prepare Session').first().json.locationName + ', ' : '') + ($('Prepare Session').first().json.locationAddress || 'Shared Location') + ' (Location Pin: https://www.google.com/maps?q=' + $('Prepare Session').first().json.locationLat + ',' + $('Prepare Session').first().json.locationLng + ')'; } } return addr; })(),\\n    areaName: ($fromAI('deliveryAreaName', 'Delivery area ka naam', 'string', '') || $('Prepare Session').first().json.locationName || ''),\\n    areaId: $fromAI('deliveryAreaId', 'Area ID agar delivery check se mili, warna khali', 'string', '') || undefined,\\n    latitude: (Number($fromAI('latitude', 'Shared location ki latitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLat) || $('Webhook').first().json.body?.location?.latitude) || undefined,\\n    longitude: (Number($fromAI('longitude', 'Shared location ki longitude, warna 0', 'number', 0)) || Number($('Prepare Session').first().json.locationLng) || $('Webhook').first().json.body?.location?.longitude) || undefined,\\n    googleMapsUrl: $('Webhook').first().json.body?.location?.mapUrl || $('Webhook').first().json.body?.location?.originalUrl || ''\\n  },\\n  paymentMethod: String($fromAI('paymentMethod', 'COD ya EASYPAISA', 'string', 'COD') || 'COD').toUpperCase().replace(/\\\\s+/g, ''),\\n  notes: $fromAI('notes', 'Order notes, warna khali', 'string', '') || undefined,\\n  idempotencyKey: $('Prepare Session').first().json.messageId || undefined\\n}) }}";
+}
+
+// Write exclusively to n8n.json
 const workflowFiles = [
-  'n8n.json',
-  'updated_n8n_workflow.json',
-  'cravey-crust-optimized-workflow.json',
-  'cravey-crust-whatsapp-agent-workflow.json',
-  'previous_stable_workflow.json'
+  'n8n.json'
 ];
 
 for (const wf of workflowFiles) {
@@ -930,3 +933,4 @@ for (const wf of workflowFiles) {
   fs.writeFileSync(target, JSON.stringify(workflow, null, 2), 'utf8');
   console.log('Successfully updated:', wf);
 }
+

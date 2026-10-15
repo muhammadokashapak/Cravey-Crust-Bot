@@ -89,6 +89,69 @@ export function normalizePhoneFromJid(input) {
     return '';
 }
 
+// ─── Bot & Dummy Number Guards ────────────────────────────
+
+/**
+ * Returns a set of known bot/system phone numbers and JIDs that must NEVER
+ * be resolved as customer identity.
+ *
+ * @param {object} [sock]
+ * @param {object} [session]
+ * @returns {Set<string>}
+ */
+export function getBotPhoneSet(sock, session) {
+    const rawList = [
+        sock?.user?.id,
+        sock?.user?.lid,
+        sock?.authState?.creds?.me?.id,
+        sock?.authState?.creds?.me?.lid,
+        session?.user?.number,
+        session?.user?.id,
+        process.env.OWNER_NUMBER,
+        '923055375501',
+        '03055375501',
+    ];
+
+    const botSet = new Set();
+    for (const r of rawList) {
+        if (!r || typeof r !== 'string') continue;
+        const norm = normalizePhoneFromJid(r);
+        if (norm) botSet.add(norm);
+        const digits = r.replace(/\D/g, '');
+        if (digits) {
+            botSet.add(digits);
+            if (digits.startsWith('92') && digits.length === 12) {
+                botSet.add('0' + digits.slice(2));
+            } else if (digits.startsWith('03') && digits.length === 11) {
+                botSet.add('92' + digits.slice(1));
+            }
+        }
+    }
+    return botSet;
+}
+
+/**
+ * Returns true if the candidate phone or JID matches a known bot or dummy number.
+ *
+ * @param {string} phoneOrJid
+ * @param {Set<string>} [botSet]
+ * @returns {boolean}
+ */
+export function isBotOrDummy(phoneOrJid, botSet) {
+    if (!phoneOrJid || typeof phoneOrJid !== 'string') return true;
+    const norm = normalizePhoneFromJid(phoneOrJid);
+    const digits = phoneOrJid.replace(/\D/g, '');
+    if (botSet) {
+        if (norm && botSet.has(norm)) return true;
+        if (digits && botSet.has(digits)) return true;
+    }
+    if (digits.includes('3055375501')) return true;
+    if (/^(0?3001234567|0?3123456789|0?3000000000|0?3211234567|0?3321234567|0?3009876543|0?3120000000|0?3451234567|0?3331234567|0?3001111111|0?3001234568|0?3000000001|0?3111111111)$/.test(digits)) {
+        return true;
+    }
+    return false;
+}
+
 // ─── Main Identity Resolver ───────────────────────────────
 
 /**
@@ -144,21 +207,36 @@ export async function resolveSenderIdentity(sock, msg, session) {
             resolvedLid = key.participantLid;
         }
 
+        const botSet = getBotPhoneSet(sock, session);
+        const isGroup = rawRemoteJid.endsWith('@g.us');
+
         // ── Prioritized Phone Candidates ────────────────────
-        const candidates = [
-            { jid: rawRemoteJidAlt,   source: 'remote_jid_alt' },
-            { jid: rawSenderPn,       source: 'sender_pn' },
-            { jid: rawParticipantAlt, source: 'participant_alt' },
-            { jid: rawParticipantPn,  source: 'participant_pn' },
-            { jid: rawParticipant,    source: 'participant' },
-            { jid: rawMsgParticipant, source: 'msg_participant' },
-            { jid: rawRemoteJid,      source: 'remote_jid' },
-        ];
+        const candidates = [];
+        if (!isGroup) {
+            // Direct 1:1 chat:
+            // 1. If remoteJid is already a verified phone JID (e.g. 923278497923@s.whatsapp.net),
+            //    it IS the customer. This MUST be the first priority!
+            if (isPhoneJid(rawRemoteJid)) {
+                candidates.push({ jid: rawRemoteJid, source: 'remote_jid' });
+            }
+            // 2. If remoteJid is an @lid, Baileys populates senderPn or remoteJidAlt
+            if (rawSenderPn)       candidates.push({ jid: rawSenderPn,       source: 'sender_pn' });
+            if (rawRemoteJidAlt)   candidates.push({ jid: rawRemoteJidAlt,   source: 'remote_jid_alt' });
+            // In a 1:1 chat, participant/msgParticipant MUST NEVER be used because Baileys
+            // sets them to the bot/recipient in various message stanzas!
+        } else {
+            // Group chat: message comes from a participant
+            if (rawParticipantPn)  candidates.push({ jid: rawParticipantPn,  source: 'participant_pn' });
+            if (rawSenderPn)       candidates.push({ jid: rawSenderPn,       source: 'sender_pn' });
+            if (rawParticipantAlt) candidates.push({ jid: rawParticipantAlt, source: 'participant_alt' });
+            if (rawParticipant)    candidates.push({ jid: rawParticipant,    source: 'participant' });
+            if (rawMsgParticipant) candidates.push({ jid: rawMsgParticipant, source: 'msg_participant' });
+        }
 
         for (const cand of candidates) {
-            if (cand.jid && isPhoneJid(cand.jid)) {
+            if (cand.jid && isPhoneJid(cand.jid) && !isBotOrDummy(cand.jid, botSet)) {
                 const phone = normalizePhoneFromJid(cand.jid);
-                if (phone) {
+                if (phone && !isBotOrDummy(phone, botSet)) {
                     return {
                         phone,
                         whatsappPhone: phone,
@@ -177,9 +255,9 @@ export async function resolveSenderIdentity(sock, msg, session) {
         if (resolvedLid && sock?.signalRepository?.lidMapping?.getPNForLID) {
             try {
                 const mappedPn = await sock.signalRepository.lidMapping.getPNForLID(resolvedLid);
-                if (mappedPn && isPhoneJid(mappedPn)) {
+                if (mappedPn && isPhoneJid(mappedPn) && !isBotOrDummy(mappedPn, botSet)) {
                     const phone = normalizePhoneFromJid(mappedPn);
-                    if (phone) {
+                    if (phone && !isBotOrDummy(phone, botSet)) {
                         return {
                             phone,
                             whatsappPhone: phone,
@@ -202,9 +280,9 @@ export async function resolveSenderIdentity(sock, msg, session) {
         if (resolvedLid && contacts && contacts[resolvedLid]) {
             const c = contacts[resolvedLid];
             const candidate = c.phoneNumber || c.pn || c.id;
-            if (candidate && isPhoneJid(candidate)) {
+            if (candidate && isPhoneJid(candidate) && !isBotOrDummy(candidate, botSet)) {
                 const phone = normalizePhoneFromJid(candidate);
-                if (phone) {
+                if (phone && !isBotOrDummy(phone, botSet)) {
                     return {
                         phone,
                         whatsappPhone: phone,

@@ -114,15 +114,34 @@ export async function createOrder(params) {
     // "mera number", "mere number pe", "apne number pe", "whatsapp wala", etc.
     const sameNumberRegex = /\b(same|yahi|yehi|yeh|ye|wahi|isi|is|mera|meri|mere|apna|apne|apni|default|whatsapp|wa)\b|same.?(number|num|no|contact|phone)|yahi.?(number|num|no)|yehi.?(number|num|no)|is.?(number|pe|wala|se)|isi.?(number|pe|wala|se)|jis.?se.?(msg|message|text|baat|bat|messaging|whatsapp|number)|yeh.?jis|yeh.?number|is.?wala|yeh.?wala|mere.?(number|pe|se)|mera.?(number|pe|se)|apne.?(number|pe|se)|apna.?(number|pe|se)|messaging.?number|contact.?number.?(hi|yahi|same)|number.?(hi|yahi|same|yehi|wahi)/i;
 
+    // Helper to guard against bot numbers and dummy numbers
+    const isBotOrDummyPhone = (num) => {
+        if (!num) return true;
+        const digits = String(num).replace(/\D/g, '');
+        if (digits.length < 10) return true;
+        if (digits.includes('3055375501')) return true;
+        const ownerNum = (process.env.OWNER_NUMBER || '').replace(/\D/g, '');
+        if (ownerNum && digits === ownerNum) return true;
+        if (/^(0?3001234567|0?3123456789|0?3000000000|0?3211234567|0?3321234567|0?3009876543|0?3120000000|0?3451234567|0?3331234567|0?3001111111|0?3001234568|0?3000000001|0?3111111111)$/.test(digits)) {
+            return true;
+        }
+        return false;
+    };
+
     const isSameNumberRequest = sameNumberRegex.test(phoneStr) ||
         contactNumberMode === 'same_whatsapp';
 
     const cleanDigits = phoneStr.replace(/\D/g, '');
-    const isDummy = /^(0?3001234567|0?3123456789|0?3000000000|0?3211234567|0?3009876543|0?3120000000|0?3451234567|0?3331234567|0?3001111111|0?3001234568|0?3000000001|0?3111111111|0?3321234567)$/.test(cleanDigits);
+    const isDummy = isBotOrDummyPhone(cleanDigits);
 
     const verifiedPhoneParam = params.verifiedPhone || params.whatsappPhone;
-    if (verifiedPhoneParam && !session.verified_phone) {
-        session.verified_phone = normalizePhone(verifiedPhoneParam);
+    const normalizedVerified = verifiedPhoneParam && !isBotOrDummyPhone(verifiedPhoneParam)
+        ? normalizePhone(verifiedPhoneParam)
+        : '';
+
+    // Always refresh session.verified_phone with the active verifiedPhoneParam from the incoming message
+    if (normalizedVerified && session.verified_phone !== normalizedVerified) {
+        session.verified_phone = normalizedVerified;
         await prisma.conversationSession.update({
             where: { id: session.id },
             data: { verified_phone: session.verified_phone },
@@ -130,31 +149,40 @@ export async function createOrder(params) {
     }
 
     if (isSameNumberRequest || isDummy || !phone) {
-        if (session.verified_phone) {
+        if (normalizedVerified) {
+            finalPhone = normalizedVerified;
+        } else if (session.verified_phone && !isBotOrDummyPhone(session.verified_phone)) {
             finalPhone = normalizePhone(session.verified_phone);
-        } else if (verifiedPhoneParam) {
-            finalPhone = normalizePhone(verifiedPhoneParam);
         }
     } else {
-        finalPhone = normalizePhone(phone);
-        // Fallback to verified_phone if phone string couldn't be parsed but session has verified_phone
-        if (!finalPhone && (session.verified_phone || verifiedPhoneParam)) {
-            finalPhone = normalizePhone(session.verified_phone || verifiedPhoneParam);
+        const parsedProvided = normalizePhone(phone);
+        if (parsedProvided && !isBotOrDummyPhone(parsedProvided)) {
+            finalPhone = parsedProvided;
+        } else if (normalizedVerified) {
+            finalPhone = normalizedVerified;
+        } else if (session.verified_phone && !isBotOrDummyPhone(session.verified_phone)) {
+            finalPhone = normalizePhone(session.verified_phone);
         }
     }
 
-    // Fallback: extract clean digits from session_key, chat_id, or sessionKey if not raw @lid
+    // Fallback: extract clean digits from session_key, chat_id, or sessionKey if not raw @lid, @g.us, or bot number
     if (!finalPhone) {
-        const candidates = [session.verified_phone, verifiedPhoneParam, session.session_key, session.chat_id, sessionKey];
+        const candidates = [normalizedVerified, session.verified_phone, session.session_key, session.chat_id, sessionKey];
         for (const c of candidates) {
-            if (c && !String(c).includes('@lid')) {
+            if (c && !String(c).includes('@lid') && !String(c).includes('@g.us')) {
                 const digits = String(c).split('@')[0].replace(/\D/g, '');
-                if (digits.length >= 10) {
+                if (digits.length >= 10 && !isBotOrDummyPhone(digits)) {
                     finalPhone = normalizePhone(digits.startsWith('92') && digits.length === 12 ? '0' + digits.slice(2) : digits);
-                    break;
+                    if (finalPhone && !isBotOrDummyPhone(finalPhone)) {
+                        break;
+                    }
                 }
             }
         }
+    }
+
+    if (finalPhone && isBotOrDummyPhone(finalPhone)) {
+        finalPhone = '';
     }
 
     if (!finalPhone) {
