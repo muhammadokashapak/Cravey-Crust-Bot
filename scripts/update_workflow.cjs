@@ -200,10 +200,10 @@ if (rejectBot || wantHuman || isHandoverExact || isHandoverKeyword || isComplain
   output = 'Ji bilkul, main aapki request hamare human team member ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke sath deal karega. Shukriya!\\n\\n(Agar aapko dobara bot shuru karna ho to kisi bhi waqt "bot start" likh kar bhej dein).';
 } else {
   const hasDealWord = has(/\\b(deal|deals|deala|delas|dels|deels|dlz|combo|combos|package|packages|offer|offers)\\b/) || any(['\\u0688\\u06CC\\u0644','\\u0688\\u06CC\\u0644\\u0632']);
-  const hasSpecificDealNo = /\\b(deal|deala|delas|dels|package|combo|meal)\\s*\\d+\\b/.test(clean) || /\\d+/.test(clean);
-  const hasOrderAction = has(/\\b(order|add|cart|pack|kar|kardo|krdo|kr|chahiye|mangwa|mangwana|banao|confirm|lagao|laga)\\b/);
-  const isFoodCategoryInquiry = has(/\\b(burger|burgers|zinger|zeggy|pizza|pizzas)\\b/) && !hasSpecificDealNo && !hasOrderAction && wordCount <= 3;
-  const isGeneralDealsAsk = (hasDealWord || isFoodCategoryInquiry) && !hasSpecificDealNo && !hasOrderAction && wordCount <= 6;
+  const hasSpecificDealNo = /\\b(deal|deala|delas|dels|package|combo|meal)\\s*\\d+\\b/.test(clean) || /\\bmeal\\s*for\\s*\\d+\\b/.test(clean);
+  const hasOrderAction = has(/\\b(order|add|cart|pack|kar|kardo|krdo|kr|chahiye|mangwa|mangwana|banao|confirm|lagao|laga|bhej|bhejo)\\b/);
+  const isFoodCategoryInquiry = has(/\\b(burger|burgers|zinger|zeggy|pizza|pizzas)\\b/) && !hasOrderAction && wordCount <= 3;
+  const isGeneralDealsAsk = (hasDealWord || hasSpecificDealNo || isFoodCategoryInquiry) && !hasOrderAction && wordCount <= 8;
 
   // Broad menu ask detection (e.g. "menu", "menu dikhao", "kia kia ha tumhary pas", "kia kia ha khany mein", "ap ke pass kia milta ha")
   const hasMenuWord = has(/\\b(menu|menue|categories|catagories|rate list|price list|food list|items)\\b/) || any(['\\u0645\\u06CC\\u0646\\u0648','\\u0631\\u06CC\\u0679 \\u0644\\u0633\\u0679']);
@@ -336,10 +336,34 @@ if (items.length > 0) {
   const pizzaDeals = activeDeals.filter(d => classify(d) === 'PIZZA');
   const otherDeals = activeDeals.filter(d => classify(d) !== 'BURGER' && classify(d) !== 'PIZZA');
 
-  const wantsBurger = /\\b(burger|zinger|zeggy)\\b/i.test(userMsg);
-  const wantsPizza = /\\b(pizza)\\b/i.test(userMsg);
+  const cleanMsg = userMsg.replace(/[^a-z0-9\\s]/g, ' ');
+  const dMatch = cleanMsg.match(/\\bdeal\\s*(\\d+)\\b/);
+  const pmMatch = cleanMsg.match(/\\bpizza\\s*meal(?:\\s*for)?\\s*(\\d+)\\b/);
+  const bmMatch = cleanMsg.match(/\\bburger\\s*meal(?:\\s*for)?\\s*(\\d+)\\b/);
+  const mMatch = cleanMsg.match(/\\bmeal(?:\\s*for)?\\s*(\\d+)\\b/);
 
-  if (wantsBurger && !wantsPizza) {
+  let specificDeal = null;
+  if (dMatch) {
+    specificDeal = activeDeals.find(d => new RegExp('^deal\\s*' + dMatch[1] + '$', 'i').test(d.name.trim()));
+  }
+  if (!specificDeal && pmMatch) {
+    specificDeal = activeDeals.find(d => /pizza/i.test(d.name) && new RegExp('meal.*' + pmMatch[1], 'i').test(d.name));
+  }
+  if (!specificDeal && bmMatch) {
+    specificDeal = activeDeals.find(d => /burger/i.test(d.name) && new RegExp('meal.*' + bmMatch[1], 'i').test(d.name));
+  }
+  if (!specificDeal && mMatch) {
+    specificDeal = activeDeals.find(d => new RegExp('meal.*' + mMatch[1], 'i').test(d.name));
+  }
+
+  if (specificDeal) {
+    const price = specificDeal.dealPrice ?? specificDeal.price ?? specificDeal.deal_price ?? '';
+    const itemsSummary = Array.isArray(specificDeal.items) && specificDeal.items.length > 0
+      ? specificDeal.items.map(it => (it.quantity || 1) + 'x ' + (it.itemName || it.name || '')).join(', ')
+      : (specificDeal.description || 'Details dastiyab nahi');
+
+    output = \`Cravey Crust \${specificDeal.name} Details:\\n- Items: \${itemsSummary}\\n- Price: Rs. \${price}\\n\\nKya aap \${specificDeal.name} cart mein add karna chahte hain? Add karne ke liye "\${specificDeal.name} krdo" likhein!\`;
+  } else if (wantsBurger && !wantsPizza) {
     if (burgerDeals.length > 0) {
       const bMeals = burgerDeals.filter(d => /meal/i.test(d.name || ''));
       const bCombos = burgerDeals.filter(d => !/meal/i.test(d.name || ''));
@@ -406,8 +430,10 @@ return {
 
 // 4. AI Agent prompt
 const agentNode = workflow.nodes.find(n => n.name === 'AI Agent');
-if (agentNode && agentNode.parameters && agentNode.parameters.options) {
-  agentNode.parameters.options.systemMessage = `Tum Cravey Crust ke WhatsApp ordering assistant "Burger Raja" ho. Roman Urdu ya simple English mein polite jawab do. Asterisk (*) ya lafz "bot" kabhi mat use karo. Ek waqt mein sirf ek sawal poochho.
+if (agentNode && agentNode.parameters) {
+  delete agentNode.parameters.needsFallback;
+  if (agentNode.parameters.options) {
+    agentNode.parameters.options.systemMessage = `Tum Cravey Crust ke WhatsApp ordering assistant "Burger Raja" ho. Roman Urdu ya simple English mein polite jawab do. Asterisk (*) ya lafz "bot" kabhi mat use karo. Ek waqt mein sirf ek sawal poochho.
 
 STRICT LANGUAGE RESTRICTION:
 - SIRF aur SIRF Roman Urdu ya simple English mein baat karo.
@@ -711,6 +737,7 @@ HUMAN HANDOVER & COMPLAINT HANDLING (MANDATORY TOOL CALL):
   4. Tool call ke baad customer ko politely batao:
      "Ji bilkul, main aapki request aur complaint hamare human management team ko forward kar raha hoon aur bot ko 2 ghante ke liye mute kar diya gaya hai. Hamara representative thodi hi der mein aap se rabta karega aur aapke maslay ko hal karega. Shukriya!\n\n(Agar aapko dobara bot shuru karna ho to kisi bhi waqt 'bot start' likh kar bhej dein)."`;
   agentNode.parameters.options.maxIterations = 5;
+  }
 }
 
 
@@ -767,14 +794,9 @@ if (calcToolNode && calcToolNode.parameters) {
   calcToolNode.parameters.jsonBody = "={{ JSON.stringify({\\n  deliveryAreaId: $fromAI('deliveryAreaId', 'Area ID from delivery check', 'string', '') || undefined,\\n  deliveryAreaName: $fromAI('deliveryAreaName', 'Delivery area name', 'string', '') || $('Prepare Session').first().json.locationName || undefined,\\n  address: $('Prepare Session').first().json.locationAddress || undefined,\\n  chatId: $('Prepare Session').first().json.chatId || undefined,\\n  verifiedPhone: $('Prepare Session').first().json.whatsappPhone || undefined,\\n  latitude: Number($fromAI('latitude', 'Latitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLat || $('Webhook').first().json.body?.location?.latitude || 0) || undefined,\\n  longitude: Number($fromAI('longitude', 'Longitude from shared location, else 0', 'number', 0) || $('Prepare Session').first().json.locationLng || $('Webhook').first().json.body?.location?.longitude || 0) || undefined\\n}) }}";
 }
 
-// 13. Google Gemini Chat Model (Fix model to valid official gemini-1.5-flash)
-const geminiNode = workflow.nodes.find(n => n.name === 'Google Gemini Chat Model');
-if (geminiNode && geminiNode.parameters) {
-  geminiNode.parameters.modelName = 'models/gemini-1.5-flash';
-  if (!geminiNode.parameters.options) geminiNode.parameters.options = {};
-  geminiNode.parameters.options.maxOutputTokens = 2048;
-  geminiNode.parameters.options.temperature = 0.2;
-}
+// 13. Remove Google Gemini Chat Model completely
+workflow.nodes = workflow.nodes.filter(n => !n.name.includes('Gemini'));
+delete workflow.connections['Google Gemini Chat Model'];
 
 // 14. DeepSeek Chat Model (Official deepseek-chat) - Set as ONLY primary language model
 const deepseekNode = workflow.nodes.find(n => n.name === 'DeepSeek Chat Model');
@@ -797,11 +819,12 @@ workflow.connections['DeepSeek Chat Model'] = {
     ]
   ]
 };
-delete workflow.connections['Google Gemini Chat Model'];
 
-// 15. Simple Memory (Reduce window length to 5 to save tokens and prevent memory bloat)
+// 15. Simple Memory (Safe Prepare Session sessionKey reference)
 const memoryNode = workflow.nodes.find(n => n.name === 'Simple Memory');
 if (memoryNode && memoryNode.parameters) {
+  memoryNode.parameters.sessionIdType = 'customKey';
+  memoryNode.parameters.sessionKey = "={{ $('Prepare Session').first().json.sessionKey + '-v10' }}";
   memoryNode.parameters.contextWindowLength = 5;
 }
 
@@ -823,7 +846,12 @@ const cls = $('Check Cache & Classify Intent').first().json;
 let out = String($json.output || $json.text || '').trim();
 
 if (!out) {
-  out = 'Walaikum Assalam! Main Cravey Crust ka ordering assistant Burger Raja hoon. Hamare paas Mazedar Pizzas, Burgers aur Value Deals dastiyab hain. Hamara menu dekhne ke liye "menu" ya "deals" likhein, ya bataiye aap kya order karna chahenge!';
+  if ($json.error) {
+    const errText = $json.error?.message || String($json.error);
+    out = 'Maazrat! System error: ' + errText + '. Baraye meherbani dobara try karein ya "agent" likhein.';
+  } else {
+    out = 'Walaikum Assalam! Main Cravey Crust ka ordering assistant Burger Raja hoon. Hamare paas Mazedar Pizzas, Burgers aur Value Deals dastiyab hain. Hamara menu dekhne ke liye "menu" ya "deals" likhein, ya bataiye aap kya order karna chahenge!';
+  }
 }
 
 // 1. Check if Create Confirmed Order tool was ACTUALLY executed in this execution and returned success
